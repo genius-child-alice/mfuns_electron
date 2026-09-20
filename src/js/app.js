@@ -36,6 +36,7 @@ import { bindFeedDetail } from './feed-detail.js';
 import { bindVideoDetail } from './video-detail.js';
 import { bindArticleDetail } from './article-detail.js';
 import { bindFavoritePicker } from './favorite-ui.js';
+import { bindRewardDialog } from './reward-ui.js';
 import { bindUserSpace } from './user-space.js';
 import { bindMinePage, refreshMinePage } from './mine-page.js';
 
@@ -314,6 +315,33 @@ function renderShell() {
             <button type="submit" class="btn-accent favorite-folder-create__submit" id="favorite-folder-form-submit">创建</button>
           </div>
         </form>
+      </div>
+    </dialog>
+
+    <dialog class="reward-dialog app-no-drag" id="reward-dialog" aria-labelledby="reward-dialog-title">
+      <div class="reward-dialog__card">
+        <header class="reward-dialog__head">
+          <div class="reward-dialog__head-main">
+            <h2 class="reward-dialog__title" id="reward-dialog-title">${materialIcon('paid', 'reward-dialog__title-icon')}投币支持</h2>
+            <p class="reward-dialog__subtitle" id="reward-dialog-subtitle">为你喜欢的内容投币吧！</p>
+          </div>
+          <button type="button" class="reward-dialog__close" id="reward-dialog-close" aria-label="关闭">${materialIcon('close')}</button>
+        </header>
+        <div class="reward-dialog__options" role="list">
+          ${[1, 2, 5]
+            .map(
+              (n) => `
+            <button type="button" class="reward-dialog__option" data-reward-count="${n}" role="listitem">
+              <span class="reward-dialog__option-icon">${materialIcon('monetization_on')}</span>
+              <span class="reward-dialog__option-label">投 ${n} 枚</span>
+              ${materialIcon('chevron_right', 'reward-dialog__option-chevron')}
+            </button>`,
+            )
+            .join('')}
+        </div>
+        <footer class="reward-dialog__footer">
+          <button type="button" class="reward-dialog__cancel" id="reward-dialog-cancel">取消</button>
+        </footer>
       </div>
     </dialog>
 
@@ -632,6 +660,7 @@ function bootApp() {
   bindVideoDetail();
   bindArticleDetail();
   bindFavoritePicker();
+  bindRewardDialog();
   bindUserSpace();
   bindMinePage();
 }

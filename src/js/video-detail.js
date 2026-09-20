@@ -21,6 +21,7 @@ import {
 import { fetchUserProfile } from './user-profile-api.js';
 import { resolveFavoriteStatus, resolveMineUserId } from './favorite-api.js';
 import { toggleResourceFavorite } from './favorite-ui.js';
+import { openRewardDialog } from './reward-ui.js';
 import { isVideoInWatchLater, toggleVideoWatchLater } from './watch-later-store.js';
 import {
   bindCommentSection,
@@ -199,7 +200,7 @@ function renderIntroToolbar() {
         <span class="watch-interact-bar__icon">${materialIcon('thumb_down')}</span>
         <span class="watch-interact-bar__label">${formatCount(dislikeCount)}</span>
       </button>
-      <button type="button" class="watch-interact-bar__item watch-interact-bar__item--disabled" id="watch-coin-btn" disabled title="暂未开放">
+      <button type="button" class="watch-interact-bar__item" id="watch-coin-btn" title="投币支持">
         <span class="watch-interact-bar__icon">${materialIcon('paid')}</span>
         <span class="watch-interact-bar__label">投币</span>
       </button>
@@ -431,6 +432,14 @@ function bindSidePanelEvents() {
         favoriteListId = next.listId;
         renderSidePanel();
       },
+    });
+  });
+
+  document.getElementById('watch-coin-btn')?.addEventListener('click', () => {
+    if (!currentDetail) return;
+    openRewardDialog({
+      resourceId: currentDetail.preview.id,
+      resourceType: 1,
     });
   });
 

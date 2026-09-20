@@ -17,6 +17,7 @@ import {
 import { fetchUserProfile } from './user-profile-api.js';
 import { resolveFavoriteStatus, resolveMineUserId } from './favorite-api.js';
 import { toggleResourceFavorite } from './favorite-ui.js';
+import { openRewardDialog } from './reward-ui.js';
 import {
   bindCommentSection,
   createCommentReplyStore,
@@ -124,6 +125,10 @@ function renderInteractBar() {
       <button type="button" class="watch-interact-bar__item ${disliked ? 'is-active' : ''}" id="article-dislike-btn">
         <span class="watch-interact-bar__icon">${materialIcon('thumb_down')}</span>
         <span class="watch-interact-bar__label">${formatCount(dislikeCount)}</span>
+      </button>
+      <button type="button" class="watch-interact-bar__item" id="article-coin-btn" title="投币支持">
+        <span class="watch-interact-bar__icon">${materialIcon('paid')}</span>
+        <span class="watch-interact-bar__label">投币</span>
       </button>
       <button type="button" class="watch-interact-bar__item ${favorited ? 'is-active' : ''}" id="article-fav-btn">
         <span class="watch-interact-bar__icon">${materialIcon('star')}</span>
@@ -258,6 +263,14 @@ function bindPageEvents() {
         favoriteListId = next.listId;
         renderPage();
       },
+    });
+  });
+
+  document.getElementById('article-coin-btn')?.addEventListener('click', () => {
+    if (!currentDetail) return;
+    openRewardDialog({
+      resourceId: currentDetail.preview.id,
+      resourceType: 0,
     });
   });
 

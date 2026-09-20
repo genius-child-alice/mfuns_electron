@@ -1,3 +1,4 @@
+import { API_BASE, loadSession } from './auth.js';
 import {
   apiGet,
   apiPostJson,
@@ -403,6 +404,48 @@ export async function setResourceReaction(resourceId, action, resourceType = 1) 
  */
 export async function setResourceLike(resourceId, like, resourceType = 1) {
   await setResourceReaction(resourceId, like ? 'like' : 'cancel', resourceType);
+}
+
+/**
+ * 投币（文章 type=0，视频 type=1）
+ * @param {number | string} resourceId
+ * @param {number} resourceType
+ * @param {number} [count]
+ * @returns {Promise<string>} 服务端提示文案
+ */
+export async function rewardResource(resourceId, resourceType, count = 1) {
+  const id = Number(resourceId);
+  if (!Number.isFinite(id) || id <= 0) {
+    throw new Error('无效的资源');
+  }
+  const coins = Math.trunc(count);
+  if (coins < 1) {
+    throw new Error('投币数量至少为 1');
+  }
+
+  /** @type {Record<string, string>} */
+  const headers = {
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+  };
+  const token = loadSession()?.token;
+  if (token) headers.Authorization = token;
+
+  const res = await fetch(`${API_BASE}/v1/reward/reward`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ id, type: resourceType, count: coins }),
+  });
+  const json = await res.json().catch(() => null);
+  if (!json || typeof json !== 'object') {
+    throw new Error(res.ok ? '服务器响应无效' : `请求失败 (${res.status})`);
+  }
+  const body = /** @type {{ code?: number, msg?: string }} */ (json);
+  if (!res.ok || body.code !== 1) {
+    throw new Error(body.msg || `请求失败 (${res.status})`);
+  }
+  const msg = typeof body.msg === 'string' ? body.msg.trim() : '';
+  return msg || '投币成功';
 }
 
 /**
