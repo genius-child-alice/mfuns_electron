@@ -11,4 +11,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     maximize: () => ipcRenderer.send('window:maximize'),
     close: () => ipcRenderer.send('window:close'),
   },
+  browser: {
+    /**
+     * @param {string} url
+     * @param {string} [title]
+     */
+    open: (url, title) => ipcRenderer.invoke('browser:open', { url, title }),
+  },
 });

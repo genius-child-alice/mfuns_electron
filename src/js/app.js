@@ -15,6 +15,7 @@ import {
   userAvatarUrl,
   userDisplayName,
 } from './auth.js';
+import { bindLegalLinks, LEGAL_URLS } from './legal.js';
 
 const DEFAULT_AVATAR_SRC = 'assets/mfuns_logo.png';
 
@@ -206,7 +207,10 @@ function renderShell() {
             <button type="button" class="login-panel__submit" id="btn-login-submit">登录</button>
             <p class="login-panel__legal">
               未注册过 MFuns 的手机号，我们将自动帮你注册账号<br />
-              登录或完成注册即代表你同意 <a href="#">用户协议</a> 和 <a href="#">隐私政策</a>
+              登录或完成注册即代表你同意
+              <a href="${LEGAL_URLS.userAgreement}" data-legal-link="${LEGAL_URLS.userAgreement}" data-legal-title="用户协议">用户协议</a>
+              和
+              <a href="${LEGAL_URLS.privacy}" data-legal-link="${LEGAL_URLS.privacy}" data-legal-title="隐私政策">隐私政策</a>
             </p>
           </section>
         </div>
@@ -517,6 +521,7 @@ function bindLogin() {
   });
 
   setActiveTab('password');
+  bindLegalLinks(dialog ?? document);
   syncLoginUi();
 }
 

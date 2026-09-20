@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data: https:; connect-src 'self'"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MFuns</title>
+    <link rel="icon" href="assets/favicon.ico" type="image/x-icon" />
+    <script>
+      (function () {
+        var KEY = 'mfuns.preferences';
+        var root = document.documentElement;
+        var scheme = 'light';
+        try {
+          var raw = localStorage.getItem(KEY);
+          if (raw) {
+            var prefs = JSON.parse(raw);
+            if (prefs.colorScheme === 'dark') scheme = 'dark';
+          }
+        } catch (e) {}
+        root.dataset.theme = scheme;
+      })();
+    </script>
+    <link rel="stylesheet" href="styles/tokens.css" />
+    <link rel="stylesheet" href="styles/in-app-browser.css" />
+  </head>
+  <body>
+    <header class="browser-chrome app-no-drag">
+      <h1 class="browser-chrome__title" id="browser-title">MFuns</h1>
+      <button type="button" class="browser-chrome__close" id="browser-close" aria-label="关闭">×</button>
+    </header>
+    <div class="browser-webview-wrap">
+      <webview
+        id="browser-webview"
+        class="browser-webview"
+        allowpopups
+        partition="persist:mfuns-legal"
+      ></webview>
+    </div>
+    <script type="module" src="js/in-app-browser.js"></script>
+  </body>
+</html>
