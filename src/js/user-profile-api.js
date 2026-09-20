@@ -60,7 +60,7 @@ function toRawList(data) {
   if (Array.isArray(data)) return data;
   if (data && typeof data === 'object') {
     const obj = /** @type {Record<string, unknown>} */ (data);
-    const list = obj.list ?? obj.data ?? obj.items;
+    const list = obj.list ?? obj.feeds ?? obj.data ?? obj.items;
     if (Array.isArray(list)) return list;
   }
   return [];
@@ -389,4 +389,55 @@ export async function fetchUserFeeds(userId, startId = -1) {
     user_id: userId,
   });
   return parseTimelineFeedList(data);
+}
+
+/**
+ * 关注流（与 Flutter `getFeeds(following: true, userId: session.userId)` 一致）
+ * @param {number} startId
+ * @param {number} viewerUserId 当前登录用户 id
+ */
+export async function fetchFollowingFeeds(startId, viewerUserId) {
+  const data = await apiGet('/v1/feeds/list', {
+    start_id: startId,
+    html: 1,
+    follow: 1,
+    user_id: viewerUserId,
+  });
+  return parseTimelineFeedList(data);
+}
+
+/**
+ * @param {number} userId
+ * @param {number} [lastId]
+ * @returns {Promise<UserProfile[]>}
+ */
+export async function fetchFollowList(userId, lastId = -1) {
+  const data = await apiGet('/v1/follow/list', {
+    user_id: userId,
+    type: 'follow',
+    last_id: lastId,
+  });
+  return toRawList(data)
+    .map((item) => parseUserProfile(item))
+    .filter((item) => item.id > 0);
+}
+
+/**
+ * @param {number} userId
+ * @returns {Promise<UserProfile[]>}
+ */
+export async function fetchAllFollowing(userId) {
+  /** @type {UserProfile[]} */
+  const all = [];
+  let lastId = -1;
+  for (let page = 0; page < 40; page += 1) {
+    const batch = await fetchFollowList(userId, lastId);
+    if (!batch.length) break;
+    all.push(...batch);
+    const nextLast = batch[batch.length - 1].id;
+    if (nextLast === lastId) break;
+    lastId = nextLast;
+    if (batch.length < 20) break;
+  }
+  return all;
 }

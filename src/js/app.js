@@ -30,6 +30,7 @@ import {
 } from './pages.js';
 import { registerOpenLoginHandler, requireLogin } from './login-ui.js';
 import { bindHomeFeed } from './home-feed.js';
+import { bindFeedPage } from './feed-page.js';
 import { bindVideoDetail } from './video-detail.js';
 import { bindUserSpace } from './user-space.js';
 import { bindMinePage, refreshMinePage } from './mine-page.js';
@@ -527,6 +528,7 @@ bindNavigation();
 bindSettings();
 bindLogin();
 bindHomeFeed();
+bindFeedPage();
 bindVideoDetail();
 bindUserSpace();
 bindMinePage();

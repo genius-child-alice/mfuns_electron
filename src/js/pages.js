@@ -56,16 +56,24 @@ export function feedPageHtml() {
   return `
     <div class="page-view page-view--feed" data-page="feed" hidden>
       <div class="feed-page">
-        <aside class="feed-page__aside" aria-label="动态分类">
-          <button type="button" class="feed-page__nav is-active">
-            ${materialIcon('auto_awesome', 'feed-page__nav-icon')}
-            <span>全部动态</span>
-          </button>
+        <aside class="feed-page__aside" aria-label="关注的人">
+          <nav class="feed-page__aside-inner" id="feed-page-aside" data-auth-only hidden>
+            <button type="button" class="feed-page__nav feed-page__nav--all is-active" data-feed-filter="all">
+              ${materialIcon('auto_awesome', 'feed-page__nav-icon')}
+              <span>全部动态</span>
+            </button>
+            <div class="feed-page__aside-divider" aria-hidden="true"></div>
+            <div class="feed-page__follow-list" id="feed-page-follow-list"></div>
+          </nav>
+          <p class="feed-page__aside-guest" data-guest-only>登录后查看关注列表</p>
         </aside>
         <div class="feed-page__main">
           ${guestBanner('登录账号，查看你关注的 UP 主内容')}
-          <div class="feed-page__body" data-auth-only hidden>
-            <p class="page-placeholder">登录后将展示关注动态</p>
+          <div class="feed-page__stream" data-auth-only hidden>
+            <div class="feed-page__scroll" id="feed-page-scroll">
+              <div id="feed-page-list"></div>
+              <p class="feed-page__hint" id="feed-page-hint" hidden></p>
+            </div>
           </div>
           ${guestEmpty()}
         </div>
@@ -341,6 +349,9 @@ export function setPage(pageId) {
 
   if (pageId === 'mine') {
     void import('./mine-page.js').then((mod) => mod.onMinePageEnter());
+  }
+  if (pageId === 'feed') {
+    void import('./feed-page.js').then((mod) => mod.onFeedPageEnter());
   }
 }
 
