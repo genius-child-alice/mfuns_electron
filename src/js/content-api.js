@@ -91,18 +91,63 @@ function mergeResourceInfo(raw) {
  * @returns {string | null}
  */
 export function resolveCoverUrl(value) {
-  const cover = `${value ?? ''}`.trim();
+  let cover = `${value ?? ''}`.trim();
   if (!cover) return null;
-  if (cover.startsWith('//')) return `https:${cover}`;
+  if (cover.startsWith('//')) cover = `https:${cover}`;
   if (cover.startsWith('/')) return `https://cdn2.mfuns.net${cover}`;
   if (cover.startsWith('static/')) return `https://cdn2.mfuns.net/${cover}`;
-  if (cover.startsWith('https://resource.mfuns.net/')) {
-    return cover.replace('https://resource.mfuns.net', 'https://cdn2.mfuns.net');
+  // 与 Flutter latest_mfuns_repository：仅 resource 下的 /static/ 映射到 cdn2
+  if (/^https?:\/\/resource\.mfuns\.net\/static\//i.test(cover)) {
+    return cover.replace(/^https?:\/\/resource\.mfuns\.net/i, 'https://cdn2.mfuns.net');
   }
   if (/^https?:\/\/api\.mfuns\.net\//i.test(cover)) {
     return cover.replace(/^https?:\/\/api\.mfuns\.net/i, 'https://cdn2.mfuns.net');
   }
+  if (/^http:\/\//i.test(cover) && /\.mfuns\.net(?:[/:]|$)/i.test(cover)) {
+    cover = cover.replace(/^http:/i, 'https:');
+  }
   return cover;
+}
+
+/**
+ * 富文本正文图片 URL（对齐 Flutter `_coverUrl` + `safeHttpUri`）：保留
+ * `resource.mfuns.net/image/...` 等完整地址，仅相对路径与 api 域名做 CDN 映射。
+ * @param {unknown} raw
+ * @returns {string | null}
+ */
+export function resolveRichImageUrl(raw) {
+  const trimmed = `${raw ?? ''}`.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith('//')) return resolveRichImageUrl(`https:${trimmed}`);
+  if (trimmed.startsWith('/') || trimmed.startsWith('static/')) {
+    return resolveCoverUrl(trimmed);
+  }
+  if (/^https?:\/\/api\.mfuns\.net\//i.test(trimmed)) {
+    return resolveCoverUrl(trimmed);
+  }
+  if (/^https?:\/\/resource\.mfuns\.net\/static\//i.test(trimmed)) {
+    return resolveCoverUrl(trimmed);
+  }
+  if (/^https?:\/\//i.test(trimmed)) {
+    try {
+      const uri = new URL(trimmed);
+      if (uri.protocol === 'http:') uri.protocol = 'https:';
+      return uri.toString();
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+/**
+ * 富文本图片在 Electron 内走 mfuns-media 代理。
+ * @param {unknown} raw
+ * @returns {string | null}
+ */
+export function mediaSrcForRichImage(raw) {
+  const resolved = resolveRichImageUrl(raw);
+  return resolved ? mediaSrcForUrl(resolved) : null;
 }
 
 /**

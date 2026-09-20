@@ -94,6 +94,14 @@
   border-top: 1px solid var(--border-subtle);
 }
 
+.markdown-body__sticker,
+.markdown-body img.markdown-body__sticker {
+  width: 42px;
+  height: 42px;
+  object-fit: contain;
+  vertical-align: middle;
+}
+
 .markdown-body__img,
 .markdown-body img {
   max-width: 100%;

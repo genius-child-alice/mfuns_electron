@@ -2,6 +2,7 @@ import { materialIcon } from './icons.js';
 import { mediaSrcForCover } from './content-api.js';
 import { destroyWatchPlayer, getWatchPlayer } from './watch-player.js';
 import { mountRichContent } from './rich-content.js';
+import { loadStickerUrlMap } from './emoji-pack.js';
 import { loadSession } from './auth.js';
 import { getCurrentPage, setPage } from './pages.js';
 import { requireLogin } from './login-ui.js';
@@ -351,6 +352,7 @@ export async function openVideoDetail(preview) {
   setLoading(true);
 
   getWatchPlayer()?.destroy();
+  void loadStickerUrlMap().catch(() => {});
 
   try {
     const [detail, parts, related] = await Promise.all([

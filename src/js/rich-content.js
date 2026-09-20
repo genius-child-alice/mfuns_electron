@@ -1,10 +1,37 @@
 import { marked } from '../../node_modules/marked/lib/marked.esm.js';
 import DOMPurify from '../../node_modules/dompurify/dist/purify.es.mjs';
-import { mediaSrcForUrl, resolveCoverUrl } from './content-api.js';
+import { mediaSrcForRichImage, resolveCoverUrl, resolveRichImageUrl } from './content-api.js';
+import { mediaSrcForStickerKey } from './emoji-pack.js';
 
 /**
  * @param {string | null | undefined} value
  */
+/**
+ * @param {string | null} alt
+ * @param {string | null} src
+ */
+function stickerKeyFromImg(alt, src) {
+  if (alt) {
+    const trimmed = alt.trim();
+    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+      const key = trimmed.slice(1, -1).trim();
+      if (key) return key;
+    }
+  }
+  if (src) {
+    try {
+      const segments = new URL(src).pathname.split('/').filter(Boolean);
+      if (segments.length >= 2) {
+        const id = segments[segments.length - 1].replace(/\.[^.]+$/, '');
+        return `${segments[segments.length - 2]}-${id}`;
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  return null;
+}
+
 function safeHttpUri(value) {
   const raw = `${value ?? ''}`.trim();
   if (!raw) return null;
@@ -82,7 +109,8 @@ function quillToMarkdown(ops) {
       if (typeof sticker === 'string' && sticker) {
         line += `![sticker:${sticker}](https://resource.mfuns.net/image/sticker/x.png)`;
       }
-      const image = safeHttpUri(`${map.image ?? ''}`);
+      const image =
+        resolveRichImageUrl(`${map.image ?? ''}`) ?? safeHttpUri(`${map.image ?? ''}`);
       if (image) line += `![图片](${image})`;
       continue;
     }
@@ -176,12 +204,15 @@ function renderNode(node) {
       return link && text ? `[${text}](${link})` : text;
     }
     case 'img': {
-      const image = safeHttpUri(el.getAttribute('src'));
+      const rawSrc = el.getAttribute('src') ?? '';
+      const image = resolveRichImageUrl(rawSrc) ?? safeHttpUri(rawSrc);
       if (!image) return '';
       const className = (el.getAttribute('class') ?? '').toLowerCase();
       if (className.includes('sticker')) {
-        const alt = el.getAttribute('alt') ?? '';
-        const key = alt.startsWith('[') && alt.endsWith(']') ? alt.slice(1, -1).trim() : 'sticker';
+        const key =
+          stickerKeyFromImg(el.getAttribute('alt'), rawSrc) ??
+          stickerKeyFromImg(el.getAttribute('alt'), image) ??
+          'sticker';
         return `![sticker:${key}](${image})\n\n`;
       }
       const alt = (el.getAttribute('alt') ?? '图片').trim() || '图片';
@@ -247,8 +278,31 @@ marked.setOptions({
   breaks: true,
 });
 
+marked.use({
+  renderer: {
+    /**
+     * @param {{ href?: string | null, title?: string | null, text?: string }} token
+     */
+    image(token) {
+      const altRaw = `${token.text ?? token.title ?? '图片'}`;
+      if (altRaw.startsWith('sticker:')) {
+        const key = altRaw.slice('sticker:'.length).replace(/"/g, '');
+        return `<img alt="sticker:${key}" class="markdown-body__img markdown-body__sticker" data-sticker-key="${key}" width="42" height="42" />`;
+      }
+      const href = resolveRichImageUrl(token.href ?? '');
+      if (!href) return '';
+      const alt = altRaw.replace(/"/g, '&quot;');
+      const title = token.title
+        ? ` title="${`${token.title}`.replace(/"/g, '&quot;')}"`
+        : '';
+      return `<img src="${href.replace(/"/g, '&quot;')}" alt="${alt}"${title} loading="lazy" class="markdown-body__img" />`;
+    },
+  },
+});
+
 const PURIFY_CONFIG = {
-  ADD_ATTR: ['target', 'rel'],
+  ADD_ATTR: ['target', 'rel', 'loading', 'class', 'data-sticker-key', 'width', 'height'],
+  ADD_URI_SAFE_ATTR: ['src'],
 };
 
 /**
@@ -269,12 +323,44 @@ export function renderRichMarkdownHtml(source) {
 /**
  * @param {ParentElement} root
  */
+async function enhanceRichContentStickers(root) {
+  const imgs = [...root.querySelectorAll('img')].filter((img) => {
+    if (img.hasAttribute('data-sticker-key')) return true;
+    const alt = img.getAttribute('alt') ?? '';
+    return alt.startsWith('sticker:');
+  });
+  if (imgs.length === 0) return;
+  await Promise.all(
+    imgs.map(async (img) => {
+      const key =
+        img.getAttribute('data-sticker-key') ??
+        (img.getAttribute('alt') ?? '').slice('sticker:'.length);
+      if (!key) return;
+      try {
+        const src = await mediaSrcForStickerKey(key);
+        if (src) img.setAttribute('src', src);
+      } catch {
+        /* 表情包列表加载失败时保留占位 */
+      }
+    }),
+  );
+}
+
 export function enhanceRichContentMedia(root) {
   root.querySelectorAll('img').forEach((img) => {
-    const src = img.getAttribute('src');
-    const resolved = resolveCoverUrl(src) ?? src;
-    const proxied = mediaSrcForUrl(resolved);
-    if (proxied) img.src = proxied;
+    const alt = img.getAttribute('alt') ?? '';
+    if (img.hasAttribute('data-sticker-key') || alt.startsWith('sticker:')) {
+      img.classList.add('markdown-body__sticker');
+      return;
+    }
+    const src = img.getAttribute('src') ?? '';
+    if (src.startsWith('mfuns-media://')) {
+      img.loading = 'lazy';
+      img.classList.add('markdown-body__img');
+      return;
+    }
+    const proxied = mediaSrcForRichImage(src);
+    if (proxied) img.setAttribute('src', proxied);
     img.loading = 'lazy';
     img.classList.add('markdown-body__img');
   });
@@ -291,4 +377,5 @@ export function enhanceRichContentMedia(root) {
 export function mountRichContent(element, source) {
   element.innerHTML = renderRichMarkdownHtml(source);
   enhanceRichContentMedia(element);
+  void enhanceRichContentStickers(element);
 }
