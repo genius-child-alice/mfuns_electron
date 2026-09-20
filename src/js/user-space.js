@@ -107,32 +107,60 @@ function renderProfileHeader(profile) {
   const bio =
     profile.bio === '暂无简介' ? '这个人很神秘，什么也没写。' : profile.bio;
 
+  const levelBadge =
+    profile.level != null && profile.level > 0
+      ? `<span class="user-space__level">LV${profile.level}</span>`
+      : '';
+
   el.innerHTML = `
-    <div class="user-space__avatar-wrap">
-      ${
-        avatarSrc
-          ? `<img class="user-space__avatar" src="${escapeHtml(avatarSrc)}" alt="" />`
-          : '<span class="user-space__avatar user-space__avatar--ph"></span>'
-      }
-    </div>
-    <div class="user-space__info">
-      <h1 class="user-space__name">${escapeHtml(profile.name)}</h1>
-      <p class="user-space__uid">MF ${profile.id}</p>
-      <p class="user-space__bio">${escapeHtml(bio)}</p>
-      <div class="user-space__stats">
-        <span><strong>${formatCount(profile.follows)}</strong> 关注</span>
-        <span><strong>${formatCount(profile.fans)}</strong> 粉丝</span>
-        <span><strong>${formatCount(profile.totalLikes)}</strong> 获赞</span>
+    <div class="user-space__head">
+      <div class="user-space__head-avatar">
+        ${
+          avatarSrc
+            ? `<img class="user-space__avatar" src="${escapeHtml(avatarSrc)}" alt="" />`
+            : '<span class="user-space__avatar user-space__avatar--ph"></span>'
+        }
       </div>
-      ${
-        isSelf
-          ? ''
-          : `<button type="button" class="user-space__follow ${following ? 'is-followed' : ''}" id="user-space-follow-btn">${following ? '已关注' : '+ 关注'}</button>`
-      }
+      <div class="user-space__head-text">
+        <div class="user-space__head-title">
+          <h1 class="user-space__name">${escapeHtml(profile.name)}</h1>
+          ${levelBadge}
+        </div>
+        <p class="user-space__bio">${escapeHtml(bio)}</p>
+      </div>
+      <div class="user-space__head-right">
+        <div class="user-space__stats">
+          <div class="user-space__stat">
+            <strong>${formatCount(profile.follows)}</strong>
+            <span>关注</span>
+          </div>
+          <div class="user-space__stat">
+            <strong>${formatCount(profile.fans)}</strong>
+            <span>粉丝</span>
+          </div>
+          <div class="user-space__stat">
+            <strong>${formatCount(profile.totalLikes)}</strong>
+            <span>获赞</span>
+          </div>
+        </div>
+        ${
+          isSelf
+            ? ''
+            : `<div class="user-space__head-actions">
+                <button type="button" class="user-space__follow ${following ? 'is-followed' : ''}" id="user-space-follow-btn">${following ? '已关注' : '+ 关注'}</button>
+                <button type="button" class="user-space__message" id="user-space-message-btn">发消息</button>
+              </div>`
+        }
+      </div>
     </div>`;
 
   document.getElementById('user-space-follow-btn')?.addEventListener('click', () => {
     void toggleFollow();
+  });
+
+  document.getElementById('user-space-message-btn')?.addEventListener('click', () => {
+    if (!requireLogin()) return;
+    alert('私信功能开发中');
   });
 }
 
