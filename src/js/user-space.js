@@ -17,12 +17,17 @@ import {
   fetchUserProfile,
   fetchUserVideos,
 } from './user-profile-api.js';
+import {
+  fetchFavoriteFolderList,
+  fetchFavoriteItemsPage,
+  resolveMineUserId,
+} from './favorite-api.js';
 
 const FEED_DOM_PREFIX = 'user-space-feed';
 
 /** @typedef {import('./user-profile-api.js').UserProfile} UserProfile */
 /** @typedef {import('./pages.js').PageId} PageId */
-/** @typedef {'feed' | 'article' | 'video'} SpaceTabId */
+/** @typedef {'feed' | 'article' | 'video' | 'favorite'} SpaceTabId */
 
 /** @type {PageId} */
 let returnPage = 'mine';
@@ -47,6 +52,15 @@ let feedStartId = -1;
 
 let following = false;
 let followBusy = false;
+
+/** @type {import('./favorite-api.js').FavoriteFolder[]} */
+let favoriteFolders = [];
+/** @type {number | null} */
+let activeFavoriteFolderId = null;
+/** @type {string} */
+let activeFavoriteFolderName = '';
+/** @type {number | null} */
+let favoriteNextLastId = null;
 
 /**
  * @param {number} n
@@ -223,8 +237,81 @@ function resetListState() {
   hasMore = true;
 }
 
+function resetFavoriteListState() {
+  activeFavoriteFolderId = null;
+  activeFavoriteFolderName = '';
+  favoriteNextLastId = null;
+}
+
+function isSelfSpace() {
+  const selfId = sessionUserId(loadSession()?.user);
+  return selfId != null && selfId === currentUserId;
+}
+
+/**
+ * @param {import('./favorite-api.js').FavoriteFolder[]} folders
+ */
+function renderFavoriteFoldersHtml(folders) {
+  if (folders.length === 0) {
+    return '<p class="user-space__empty">暂无收藏夹</p>';
+  }
+  return `
+    <div class="mine-favorite-folders user-space__favorite-folders">
+      ${folders
+        .map(
+          (folder) => `
+        <button type="button" class="mine-favorite-folder" data-space-favorite-folder="${folder.id}">
+          <span class="mine-favorite-folder__icon">${materialIcon('folder')}</span>
+          <span class="mine-favorite-folder__main">
+            <span class="mine-favorite-folder__name">${escapeHtml(folder.name)}</span>
+            ${
+              folder.desc
+                ? `<span class="mine-favorite-folder__desc">${escapeHtml(folder.desc)}</span>`
+                : ''
+            }
+          </span>
+          <span class="mine-favorite-folder__count">${formatCount(folder.count)}</span>
+          ${materialIcon('chevron_right', 'mine-favorite-folder__chevron')}
+        </button>`,
+        )
+        .join('')}
+    </div>`;
+}
+
+/**
+ * @param {import('./content-api.js').ContentPreview[]} items
+ */
+function renderFavoriteItemsHtml(items) {
+  const title = activeFavoriteFolderName || '收藏夹';
+  return `
+    <div class="mine-favorite-items user-space__favorite-items">
+      <header class="mine-favorite-items__head user-space__favorite-head">
+        <button type="button" class="mine-favorite-items__back" id="user-space-favorite-back">
+          ${materialIcon('arrow_back', 'mine-favorite-items__back-icon')}
+          <span>返回</span>
+        </button>
+        <h2 class="mine-favorite-items__title">${escapeHtml(title)}</h2>
+      </header>
+      <div class="content-grid user-space__grid" id="user-space-favorite-grid">
+        ${
+          items.length === 0
+            ? '<p class="user-space__empty mine-favorite-items__empty">该收藏夹暂无内容</p>'
+            : items.map((item) => renderVideoCard(item)).join('')
+        }
+      </div>
+    </div>`;
+}
+
 function syncTabsUi() {
+  const self = isSelfSpace();
+  const favTab = document.querySelector('[data-space-tab="favorite"]');
+  favTab?.toggleAttribute('hidden', !self);
+  if (!self && activeTab === 'favorite') {
+    activeTab = 'video';
+  }
+
   document.querySelectorAll('[data-space-tab]').forEach((btn) => {
+    if (btn.hasAttribute('hidden')) return;
     btn.classList.toggle('is-active', btn.getAttribute('data-space-tab') === activeTab);
   });
   document.getElementById('user-space-body')?.classList.toggle('user-space__body--feed', activeTab === 'feed');
@@ -249,6 +336,11 @@ async function loadFirstPage() {
   setBodyHtml('<p class="user-space__hint">加载中…</p>');
 
   try {
+    if (activeTab === 'favorite') {
+      await loadFavoriteFirstPage();
+      return;
+    }
+
     const items = await loadTabPage(true);
     if (items.length === 0) {
       setBodyHtml(`<p class="user-space__empty">${emptyTextForTab(activeTab)}</p>`);
@@ -271,12 +363,57 @@ async function loadFirstPage() {
   }
 }
 
+async function loadFavoriteFirstPage() {
+  const userId = resolveMineUserId(currentUserId);
+  if (userId == null) {
+    setBodyHtml('<p class="user-space__empty">请先登录</p>');
+    hasMore = false;
+    return;
+  }
+
+  if (activeFavoriteFolderId == null) {
+    favoriteFolders = await fetchFavoriteFolderList(userId);
+    setBodyHtml(renderFavoriteFoldersHtml(favoriteFolders));
+    hasMore = false;
+    return;
+  }
+
+  const page = await fetchFavoriteItemsPage(activeFavoriteFolderId);
+  favoriteNextLastId = page.nextLastId;
+  hasMore = page.hasMore && page.items.length > 0;
+  setBodyHtml(renderFavoriteItemsHtml(page.items));
+}
+
+async function loadFavoriteItemsMore() {
+  if (activeFavoriteFolderId == null || !hasMore) return;
+  const page = await fetchFavoriteItemsPage(activeFavoriteFolderId, favoriteNextLastId);
+  document.getElementById('user-space-load-more')?.remove();
+  if (page.items.length === 0) {
+    hasMore = false;
+    return;
+  }
+  const grid = document.getElementById('user-space-favorite-grid');
+  if (grid) {
+    grid.insertAdjacentHTML(
+      'beforeend',
+      page.items.map((item) => renderVideoCard(item)).join(''),
+    );
+  }
+  favoriteNextLastId = page.nextLastId;
+  hasMore = page.hasMore;
+}
+
 async function loadMore() {
   if (!currentUserId || loading || !hasMore) return;
   loading = true;
   appendBodyHtml('<p class="user-space__hint user-space__hint--more" id="user-space-load-more">加载中…</p>');
 
   try {
+    if (activeTab === 'favorite' && activeFavoriteFolderId != null) {
+      await loadFavoriteItemsMore();
+      return;
+    }
+
     const items = await loadTabPage(false);
     document.getElementById('user-space-load-more')?.remove();
     if (items.length === 0) {
@@ -301,6 +438,7 @@ async function loadMore() {
 function emptyTextForTab(tab) {
   if (tab === 'feed') return 'TA 还没有发布动态';
   if (tab === 'article') return 'TA 还没有发布文章';
+  if (tab === 'favorite') return '暂无收藏夹';
   return 'TA 还没有发布视频';
 }
 
@@ -397,6 +535,8 @@ export function openUserSpace(userId) {
   if (!Number.isFinite(userId) || userId <= 0) return;
   returnPage = getCurrentPage();
   activeTab = 'video';
+  favoriteFolders = [];
+  resetFavoriteListState();
   setPage('space');
   void loadUserSpace(userId);
 }
@@ -439,6 +579,25 @@ function onBodyClick(event) {
 
   const target = /** @type {HTMLElement} */ (event.target);
 
+  if (target.closest('#user-space-favorite-back')) {
+    resetFavoriteListState();
+    void loadFirstPage();
+    return;
+  }
+
+  const favoriteFolderBtn = target.closest('[data-space-favorite-folder]');
+  if (favoriteFolderBtn instanceof HTMLButtonElement) {
+    const id = Number(favoriteFolderBtn.getAttribute('data-space-favorite-folder'));
+    const folder = favoriteFolders.find((entry) => entry.id === id);
+    if (!folder) return;
+    activeFavoriteFolderId = id;
+    activeFavoriteFolderName = folder.name;
+    favoriteNextLastId = null;
+    hasMore = true;
+    void loadFirstPage();
+    return;
+  }
+
   const articleRow = target.closest('.user-space__article');
   if (articleRow) {
     const preview = previewFromCard(articleRow, { author: currentProfile?.name ?? '' });
@@ -460,9 +619,13 @@ export function bindUserSpace() {
   document.querySelectorAll('[data-space-tab]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const tab = btn.getAttribute('data-space-tab');
-      if (tab !== 'feed' && tab !== 'article' && tab !== 'video') return;
+      if (tab !== 'feed' && tab !== 'article' && tab !== 'video' && tab !== 'favorite') return;
+      if (tab === 'favorite' && !isSelfSpace()) return;
       if (tab === activeTab) return;
-      activeTab = tab;
+      activeTab = /** @type {SpaceTabId} */ (tab);
+      if (tab === 'favorite') {
+        resetFavoriteListState();
+      }
       syncTabsUi();
       void loadFirstPage();
     });

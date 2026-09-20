@@ -304,6 +304,14 @@
   padding: 16px 20px 32px;
 }
 
+.user-space__favorite-folders {
+  max-width: 720px;
+}
+
+.user-space__favorite-head {
+  margin-bottom: 4px;
+}
+
 .user-space__grid {
   padding: 0;
 }
