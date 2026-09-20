@@ -3,6 +3,7 @@ import {
   initTheme,
   loadPreferences,
   savePreferences,
+  setColorSchemeWithReveal,
 } from './theme.js';
 import { runSplash } from './splash.js';
 import { materialIcon } from './icons.js';
@@ -279,7 +280,10 @@ function bindSettings() {
   };
 
   schemeSelect?.addEventListener('change', () => {
-    savePreferences({ colorScheme: /** @type {'light'|'dark'} */ (schemeSelect.value) });
+    setColorSchemeWithReveal(
+      /** @type {'light'|'dark'} */ (schemeSelect.value),
+      schemeSelect,
+    );
     syncSettingsForm();
   });
 
@@ -304,9 +308,10 @@ function bindSettings() {
     syncSettingsForm();
   });
 
-  document.getElementById('btn-theme-toggle')?.addEventListener('click', () => {
+  document.getElementById('btn-theme-toggle')?.addEventListener('click', (event) => {
     const prefs = loadPreferences();
-    savePreferences({ colorScheme: prefs.colorScheme === 'dark' ? 'light' : 'dark' });
+    const next = prefs.colorScheme === 'dark' ? 'light' : 'dark';
+    setColorSchemeWithReveal(next, event.currentTarget, event);
     syncSettingsForm();
   });
 

@@ -1,0 +1,34 @@
+html {
+  view-transition-name: theme-root;
+}
+
+::view-transition-old(theme-root),
+::view-transition-new(theme-root) {
+  animation-duration: 0.52s;
+  animation-timing-function: cubic-bezier(0.33, 0.86, 0.4, 1);
+}
+
+::view-transition-old(theme-root) {
+  animation: none;
+  z-index: 0;
+}
+
+::view-transition-new(theme-root) {
+  z-index: 1;
+  animation-name: theme-reveal-circle;
+}
+
+@keyframes theme-reveal-circle {
+  from {
+    clip-path: circle(0 at var(--theme-reveal-x) var(--theme-reveal-y));
+  }
+  to {
+    clip-path: circle(var(--theme-reveal-r) at var(--theme-reveal-x) var(--theme-reveal-y));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    view-transition-name: none;
+  }
+}

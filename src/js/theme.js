@@ -17,11 +17,95 @@ export function loadPreferences() {
 }
 
 /** @param {Partial<Preferences>} patch */
-export function savePreferences(patch) {
+function writePreferences(patch) {
   const next = normalizePreferences({ ...loadPreferences(), ...patch });
   localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  return next;
+}
+
+/** @param {Partial<Preferences>} patch */
+export function savePreferences(patch) {
+  const next = writePreferences(patch);
   applyPreferences(next);
   return next;
+}
+
+/**
+ * @param {number} x
+ * @param {number} y
+ */
+function maxRevealRadius(x, y) {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  return Math.hypot(Math.max(x, w - x), Math.max(y, h - y)) + 16;
+}
+
+/**
+ * @param {Element | null | undefined} el
+ * @param {MouseEvent | null} [event]
+ */
+function revealOriginFromElement(el, event) {
+  if (event && Number.isFinite(event.clientX) && Number.isFinite(event.clientY)) {
+    return { x: event.clientX, y: event.clientY };
+  }
+  if (el && typeof el.getBoundingClientRect === 'function') {
+    const rect = el.getBoundingClientRect();
+    return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+  }
+  return { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+}
+
+/**
+ * @param {{ x: number, y: number }} origin
+ */
+function setRevealOrigin(origin) {
+  const root = document.documentElement;
+  root.style.setProperty('--theme-reveal-x', `${origin.x}px`);
+  root.style.setProperty('--theme-reveal-y', `${origin.y}px`);
+  root.style.setProperty('--theme-reveal-r', `${maxRevealRadius(origin.x, origin.y)}px`);
+}
+
+function clearRevealOrigin() {
+  const root = document.documentElement;
+  root.style.removeProperty('--theme-reveal-x');
+  root.style.removeProperty('--theme-reveal-y');
+  root.style.removeProperty('--theme-reveal-r');
+}
+
+/**
+ * 深浅色切换：从 origin 处圆形扩散至全屏（需 Chromium View Transitions）。
+ * @param {'light' | 'dark'} nextScheme
+ * @param {Element | null | undefined} [originEl]
+ * @param {MouseEvent | null} [event]
+ * @returns {Preferences}
+ */
+export function setColorSchemeWithReveal(nextScheme, originEl, event = null) {
+  const current = loadPreferences();
+  const scheme = nextScheme === 'dark' ? 'dark' : 'light';
+  if (current.colorScheme === scheme) return current;
+
+  const origin = revealOriginFromElement(originEl, event);
+  setRevealOrigin(origin);
+
+  const commit = () => {
+    const next = writePreferences({ colorScheme: scheme });
+    applyPreferences(next);
+    return next;
+  };
+
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const canAnimate =
+    !reducedMotion &&
+    typeof document.startViewTransition === 'function';
+
+  if (!canAnimate) {
+    clearRevealOrigin();
+    return commit();
+  }
+
+  const transition = document.startViewTransition(commit);
+  transition.finished.finally(clearRevealOrigin);
+  return loadPreferences();
 }
 
 /** @returns {Preferences} */
