@@ -5,7 +5,7 @@ import { destroyWatchPlayer } from './watch-player.js';
 
 const DEFAULT_AVATAR = 'assets/mfuns_logo.png';
 
-/** @typedef {'home' | 'feed' | 'mine' | 'settings' | 'watch'} PageId */
+/** @typedef {'home' | 'feed' | 'mine' | 'settings' | 'watch' | 'space'} PageId */
 
 /** @type {PageId} */
 let currentPage = 'home';
@@ -106,7 +106,7 @@ export function minePageHtml() {
               <div><strong>-</strong><span>关注</span></div>
               <div><strong>-</strong><span>粉丝</span></div>
             </div>
-            <button type="button" class="mine-profile__space">空间 &gt;</button>
+            <button type="button" class="mine-profile__space" id="btn-open-my-space">空间 &gt;</button>
           </div>
         </div>
 
@@ -177,6 +177,33 @@ export function watchPageHtml() {
     </div>`;
 }
 
+export function spacePageHtml() {
+  return `
+    <div class="page-view page-view--space" data-page="space" hidden>
+      <div class="user-space" id="user-space-root">
+        <header class="user-space__bar app-no-drag">
+          <button type="button" class="user-space__back" id="user-space-back">
+            ${materialIcon('arrow_back')}
+            <span>返回</span>
+          </button>
+          <span class="user-space__bar-title" id="user-space-bar-title">个人空间</span>
+        </header>
+        <div class="user-space__scroll" id="user-space-scroll">
+          <div class="user-space__banner-wrap" id="user-space-banner-wrap">
+            <div class="user-space__banner user-space__banner--ph"></div>
+          </div>
+          <div class="user-space__profile" id="user-space-profile"></div>
+          <nav class="user-space__tabs" role="tablist" aria-label="空间内容">
+            <button type="button" class="user-space__tab" data-space-tab="feed" role="tab">动态</button>
+            <button type="button" class="user-space__tab" data-space-tab="article" role="tab">文章</button>
+            <button type="button" class="user-space__tab is-active" data-space-tab="video" role="tab">视频</button>
+          </nav>
+          <div class="user-space__body" id="user-space-body"></div>
+        </div>
+      </div>
+    </div>`;
+}
+
 export function settingsPageHtml() {
   return `
     <div class="page-view page-view--settings" data-page="settings" hidden>
@@ -237,11 +264,14 @@ export function setPage(pageId) {
   main?.classList.toggle('content--mine', pageId === 'mine');
   main?.classList.toggle('content--settings', pageId === 'settings');
   main?.classList.toggle('content--watch', pageId === 'watch');
+  main?.classList.toggle('content--space', pageId === 'space');
 
   const homeTabs = document.getElementById('topbar-tabs-home');
   homeTabs?.toggleAttribute('hidden', pageId !== 'home');
 
-  document.querySelector('.btn-refresh')?.toggleAttribute('hidden', pageId === 'watch');
+  document
+    .querySelector('.btn-refresh')
+    ?.toggleAttribute('hidden', pageId === 'watch' || pageId === 'space');
 
   syncPagesAuthState();
 }

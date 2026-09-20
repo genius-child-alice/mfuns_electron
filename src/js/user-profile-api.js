@@ -1,0 +1,235 @@
+import {
+  apiGet,
+  parseContentPreview,
+  parsePreviewList,
+  resolveCoverUrl,
+} from './content-api.js';
+
+/** @typedef {{
+ *   id: number,
+ *   name: string,
+ *   avatar: string | null,
+ *   banner: string | null,
+ *   bio: string,
+ *   gender: string,
+ *   level: number | null,
+ *   exp: number | null,
+ *   fans: number,
+ *   follows: number,
+ *   totalLikes: number,
+ * }} UserProfile */
+
+/** @typedef {{
+ *   id: number,
+ *   content: string,
+ *   createdAt: string | null,
+ *   likes: number,
+ *   comments: number,
+ *   images: string[],
+ *   resource: import('./content-api.js').ContentPreview | null,
+ * }} TimelineFeedItem */
+
+/**
+ * @param {unknown} value
+ */
+function asMap(value) {
+  return value && typeof value === 'object' ? /** @type {Record<string, unknown>} */ (value) : {};
+}
+
+/**
+ * @param {unknown} value
+ */
+function asInt(value) {
+  if (typeof value === 'number' && Number.isFinite(value)) return Math.trunc(value);
+  const n = Number.parseInt(`${value ?? ''}`, 10);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * @param {unknown} data
+ */
+function toRawList(data) {
+  if (Array.isArray(data)) return data;
+  if (data && typeof data === 'object') {
+    const obj = /** @type {Record<string, unknown>} */ (data);
+    const list = obj.list ?? obj.data ?? obj.items;
+    if (Array.isArray(list)) return list;
+  }
+  return [];
+}
+
+/**
+ * @param {string} raw
+ */
+function feedPlainText(raw) {
+  const text = `${raw ?? ''}`.trim();
+  if (!text.startsWith('[')) return text;
+  try {
+    const ops = JSON.parse(text);
+    if (!Array.isArray(ops)) return text;
+    return ops
+      .map((op) => (op && typeof op.insert === 'string' ? op.insert : ''))
+      .join('')
+      .trim();
+  } catch {
+    return text;
+  }
+}
+
+/**
+ * @param {unknown} raw
+ */
+function parseUserProfile(raw) {
+  const root = asMap(raw);
+  const source = asMap(root.user).id != null || asMap(root.user).name ? asMap(root.user) : root;
+  const info = asMap(source.info);
+  const rawInfo = source.info;
+  const bioRaw =
+    source.bio ??
+    source.signature ??
+    (typeof rawInfo === 'string' ? rawInfo : info.bio ?? info.signature ?? '');
+  let bio = `${bioRaw ?? ''}`.trim();
+  if (!bio) bio = '暂无简介';
+
+  return {
+    id: asInt(source.id ?? source.user_id) ?? 0,
+    name: `${source.name ?? source.username ?? 'MFuns 用户'}`,
+    avatar: resolveCoverUrl(source.avatar ?? source.face),
+    banner: resolveCoverUrl(source.banner_image ?? source.banner),
+    bio,
+    gender: `${source.gender ?? info.gender ?? ''}`,
+    level: asInt(source.level_id ?? info.level_id),
+    exp: asInt(source.exp ?? source.experience ?? info.exp),
+    fans: asInt(source.fans ?? source.fans_count ?? info.fans) ?? 0,
+    follows:
+      asInt(source.follows ?? source.follow_count ?? source.following ?? info.follows) ?? 0,
+    totalLikes: asInt(source.total_likes_count ?? info.total_likes_count) ?? 0,
+  };
+}
+
+/**
+ * @param {number} userId
+ */
+export async function fetchUserProfile(userId) {
+  const [profileData, countData] = await Promise.all([
+    apiGet('/v1/user/get_user', { id: userId }),
+    apiGet('/v1/follow/count', { user_id: userId }).catch(() => null),
+  ]);
+  const profile = parseUserProfile(profileData);
+  const counts = asMap(countData);
+  return {
+    ...profile,
+    follows: asInt(counts.follow) ?? profile.follows,
+    fans: asInt(counts.fans) ?? profile.fans,
+  };
+}
+
+/**
+ * @param {number} userId
+ * @param {number} [cursor]
+ */
+export async function fetchUserVideos(userId, cursor = 0) {
+  const data = await apiGet('/v1/video/user_list', {
+    user_id: userId,
+    vid: cursor,
+    type: 'pass',
+  });
+  return parsePreviewList(data);
+}
+
+/**
+ * @param {number} userId
+ * @param {number} [cursor]
+ */
+export async function fetchUserArticles(userId, cursor = 0) {
+  const data = await apiGet('/v1/article/user_list', {
+    user_id: userId,
+    aid: cursor,
+    type: 'pass',
+  });
+  return parsePreviewList(data);
+}
+
+/**
+ * @param {unknown} raw
+ * @returns {string[]}
+ */
+function parseFeedImages(raw) {
+  if (typeof raw === 'string' && raw.trim()) {
+    const text = raw.trim();
+    if (text.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(text);
+        if (Array.isArray(parsed)) return parseFeedImages(parsed);
+      } catch {
+        return [resolveCoverUrl(text)].filter(Boolean);
+      }
+    }
+    const resolved = resolveCoverUrl(text);
+    return resolved ? [resolved] : [];
+  }
+  if (!Array.isArray(raw)) return [];
+  /** @type {string[]} */
+  const urls = [];
+  for (const item of raw) {
+    if (typeof item === 'string') {
+      const u = resolveCoverUrl(item);
+      if (u) urls.push(u);
+    } else {
+      const map = asMap(item);
+      const u = resolveCoverUrl(map.url ?? map.src ?? map.image);
+      if (u) urls.push(u);
+    }
+  }
+  return urls;
+}
+
+/**
+ * @param {unknown} raw
+ * @returns {TimelineFeedItem | null}
+ */
+function parseTimelineFeedItem(raw) {
+  const json = asMap(raw);
+  const source = asMap(json.feed).id != null ? { ...json, ...asMap(json.feed) } : json;
+  const extra = asMap(source.extra);
+  const resourceRaw = extra.resource ?? source.resource;
+  const resource = resourceRaw ? parseContentPreview(resourceRaw) : null;
+  const rawContent = `${source.content ?? source.text ?? source.summary ?? ''}`;
+  const id = asInt(source.id ?? source.feed_id);
+  if (id == null) return null;
+  return {
+    id,
+    content: feedPlainText(rawContent) || `${rawContent}`.trim(),
+    createdAt:
+      (typeof source.created_at === 'string' && source.created_at) ||
+      (typeof source.time === 'string' && source.time) ||
+      null,
+    likes: asInt(source.like_count ?? source.likes) ?? 0,
+    comments: asInt(source.comment_count ?? source.comments) ?? 0,
+    images: parseFeedImages(source.images ?? source.image_list ?? source.pictures ?? extra.images),
+    resource,
+  };
+}
+
+/**
+ * @param {unknown} data
+ * @returns {TimelineFeedItem[]}
+ */
+export function parseTimelineFeedList(data) {
+  return toRawList(data)
+    .map((item) => parseTimelineFeedItem(item))
+    .filter((item) => item != null);
+}
+
+/**
+ * @param {number} userId
+ * @param {number} [startId]
+ */
+export async function fetchUserFeeds(userId, startId = -1) {
+  const data = await apiGet('/v1/feeds/list', {
+    start_id: startId,
+    html: 1,
+    user_id: userId,
+  });
+  return parseTimelineFeedList(data);
+}

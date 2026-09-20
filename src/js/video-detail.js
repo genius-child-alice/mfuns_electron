@@ -164,7 +164,13 @@ function renderSidePanel() {
       <div class="watch-tab-panel" data-watch-panel="intro" ${activeTab === 'intro' ? '' : 'hidden'}>
         <div class="watch-uploader">
           <div class="watch-uploader__main">
-            ${avatarSrc ? `<img class="watch-uploader__avatar" src="${escapeHtml(avatarSrc)}" alt="" />` : '<span class="watch-uploader__avatar watch-uploader__avatar--ph"></span>'}
+            ${
+              avatarSrc && detail.authorId
+                ? `<button type="button" class="watch-uploader__avatar-btn" data-author-profile="${detail.authorId}" title="进入空间"><img class="watch-uploader__avatar" src="${escapeHtml(avatarSrc)}" alt="" /></button>`
+                : avatarSrc
+                  ? `<img class="watch-uploader__avatar" src="${escapeHtml(avatarSrc)}" alt="" />`
+                  : '<span class="watch-uploader__avatar watch-uploader__avatar--ph"></span>'
+            }
             <div>
               <p class="watch-uploader__name">${escapeHtml(preview.author)}</p>
               <p class="watch-uploader__sub">MFuns 创作者</p>
@@ -263,6 +269,14 @@ function bindSidePanelEvents() {
     } catch (err) {
       alert(err instanceof Error ? err.message : '操作失败');
     }
+  });
+
+  document.querySelectorAll('[data-author-profile]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = Number(btn.getAttribute('data-author-profile'));
+      if (!Number.isFinite(id) || id <= 0) return;
+      void import('./user-space.js').then(({ openUserSpace }) => openUserSpace(id));
+    });
   });
 
   document.getElementById('watch-follow-btn')?.addEventListener('click', async () => {

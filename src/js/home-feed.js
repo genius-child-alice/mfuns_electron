@@ -65,7 +65,7 @@ function escapeHtml(text) {
 /**
  * @param {import('./content-api.js').ContentPreview} item
  */
-function renderVideoCard(item) {
+export function renderVideoCard(item) {
   const hue = Number.parseInt(item.id, 10) % 360 || 200;
   const coverSrc = mediaSrcForCover(item.cover);
   const cover = coverSrc

@@ -341,12 +341,24 @@ html[data-theme='dark'] .watch-side-scroll::-webkit-scrollbar-thumb {
   min-width: 0;
 }
 
+.watch-uploader__avatar-btn {
+  flex-shrink: 0;
+  padding: 0;
+  border-radius: 50%;
+  line-height: 0;
+}
+
+.watch-uploader__avatar-btn:hover {
+  opacity: 0.88;
+}
+
 .watch-uploader__avatar {
   width: 44px;
   height: 44px;
   border-radius: 50%;
   object-fit: cover;
   flex-shrink: 0;
+  display: block;
 }
 
 .watch-uploader__avatar--ph {
