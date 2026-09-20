@@ -17,6 +17,7 @@ import {
   setFollow,
   setResourceLike,
 } from './video-api.js';
+import { fetchUserProfile } from './user-profile-api.js';
 
 /** @typedef {import('./content-api.js').ContentPreview} ContentPreview */
 /** @typedef {import('./video-api.js').VideoDetail} VideoDetail */
@@ -36,6 +37,9 @@ let activeTab = 'intro';
 let liked = false;
 let likeCount = 0;
 let following = false;
+let authorFans = 0;
+let authorTotalLikes = 0;
+let descExpanded = false;
 
 /** @type {ContentPreview[]} */
 let relatedItems = [];
@@ -118,31 +122,74 @@ function renderComments(comments) {
     .join('');
 }
 
+function formatDateTime(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
 /**
  * @param {VideoPart[]} parts
+ * @param {number} activeIndex
+ * @param {string} videoTitle
+ * @param {number} views
  */
-function renderPlaylist(parts, activeIndex) {
+function renderSeriesPlaylist(parts, activeIndex, videoTitle, views) {
   if (parts.length <= 1) return '';
   return `
-    <section class="watch-playlist">
-      <header class="watch-playlist__head">
-        <span>分P列表</span>
-        <span class="watch-playlist__count">${activeIndex + 1} / ${parts.length}</span>
+    <section class="watch-series">
+      <header class="watch-series__head">
+        <div class="watch-series__head-main">
+          <p class="watch-series__title">分P列表 (${activeIndex + 1}/${parts.length})</p>
+          <p class="watch-series__sub">${formatCount(views)}播放</p>
+        </div>
       </header>
-      <ol class="watch-playlist__list">
+      <ol class="watch-series__list">
         ${parts
           .map(
             (part, index) => `
           <li>
-            <button type="button" class="watch-playlist__item ${index === activeIndex ? 'is-active' : ''}" data-part-index="${index}">
-              <span class="watch-playlist__idx">P${part.part}</span>
-              <span class="watch-playlist__name">${escapeHtml(part.title)}</span>
+            <button type="button" class="watch-series__item ${index === activeIndex ? 'is-active' : ''}" data-part-index="${index}">
+              ${
+                index === activeIndex
+                  ? materialIcon('graphic_eq', 'watch-series__playing')
+                  : '<span class="watch-series__playing watch-series__playing--ph"></span>'
+              }
+              <span class="watch-series__name">${escapeHtml(part.title || videoTitle)}</span>
             </button>
           </li>`,
           )
           .join('')}
       </ol>
     </section>`;
+}
+
+function renderIntroToolbar() {
+  return `
+    <div class="watch-interact-bar" role="toolbar" aria-label="视频互动">
+      <button type="button" class="watch-interact-bar__item ${liked ? 'is-active' : ''}" id="watch-like-btn">
+        <span class="watch-interact-bar__icon">${materialIcon('thumb_up')}</span>
+        <span class="watch-interact-bar__label">${formatCount(likeCount)}</span>
+      </button>
+      <button type="button" class="watch-interact-bar__item watch-interact-bar__item--disabled" id="watch-coin-btn" disabled title="暂未开放">
+        <span class="watch-interact-bar__icon">${materialIcon('paid')}</span>
+        <span class="watch-interact-bar__label">投币</span>
+      </button>
+      <button type="button" class="watch-interact-bar__item watch-interact-bar__item--disabled" id="watch-fav-btn" disabled title="暂未开放">
+        <span class="watch-interact-bar__icon">${materialIcon('star')}</span>
+        <span class="watch-interact-bar__label">收藏</span>
+      </button>
+      <button type="button" class="watch-interact-bar__item watch-interact-bar__item--disabled" id="watch-cache-btn" disabled title="暂未开放">
+        <span class="watch-interact-bar__icon">${materialIcon('download')}</span>
+        <span class="watch-interact-bar__label">缓存</span>
+      </button>
+      <button type="button" class="watch-interact-bar__item" id="watch-share-btn">
+        <span class="watch-interact-bar__icon">${materialIcon('share')}</span>
+        <span class="watch-interact-bar__label">分享</span>
+      </button>
+    </div>`;
 }
 
 function renderSidePanel() {
@@ -153,27 +200,44 @@ function renderSidePanel() {
   const side = document.getElementById('watch-side-panel');
   if (!side) return;
 
+  const authorMeta =
+    authorFans > 0 || authorTotalLikes > 0
+      ? `${formatCount(authorFans)}粉丝 · ${formatCount(authorTotalLikes)}获赞`
+      : 'MFuns 创作者';
+  const hasDesc = Boolean(detail.rawDescription);
+  const dateLabel = formatDateTime(preview.createdAt);
+
   side.innerHTML = `
     <div class="watch-tabs" role="tablist">
-      <button type="button" class="watch-tabs__btn ${activeTab === 'intro' ? 'is-active' : ''}" data-watch-tab="intro" role="tab">简介</button>
-      <button type="button" class="watch-tabs__btn ${activeTab === 'comments' ? 'is-active' : ''}" data-watch-tab="comments" role="tab">
-        评论<span class="watch-tabs__count">${formatCount(preview.comments)}</span>
+      <div class="watch-tabs__list">
+        <button type="button" class="watch-tabs__btn ${activeTab === 'intro' ? 'is-active' : ''}" data-watch-tab="intro" role="tab">简介</button>
+        <button type="button" class="watch-tabs__btn ${activeTab === 'comments' ? 'is-active' : ''}" data-watch-tab="comments" role="tab">
+          评论<span class="watch-tabs__count">${formatCount(preview.comments)}</span>
+        </button>
+      </div>
+      <button type="button" class="watch-tabs__more" aria-label="更多" title="更多">
+        ${materialIcon('more_vert')}
       </button>
     </div>
     <div class="watch-side-scroll">
-      <div class="watch-tab-panel" data-watch-panel="intro" ${activeTab === 'intro' ? '' : 'hidden'}>
-        <div class="watch-uploader">
-          <div class="watch-uploader__main">
+      <div class="watch-tab-panel watch-tab-panel--intro" data-watch-panel="intro" ${activeTab === 'intro' ? '' : 'hidden'}>
+        ${
+          currentParts.length === 0
+            ? '<p class="watch-playback-hint">暂无可用播放地址</p>'
+            : ''
+        }
+        <div class="watch-author">
+          <div class="watch-author__main">
             ${
               avatarSrc && detail.authorId
-                ? `<button type="button" class="watch-uploader__avatar-btn" data-author-profile="${detail.authorId}" title="进入空间"><img class="watch-uploader__avatar" src="${escapeHtml(avatarSrc)}" alt="" /></button>`
+                ? `<button type="button" class="watch-author__avatar-btn" data-author-profile="${detail.authorId}" title="进入空间"><img class="watch-author__avatar" src="${escapeHtml(avatarSrc)}" alt="" /></button>`
                 : avatarSrc
-                  ? `<img class="watch-uploader__avatar" src="${escapeHtml(avatarSrc)}" alt="" />`
-                  : '<span class="watch-uploader__avatar watch-uploader__avatar--ph"></span>'
+                  ? `<img class="watch-author__avatar" src="${escapeHtml(avatarSrc)}" alt="" />`
+                  : '<span class="watch-author__avatar watch-author__avatar--ph"></span>'
             }
-            <div>
-              <p class="watch-uploader__name">${escapeHtml(preview.author)}</p>
-              <p class="watch-uploader__sub">MFuns 创作者</p>
+            <div class="watch-author__info">
+              <p class="watch-author__name">${escapeHtml(preview.author)}</p>
+              <p class="watch-author__meta">${escapeHtml(authorMeta)}</p>
             </div>
           </div>
           ${
@@ -182,37 +246,44 @@ function renderSidePanel() {
               : ''
           }
         </div>
-        ${
-          currentParts.length === 0
-            ? '<p class="watch-playback-hint">暂无可用播放地址</p>'
-            : ''
-        }
-        <h1 class="watch-side-title">${escapeHtml(preview.title)}</h1>
-        <div class="watch-side-stats">
-          <span>${materialIcon('play_arrow', 'watch-stat-icon')}${formatCount(preview.views)}</span>
-          <span>${materialIcon('chat_bubble', 'watch-stat-icon')}${formatCount(preview.comments)}</span>
+
+        <div class="watch-video-head">
+          <h1 class="watch-video-title">${escapeHtml(preview.title)}</h1>
+          ${
+            hasDesc
+              ? `<button type="button" class="watch-expand-btn" id="watch-desc-expand" aria-expanded="${descExpanded}">
+                  ${descExpanded ? '收起' : '展开'}
+                  ${materialIcon(descExpanded ? 'expand_less' : 'expand_more', 'watch-expand-btn__icon')}
+                </button>`
+              : ''
+          }
         </div>
-        <div class="watch-actions">
-          <button type="button" class="watch-action ${liked ? 'is-active' : ''}" id="watch-like-btn">
-            ${materialIcon('thumb_up', 'watch-action-icon')}
-            <span>${formatCount(likeCount)}</span>
-          </button>
-          <button type="button" class="watch-action" id="watch-share-btn">
-            ${materialIcon('share', 'watch-action-icon')}
-            <span>分享</span>
-          </button>
+
+        <div class="watch-video-meta">
+          <span>${materialIcon('play_arrow', 'watch-meta-icon')}${formatCount(preview.views)}</span>
+          <span>${materialIcon('chat_bubble', 'watch-meta-icon')}${formatCount(preview.comments)}</span>
+          ${dateLabel ? `<span>${materialIcon('schedule', 'watch-meta-icon')}${escapeHtml(dateLabel)}</span>` : ''}
         </div>
+
+        ${renderIntroToolbar()}
+
         ${
-          detail.rawDescription
-            ? `<div class="watch-desc markdown-body" id="watch-desc-rich"></div>`
-            : ''
+          hasDesc
+            ? `<div class="watch-desc-block ${descExpanded ? 'watch-desc-block--expanded' : ''}" id="watch-desc-block">
+                <div class="watch-desc markdown-body" id="watch-desc-rich"></div>
+                ${
+                  detail.tags.length
+                    ? `<div class="watch-tags">${detail.tags.map((t) => `<span class="watch-tag">${escapeHtml(t)}</span>`).join('')}</div>`
+                    : ''
+                }
+              </div>`
+            : detail.tags.length
+              ? `<div class="watch-tags watch-tags--solo">${detail.tags.map((t) => `<span class="watch-tag">${escapeHtml(t)}</span>`).join('')}</div>`
+              : ''
         }
-        ${
-          detail.tags.length
-            ? `<div class="watch-tags">${detail.tags.map((t) => `<span class="watch-tag">${escapeHtml(t)}</span>`).join('')}</div>`
-            : ''
-        }
-        ${renderPlaylist(currentParts, activePartIndex)}
+
+        ${renderSeriesPlaylist(currentParts, activePartIndex, preview.title, preview.views)}
+
         <section class="watch-related">
           <h2 class="watch-related__heading">相关推荐</h2>
           <div class="watch-related__list">${renderRelatedList(relatedItems)}</div>
@@ -241,6 +312,25 @@ function hydrateRichMarkdown() {
     const el = document.getElementById(`watch-comment-body-${item.id}`);
     if (el && item.rawContent) mountRichContent(el, item.rawContent);
   });
+}
+
+function updateSeriesActiveState(index) {
+  document.querySelectorAll('.watch-series__item[data-part-index]').forEach((btn) => {
+    const partIndex = Number(btn.getAttribute('data-part-index'));
+    const isActive = partIndex === index;
+    btn.classList.toggle('is-active', isActive);
+    const iconSlot = btn.querySelector('.watch-series__playing, .watch-series__playing--ph');
+    if (!iconSlot) return;
+    if (isActive) {
+      iconSlot.outerHTML = materialIcon('graphic_eq', 'watch-series__playing');
+    } else {
+      iconSlot.outerHTML = '<span class="watch-series__playing watch-series__playing--ph"></span>';
+    }
+  });
+  const titleEl = document.querySelector('.watch-series__title');
+  if (titleEl && currentParts.length > 0) {
+    titleEl.textContent = `分P列表 (${index + 1}/${currentParts.length})`;
+  }
 }
 
 function bindSidePanelEvents() {
@@ -302,15 +392,24 @@ function bindSidePanelEvents() {
     }
   });
 
+  document.getElementById('watch-desc-expand')?.addEventListener('click', () => {
+    descExpanded = !descExpanded;
+    const block = document.getElementById('watch-desc-block');
+    const btn = document.getElementById('watch-desc-expand');
+    block?.classList.toggle('watch-desc-block--expanded', descExpanded);
+    if (btn) {
+      btn.setAttribute('aria-expanded', String(descExpanded));
+      btn.innerHTML = `${descExpanded ? '收起' : '展开'} ${materialIcon(descExpanded ? 'expand_less' : 'expand_more', 'watch-expand-btn__icon')}`;
+    }
+  });
+
   document.querySelectorAll('[data-part-index]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const index = Number(btn.getAttribute('data-part-index'));
       if (!Number.isFinite(index)) return;
       activePartIndex = index;
       getWatchPlayer()?.loadPart(index, { autoPlay: true });
-      document.querySelectorAll('[data-part-index]').forEach((el) => {
-        el.classList.toggle('is-active', Number(el.getAttribute('data-part-index')) === index);
-      });
+      updateSeriesActiveState(index);
     });
   });
 
@@ -363,6 +462,9 @@ export async function openVideoDetail(preview) {
   setPage('watch');
   activePartIndex = 0;
   activeTab = 'intro';
+  descExpanded = false;
+  authorFans = 0;
+  authorTotalLikes = 0;
   setLoading(true);
 
   getWatchPlayer()?.destroy();
@@ -387,16 +489,7 @@ export async function openVideoDetail(preview) {
           const wp = getWatchPlayer();
           if (!wp) return;
           activePartIndex = wp.partIndex;
-          document.querySelectorAll('[data-part-index]').forEach((el) => {
-            el.classList.toggle(
-              'is-active',
-              Number(el.getAttribute('data-part-index')) === activePartIndex,
-            );
-          });
-          const countEl = document.querySelector('.watch-playlist__count');
-          if (countEl && currentParts.length > 0) {
-            countEl.textContent = `${activePartIndex + 1} / ${currentParts.length}`;
-          }
+          updateSeriesActiveState(activePartIndex);
         },
       });
     }
@@ -410,11 +503,23 @@ export async function openVideoDetail(preview) {
       detail.authorId && session?.token
         ? fetchFollowStatus(detail.authorId).catch(() => false)
         : Promise.resolve(false);
+    const authorProfilePromise =
+      detail.authorId != null
+        ? fetchUserProfile(detail.authorId).catch(() => null)
+        : Promise.resolve(null);
 
-    const [likeStatus, followStatus] = await Promise.all([likePromise, followPromise]);
+    const [likeStatus, followStatus, authorProfile] = await Promise.all([
+      likePromise,
+      followPromise,
+      authorProfilePromise,
+    ]);
     liked = likeStatus.liked;
     likeCount = likeStatus.likes || detail.likes;
     following = followStatus;
+    if (authorProfile) {
+      authorFans = authorProfile.fans;
+      authorTotalLikes = authorProfile.totalLikes;
+    }
 
     let comments = [];
     if (detail.commentAreaId) {
