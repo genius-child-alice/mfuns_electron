@@ -10,16 +10,17 @@ import {
   createComment,
   fetchCommentList,
   fetchFollowStatus,
-  fetchLikeStatus,
+  fetchReactionStatus,
   setFollow,
-  setResourceLike,
+  setResourceReaction,
 } from './video-api.js';
 import { fetchUserProfile } from './user-profile-api.js';
 import { resolveFavoriteStatus, resolveMineUserId } from './favorite-api.js';
 import { toggleResourceFavorite } from './favorite-ui.js';
 import {
-  bindCommentLikeActions,
-  mountCommentRichText,
+  bindCommentSection,
+  createCommentReplyStore,
+  mountAllCommentRichText,
   renderCommentsHtml,
 } from './comment-ui.js';
 
@@ -34,6 +35,8 @@ let currentDetail = null;
 
 let liked = false;
 let likeCount = 0;
+let disliked = false;
+let dislikeCount = 0;
 let following = false;
 let authorFans = 0;
 let authorTotalLikes = 0;
@@ -43,6 +46,25 @@ let favoriteListId = null;
 
 /** @type {import('./video-api.js').CommunityComment[]} */
 let commentItems = [];
+
+const commentReplyStore = createCommentReplyStore();
+
+const COMMENT_BODY_PREFIX = 'article-comment-body';
+const COMMENT_REPLY_PREFIX = 'article-comment-reply';
+
+function refreshCommentsUi() {
+  const list = document.getElementById('article-comments-list');
+  if (!list) return;
+  list.innerHTML = renderCommentsHtml(commentItems, {
+    bodyIdPrefix: COMMENT_BODY_PREFIX,
+    replyBodyIdPrefix: COMMENT_REPLY_PREFIX,
+    replyStore: commentReplyStore,
+  });
+  mountAllCommentRichText(commentItems, commentReplyStore, {
+    bodyIdPrefix: COMMENT_BODY_PREFIX,
+    replyBodyIdPrefix: COMMENT_REPLY_PREFIX,
+  });
+}
 
 /**
  * @param {number} n
@@ -98,6 +120,10 @@ function renderInteractBar() {
       <button type="button" class="watch-interact-bar__item ${liked ? 'is-active' : ''}" id="article-like-btn">
         <span class="watch-interact-bar__icon">${materialIcon('thumb_up')}</span>
         <span class="watch-interact-bar__label">${formatCount(likeCount)}</span>
+      </button>
+      <button type="button" class="watch-interact-bar__item ${disliked ? 'is-active' : ''}" id="article-dislike-btn">
+        <span class="watch-interact-bar__icon">${materialIcon('thumb_down')}</span>
+        <span class="watch-interact-bar__label">${formatCount(dislikeCount)}</span>
       </button>
       <button type="button" class="watch-interact-bar__item ${favorited ? 'is-active' : ''}" id="article-fav-btn">
         <span class="watch-interact-bar__icon">${materialIcon('star')}</span>
@@ -182,7 +208,7 @@ function renderPage() {
           <textarea class="watch-comment-input" id="article-comment-input" rows="3" placeholder="发一条友善的评论"></textarea>
           <button type="submit" class="btn-accent watch-comment-submit">发布</button>
         </form>
-        <div class="watch-comments" id="article-comments-list">${renderCommentsHtml(commentItems, { bodyIdPrefix: 'article-comment-body' })}</div>
+        <div class="watch-comments" id="article-comments-list">${renderCommentsHtml(commentItems, { bodyIdPrefix: COMMENT_BODY_PREFIX, replyBodyIdPrefix: COMMENT_REPLY_PREFIX, replyStore: commentReplyStore })}</div>
       </section>
     </article>`;
 
@@ -196,7 +222,27 @@ function hydrateRichMarkdown() {
   if (contentEl && detail?.rawContent) {
     mountRichContent(contentEl, detail.rawContent);
   }
-  mountCommentRichText(commentItems, 'article-comment-body');
+  mountAllCommentRichText(commentItems, commentReplyStore, {
+    bodyIdPrefix: COMMENT_BODY_PREFIX,
+    replyBodyIdPrefix: COMMENT_REPLY_PREFIX,
+  });
+}
+
+async function toggleArticleReaction(dislike) {
+  if (!currentDetail || !requireLogin()) return;
+  try {
+    const active = dislike ? disliked : liked;
+    const action = active ? 'cancel' : dislike ? 'dislike' : 'like';
+    await setResourceReaction(Number(currentDetail.preview.id), action, 0);
+    const status = await fetchReactionStatus(Number(currentDetail.preview.id), 0);
+    liked = status.liked;
+    disliked = status.disliked;
+    likeCount = status.likes;
+    dislikeCount = status.dislikes;
+    renderPage();
+  } catch (err) {
+    alert(err instanceof Error ? err.message : '操作失败');
+  }
 }
 
 function bindPageEvents() {
@@ -215,17 +261,12 @@ function bindPageEvents() {
     });
   });
 
-  document.getElementById('article-like-btn')?.addEventListener('click', async () => {
-    if (!currentDetail || !requireLogin()) return;
-    try {
-      const next = !liked;
-      await setResourceLike(Number(currentDetail.preview.id), next, 0);
-      liked = next;
-      likeCount += next ? 1 : -1;
-      renderPage();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : '操作失败');
-    }
+  document.getElementById('article-like-btn')?.addEventListener('click', () => {
+    void toggleArticleReaction(false);
+  });
+
+  document.getElementById('article-dislike-btn')?.addEventListener('click', () => {
+    void toggleArticleReaction(true);
   });
 
   document.getElementById('article-share-btn')?.addEventListener('click', async () => {
@@ -271,6 +312,7 @@ function bindPageEvents() {
       await createComment(currentDetail.commentAreaId, text);
       if (input) input.value = '';
       commentItems = await fetchCommentList(currentDetail.commentAreaId, 1);
+      commentReplyStore.clear();
       if (currentDetail.preview) {
         currentDetail.preview.comments = Math.max(
           currentDetail.preview.comments,
@@ -299,6 +341,9 @@ export async function openArticleDetail(preview) {
   document.getElementById('article-scroll')?.scrollTo(0, 0);
   favorited = false;
   favoriteListId = null;
+  disliked = false;
+  dislikeCount = 0;
+  commentReplyStore.clear();
   authorFans = 0;
   authorTotalLikes = 0;
   setLoading(true);
@@ -315,9 +360,11 @@ export async function openArticleDetail(preview) {
     currentDetail = detail;
 
     const session = loadSession();
-    const likePromise = fetchLikeStatus(Number(detail.preview.id), 0).catch(() => ({
+    const likePromise = fetchReactionStatus(Number(detail.preview.id), 0).catch(() => ({
       liked: false,
+      disliked: false,
       likes: detail.likes,
+      dislikes: 0,
     }));
     const followPromise =
       detail.authorId && session?.token
@@ -343,7 +390,9 @@ export async function openArticleDetail(preview) {
       favoritePromise,
     ]);
     liked = likeStatus.liked;
+    disliked = likeStatus.disliked;
     likeCount = likeStatus.likes || detail.likes;
+    dislikeCount = likeStatus.dislikes;
     following = followStatus;
     favorited = favoriteStatus.favorited;
     favoriteListId = favoriteStatus.listId;
@@ -372,11 +421,15 @@ export function closeArticleDetail() {
 }
 
 export function bindArticleDetail() {
-  bindCommentLikeActions(document.getElementById('article-page-root'), {
+  bindCommentSection(document.getElementById('article-page-root'), {
     getComments: () => commentItems,
     setComments: (comments) => {
       commentItems = comments;
     },
+    replyStore: commentReplyStore,
+    bodyIdPrefix: COMMENT_BODY_PREFIX,
+    replyBodyIdPrefix: COMMENT_REPLY_PREFIX,
+    onRefresh: refreshCommentsUi,
   });
 
   document.getElementById('article-back-btn')?.addEventListener('click', closeArticleDetail);

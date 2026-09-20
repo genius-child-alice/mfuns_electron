@@ -10,21 +10,22 @@ import {
   createComment,
   fetchCommentList,
   fetchFollowStatus,
-  fetchLikeStatus,
+  fetchReactionStatus,
   fetchRelatedVideos,
   fetchVideoDetail,
   fetchVideoPlayParts,
   formatVideoCopyrightLabel,
   setFollow,
-  setResourceLike,
+  setResourceReaction,
 } from './video-api.js';
 import { fetchUserProfile } from './user-profile-api.js';
 import { resolveFavoriteStatus, resolveMineUserId } from './favorite-api.js';
 import { toggleResourceFavorite } from './favorite-ui.js';
 import { isVideoInWatchLater, toggleVideoWatchLater } from './watch-later-store.js';
 import {
-  bindCommentLikeActions,
-  mountCommentRichText,
+  bindCommentSection,
+  createCommentReplyStore,
+  mountAllCommentRichText,
   renderCommentsHtml,
 } from './comment-ui.js';
 
@@ -45,6 +46,8 @@ let activePartIndex = 0;
 let activeTab = 'intro';
 let liked = false;
 let likeCount = 0;
+let disliked = false;
+let dislikeCount = 0;
 let following = false;
 let authorFans = 0;
 let authorTotalLikes = 0;
@@ -59,6 +62,25 @@ let relatedItems = [];
 
 /** @type {import('./video-api.js').CommunityComment[]} */
 let commentItems = [];
+
+const commentReplyStore = createCommentReplyStore();
+
+const COMMENT_BODY_PREFIX = 'watch-comment-body';
+const COMMENT_REPLY_PREFIX = 'watch-comment-reply';
+
+function refreshCommentsUi() {
+  const list = document.getElementById('watch-comments-list');
+  if (!list) return;
+  list.innerHTML = renderCommentsHtml(commentItems, {
+    bodyIdPrefix: COMMENT_BODY_PREFIX,
+    replyBodyIdPrefix: COMMENT_REPLY_PREFIX,
+    replyStore: commentReplyStore,
+  });
+  mountAllCommentRichText(commentItems, commentReplyStore, {
+    bodyIdPrefix: COMMENT_BODY_PREFIX,
+    replyBodyIdPrefix: COMMENT_REPLY_PREFIX,
+  });
+}
 
 /**
  * @param {number} n
@@ -172,6 +194,10 @@ function renderIntroToolbar() {
       <button type="button" class="watch-interact-bar__item ${liked ? 'is-active' : ''}" id="watch-like-btn">
         <span class="watch-interact-bar__icon">${materialIcon('thumb_up')}</span>
         <span class="watch-interact-bar__label">${formatCount(likeCount)}</span>
+      </button>
+      <button type="button" class="watch-interact-bar__item ${disliked ? 'is-active' : ''}" id="watch-dislike-btn">
+        <span class="watch-interact-bar__icon">${materialIcon('thumb_down')}</span>
+        <span class="watch-interact-bar__label">${formatCount(dislikeCount)}</span>
       </button>
       <button type="button" class="watch-interact-bar__item watch-interact-bar__item--disabled" id="watch-coin-btn" disabled title="暂未开放">
         <span class="watch-interact-bar__icon">${materialIcon('paid')}</span>
@@ -314,7 +340,7 @@ function renderSidePanel() {
           <textarea class="watch-comment-input" id="watch-comment-input" rows="3" placeholder="发一条友善的评论"></textarea>
           <button type="submit" class="btn-accent watch-comment-submit">发布</button>
         </form>
-        <div class="watch-comments" id="watch-comments-list">${renderCommentsHtml(commentItems, { bodyIdPrefix: 'watch-comment-body' })}</div>
+        <div class="watch-comments" id="watch-comments-list">${renderCommentsHtml(commentItems, { bodyIdPrefix: COMMENT_BODY_PREFIX, replyBodyIdPrefix: COMMENT_REPLY_PREFIX, replyStore: commentReplyStore })}</div>
       </div>
     </div>`;
 
@@ -328,7 +354,10 @@ function hydrateRichMarkdown() {
   if (descEl && detail?.rawDescription) {
     mountRichContent(descEl, detail.rawDescription);
   }
-  mountCommentRichText(commentItems, 'watch-comment-body');
+  mountAllCommentRichText(commentItems, commentReplyStore, {
+    bodyIdPrefix: COMMENT_BODY_PREFIX,
+    replyBodyIdPrefix: COMMENT_REPLY_PREFIX,
+  });
 }
 
 function updateSeriesActiveState(index) {
@@ -347,6 +376,23 @@ function updateSeriesActiveState(index) {
   const titleEl = document.querySelector('.watch-series__title');
   if (titleEl && currentParts.length > 0) {
     titleEl.textContent = `分P列表 (${index + 1}/${currentParts.length})`;
+  }
+}
+
+async function toggleVideoReaction(dislike) {
+  if (!currentDetail || !requireLogin()) return;
+  try {
+    const active = dislike ? disliked : liked;
+    const action = active ? 'cancel' : dislike ? 'dislike' : 'like';
+    await setResourceReaction(Number(currentDetail.preview.id), action, 1);
+    const status = await fetchReactionStatus(Number(currentDetail.preview.id), 1);
+    liked = status.liked;
+    disliked = status.disliked;
+    likeCount = status.likes;
+    dislikeCount = status.dislikes;
+    renderSidePanel();
+  } catch (err) {
+    alert(err instanceof Error ? err.message : '操作失败');
   }
 }
 
@@ -388,17 +434,12 @@ function bindSidePanelEvents() {
     });
   });
 
-  document.getElementById('watch-like-btn')?.addEventListener('click', async () => {
-    if (!currentDetail || !requireLogin()) return;
-    try {
-      const next = !liked;
-      await setResourceLike(Number(currentDetail.preview.id), next, 1);
-      liked = next;
-      likeCount += next ? 1 : -1;
-      renderSidePanel();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : '操作失败');
-    }
+  document.getElementById('watch-like-btn')?.addEventListener('click', () => {
+    void toggleVideoReaction(false);
+  });
+
+  document.getElementById('watch-dislike-btn')?.addEventListener('click', () => {
+    void toggleVideoReaction(true);
   });
 
   document.querySelectorAll('[data-author-profile]').forEach((btn) => {
@@ -474,6 +515,7 @@ function bindSidePanelEvents() {
       await createComment(currentDetail.commentAreaId, text);
       if (input) input.value = '';
       commentItems = await fetchCommentList(currentDetail.commentAreaId, 1);
+      commentReplyStore.clear();
       if (currentDetail.preview) {
         currentDetail.preview.comments = Math.max(
           currentDetail.preview.comments,
@@ -508,6 +550,9 @@ export async function openVideoDetail(preview) {
   descExpanded = false;
   favorited = false;
   favoriteListId = null;
+  disliked = false;
+  dislikeCount = 0;
+  commentReplyStore.clear();
   const userId = resolveMineUserId(null);
   watchLater = userId != null && isVideoInWatchLater(userId, preview.id);
   authorFans = 0;
@@ -543,9 +588,11 @@ export async function openVideoDetail(preview) {
     }
 
     const session = loadSession();
-    const likePromise = fetchLikeStatus(Number(detail.preview.id), 1).catch(() => ({
+    const likePromise = fetchReactionStatus(Number(detail.preview.id), 1).catch(() => ({
       liked: false,
+      disliked: false,
       likes: detail.likes,
+      dislikes: 0,
     }));
     const followPromise =
       detail.authorId && session?.token
@@ -571,7 +618,9 @@ export async function openVideoDetail(preview) {
       favoritePromise,
     ]);
     liked = likeStatus.liked;
+    disliked = likeStatus.disliked;
     likeCount = likeStatus.likes || detail.likes;
+    dislikeCount = likeStatus.dislikes;
     following = followStatus;
     favorited = favoriteStatus.favorited;
     favoriteListId = favoriteStatus.listId;
@@ -607,11 +656,15 @@ export function closeVideoDetail() {
 }
 
 export function bindVideoDetail() {
-  bindCommentLikeActions(document.getElementById('watch-page-root'), {
+  bindCommentSection(document.getElementById('watch-page-root'), {
     getComments: () => commentItems,
     setComments: (comments) => {
       commentItems = comments;
     },
+    replyStore: commentReplyStore,
+    bodyIdPrefix: COMMENT_BODY_PREFIX,
+    replyBodyIdPrefix: COMMENT_REPLY_PREFIX,
+    onRefresh: refreshCommentsUi,
   });
 
   document.getElementById('watch-back-btn')?.addEventListener('click', closeVideoDetail);

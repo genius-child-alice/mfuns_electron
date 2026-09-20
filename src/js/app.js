@@ -232,6 +232,7 @@ function renderShell() {
           <p class="feed-detail__loading" id="feed-detail-loading" hidden>${materialIcon('progress_activity', 'feed-page__spin')}加载中…</p>
           <p class="feed-detail__error" id="feed-detail-error" hidden role="alert"></p>
           <div class="feed-detail__post" id="feed-detail-post"></div>
+          <div class="feed-detail__interact watch-interact-bar" id="feed-detail-interact" hidden></div>
           <nav class="feed-detail__tabs" aria-label="动态互动">
             <button type="button" class="feed-detail__tab" data-feed-detail-tab="repost">转发</button>
             <button type="button" class="feed-detail__tab is-active" data-feed-detail-tab="comment">评论</button>
@@ -271,6 +272,25 @@ function renderShell() {
             <span>新建收藏夹</span>
           </button>
         </footer>
+      </div>
+    </dialog>
+
+    <dialog class="comment-reply-dialog app-no-drag" id="comment-reply-dialog" aria-labelledby="comment-reply-title">
+      <div class="comment-reply-dialog__card">
+        <header class="comment-reply-dialog__head">
+          <div class="comment-reply-dialog__head-main">
+            <h2 class="comment-reply-dialog__title" id="comment-reply-title">回复评论</h2>
+            <p class="comment-reply-dialog__hint" id="comment-reply-hint">友善交流，理性发言</p>
+          </div>
+          <button type="button" class="comment-reply-dialog__close" id="comment-reply-close" aria-label="关闭">${materialIcon('close')}</button>
+        </header>
+        <form class="comment-reply-dialog__form" id="comment-reply-form">
+          <textarea class="comment-reply-dialog__input" id="comment-reply-input" rows="4" maxlength="1000" placeholder="写下你的回复…" required></textarea>
+          <div class="comment-reply-dialog__actions">
+            <button type="button" class="comment-reply-dialog__cancel" id="comment-reply-cancel">取消</button>
+            <button type="submit" class="btn-accent comment-reply-dialog__submit" id="comment-reply-submit">发布</button>
+          </div>
+        </form>
       </div>
     </dialog>
 

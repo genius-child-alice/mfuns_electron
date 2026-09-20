@@ -35,6 +35,8 @@ import {
  *   rawContent: string,
  *   likes: number,
  *   liked: boolean,
+ *   dislikes: number,
+ *   disliked: boolean,
  *   replyCount: number,
  *   createdAt: string | null,
  * }} CommunityComment */
@@ -257,7 +259,9 @@ function parseComment(raw) {
   if (id == null || id === 0) return null;
   const user =
     asMap(json.user).id != null ? asMap(json.user) : asMap(json.user_info);
-  const like = asMap(asMap(json.like_status).like);
+  const likeStatus = asMap(json.like_status);
+  const like = asMap(likeStatus.like);
+  const dislike = asMap(likeStatus.dislike);
   const rawContent = `${json.content ?? ''}`;
   const authorId = asInt(user.id ?? user.user_id ?? json.user_id);
   return {
@@ -270,6 +274,8 @@ function parseComment(raw) {
     rawContent,
     likes: asInt(like.count ?? json.like_count) ?? 0,
     liked: like.is_active === true || like.is_active === 1,
+    dislikes: asInt(dislike.count ?? json.dislike_count) ?? 0,
+    disliked: dislike.is_active === true || dislike.is_active === 1,
     replyCount: asInt(json.reply_count) ?? 0,
     createdAt: typeof json.created_at === 'string' ? json.created_at : null,
   };
@@ -304,12 +310,26 @@ export async function fetchVideoPlayParts(videoId) {
 /**
  * @param {number} areaId
  * @param {number} [page]
+ * @param {string} [order]
  */
 export async function fetchCommentList(areaId, page = 1, order = 'desc') {
   const data = await apiGet('/v1/comment/list', {
     area_id: areaId,
     page,
     order,
+    html: 0,
+  });
+  return parseCommentList(data);
+}
+
+/**
+ * @param {number} commentId
+ * @param {number} [page]
+ */
+export async function fetchCommentReplies(commentId, page = 1) {
+  const data = await apiGet('/v1/comment/reply_list', {
+    comment_id: commentId,
+    page,
     html: 0,
   });
   return parseCommentList(data);
@@ -329,17 +349,51 @@ export async function fetchRelatedVideos(preview) {
 }
 
 /**
+ * @param {unknown} data
+ */
+export function parseReactionStatus(data) {
+  const status = asMap(asMap(data).status ?? data);
+  const like = asMap(status.like);
+  const dislike = asMap(status.dislike);
+  return {
+    liked: like.is_active === true || like.is_active === 1,
+    disliked: dislike.is_active === true || dislike.is_active === 1,
+    likes: asInt(like.count) ?? 0,
+    dislikes: asInt(dislike.count) ?? 0,
+  };
+}
+
+/**
+ * @param {number} resourceId
+ * @param {number} [resourceType]
+ */
+export async function fetchReactionStatus(resourceId, resourceType = 1) {
+  const data = await apiGet('/v1/like/status', { id: resourceId, type: resourceType });
+  return parseReactionStatus(data);
+}
+
+/**
  * @param {number} resourceId
  * @param {number} [resourceType]
  */
 export async function fetchLikeStatus(resourceId, resourceType = 1) {
-  const data = await apiGet('/v1/like/status', { id: resourceId, type: resourceType });
-  const status = asMap(data).status ?? data;
-  const like = asMap(asMap(status).like);
+  const reaction = await fetchReactionStatus(resourceId, resourceType);
   return {
-    liked: like.is_active === true || like.is_active === 1,
-    likes: asInt(like.count) ?? 0,
+    liked: reaction.liked,
+    likes: reaction.likes,
   };
+}
+
+/**
+ * @param {number} resourceId
+ * @param {'like' | 'dislike' | 'cancel'} action
+ * @param {number} [resourceType]
+ */
+export async function setResourceReaction(resourceId, action, resourceType = 1) {
+  await apiPostJson(`/v1/like/${action}`, {
+    id: resourceId,
+    type: resourceType,
+  });
 }
 
 /**
@@ -348,10 +402,53 @@ export async function fetchLikeStatus(resourceId, resourceType = 1) {
  * @param {number} [resourceType]
  */
 export async function setResourceLike(resourceId, like, resourceType = 1) {
-  await apiPostJson(like ? '/v1/like/like' : '/v1/like/cancel', {
-    id: resourceId,
-    type: resourceType,
+  await setResourceReaction(resourceId, like ? 'like' : 'cancel', resourceType);
+}
+
+/**
+ * @param {number} commentId
+ * @param {'like' | 'dislike' | 'cancel'} action
+ */
+export async function setCommentReaction(commentId, action) {
+  await setResourceReaction(commentId, action, 4);
+}
+
+/**
+ * @param {string} text
+ */
+function commentQuillJson(text) {
+  return JSON.stringify([{ insert: `${text}\n` }]);
+}
+
+/**
+ * @param {number} commentId
+ * @param {string} text
+ * @param {{ userId?: number | null, name?: string | null }} [mention]
+ */
+export async function createCommentReply(commentId, text, mention) {
+  let payload = text.trim();
+  if (!payload) {
+    throw new Error('请填写回复内容');
+  }
+  if (mention?.name) {
+    const userId = mention.userId ?? '';
+    payload = `[@${userId}:${mention.name}] ${payload}`;
+  }
+  await apiPostJson('/v1/comment/create_reply', {
+    comment_id: commentId,
+    content: commentQuillJson(payload),
+    images: '[]',
   });
+}
+
+/**
+ * @param {number} commentId
+ */
+export async function deleteComment(commentId) {
+  if (!Number.isFinite(commentId) || commentId <= 0) {
+    throw new Error('无效的评论');
+  }
+  await apiPostJson('/v1/comment/delete', { comment_id: commentId });
 }
 
 /**
@@ -379,10 +476,13 @@ export async function setFollow(userId, follow) {
  * @param {string} text
  */
 export async function createComment(areaId, text) {
-  const content = JSON.stringify([{ insert: `${text.trim()}\n` }]);
+  const trimmed = text.trim();
+  if (!trimmed) {
+    throw new Error('请填写评论内容');
+  }
   await apiPostJson('/v1/comment/create', {
     area_id: areaId,
-    content,
+    content: commentQuillJson(trimmed),
     images: '[]',
     html: 1,
   });

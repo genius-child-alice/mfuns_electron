@@ -2,12 +2,40 @@ import { materialIcon } from './icons.js';
 import { mediaSrcForCover } from './content-api.js';
 import { mountRichContent } from './rich-content.js';
 import { requireLogin } from './login-ui.js';
-import { setResourceLike } from './video-api.js';
+import { resolveMineUserId } from './favorite-api.js';
+import {
+  createCommentReply,
+  deleteComment,
+  fetchCommentReplies,
+  fetchReactionStatus,
+  setCommentReaction,
+} from './video-api.js';
 
 /** @typedef {import('./video-api.js').CommunityComment} CommunityComment */
 
-/** 评论点赞资源类型 */
-export const COMMENT_LIKE_RESOURCE_TYPE = 4;
+/** @typedef {{
+ *   items: CommunityComment[],
+ *   page: number,
+ *   hasMore: boolean,
+ *   expanded: boolean,
+ *   loading: boolean,
+ *   loadingMore: boolean,
+ *   error: string | null,
+ *   replyDelta: number,
+ * }} CommentReplyThread */
+
+/** @typedef {{
+ *   get: (commentId: number) => CommentReplyThread | undefined,
+ *   ensure: (commentId: number) => CommentReplyThread,
+ *   entries: () => IterableIterator<[number, CommentReplyThread]>,
+ *   clear: () => void,
+ *   replyTotal: (comment: CommunityComment, commentId: number) => number,
+ * }} CommentReplyStore */
+
+/** @type {{ rootCommentId: number, mentionUserId: number | null, mentionName: string | null, onSuccess: (() => void) | null } | null} */
+let replyDialogContext = null;
+
+let replyDialogBound = false;
 
 /**
  * @param {string} text
@@ -30,6 +58,51 @@ function formatCount(n) {
 }
 
 /**
+ * @returns {CommentReplyStore}
+ */
+export function createCommentReplyStore() {
+  /** @type {Map<number, CommentReplyThread>} */
+  const threads = new Map();
+
+  return {
+    get: (commentId) => threads.get(commentId),
+    ensure(commentId) {
+      if (!threads.has(commentId)) {
+        threads.set(commentId, {
+          items: [],
+          page: 0,
+          hasMore: false,
+          expanded: false,
+          loading: false,
+          loadingMore: false,
+          error: null,
+          replyDelta: 0,
+        });
+      }
+      return /** @type {CommentReplyThread} */ (threads.get(commentId));
+    },
+    entries: () => threads.entries(),
+    clear() {
+      threads.clear();
+    },
+    replyTotal(comment, commentId) {
+      const state = threads.get(commentId);
+      const delta = state?.replyDelta ?? 0;
+      return Math.max(0, (comment.replyCount ?? 0) + delta);
+    },
+  };
+}
+
+/**
+ * @param {CommunityComment[]} existing
+ * @param {CommunityComment[]} incoming
+ */
+export function mergeCommentReplyPages(existing, incoming) {
+  const ids = new Set(existing.map((entry) => entry.id));
+  return [...existing, ...incoming.filter((entry) => ids.add(entry.id))];
+}
+
+/**
  * @param {number | null} userId
  * @param {string} innerHtml
  * @param {string} className
@@ -42,74 +115,208 @@ function authorLink(userId, innerHtml, className) {
 /**
  * @param {CommunityComment} item
  */
-function renderCommentLikeButton(item) {
-  const label = item.liked ? '取消赞' : '点赞';
-  return `<button type="button" class="watch-comment__like ${item.liked ? 'is-active' : ''}" data-comment-like="${item.id}" aria-label="${label}" title="${label}">
-    ${materialIcon('thumb_up', 'watch-comment__like-icon')}
-    <span class="watch-comment__like-count">${formatCount(item.likes)}</span>
-  </button>`;
+function renderCommentReactionButtons(item) {
+  const likeLabel = item.liked ? '取消赞' : '点赞';
+  const dislikeLabel = item.disliked ? '取消踩' : '点踩';
+  return `
+    <button type="button" class="watch-comment__like ${item.liked ? 'is-active' : ''}" data-comment-like="${item.id}" aria-label="${likeLabel}" title="${likeLabel}">
+      ${materialIcon('thumb_up', 'watch-comment__like-icon')}
+      <span class="watch-comment__like-count">${formatCount(item.likes)}</span>
+    </button>
+    <button type="button" class="watch-comment__dislike ${item.disliked ? 'is-active' : ''}" data-comment-dislike="${item.id}" aria-label="${dislikeLabel}" title="${dislikeLabel}">
+      ${materialIcon('thumb_down', 'watch-comment__dislike-icon')}
+      <span class="watch-comment__dislike-count">${formatCount(item.dislikes)}</span>
+    </button>`;
+}
+
+/**
+ * @param {CommunityComment} item
+ * @param {{ bodyIdPrefix: string, compact?: boolean, replyActionHtml?: string, currentUserId?: number | null, rootCommentId?: number }} options
+ */
+function renderCommentRow(item, options) {
+  const compact = options.compact === true;
+  const avatarSizeClass = compact ? ' watch-comment__avatar--sm' : '';
+  const avatarSrc = mediaSrcForCover(item.avatar);
+  const avatarInner = avatarSrc
+    ? `<img class="watch-comment__avatar${avatarSizeClass}" src="${escapeHtml(avatarSrc)}" alt="" />`
+    : `<span class="watch-comment__avatar watch-comment__avatar--ph${avatarSizeClass}"></span>`;
+  const avatar = authorLink(item.authorId, avatarInner, 'watch-comment__avatar-btn');
+  const author = item.authorId
+    ? authorLink(item.authorId, escapeHtml(item.authorName), 'watch-comment__author')
+    : `<p class="watch-comment__author">${escapeHtml(item.authorName)}</p>`;
+  const extraMeta = options.replyActionHtml ?? '';
+  const rootCommentId = options.rootCommentId ?? item.id;
+  const deleteBtn =
+    options.currentUserId != null &&
+    item.authorId != null &&
+    item.authorId === options.currentUserId
+      ? `<button type="button" class="watch-comment__delete" data-comment-delete="${item.id}" data-comment-delete-root="${rootCommentId}" aria-label="删除" title="删除">${materialIcon('delete_outline')}</button>`
+      : '';
+
+  return `
+    <article class="watch-comment ${compact ? 'watch-comment--reply' : ''}" data-comment-id="${item.id}">
+      ${avatar}
+      <div class="watch-comment__body">
+        ${author}
+        <div class="watch-comment__text markdown-body" id="${options.bodyIdPrefix}-${item.id}"></div>
+        <div class="watch-comment__meta">
+          ${renderCommentReactionButtons(item)}
+          ${extraMeta}
+          ${deleteBtn}
+        </div>
+      </div>
+    </article>`;
+}
+
+/**
+ * @param {CommunityComment} comment
+ * @param {CommentReplyThread} thread
+ * @param {number} rootCommentId
+ * @param {number} rootCommentId
+ * @param {{ replyBodyIdPrefix: string, currentUserId?: number | null }} options
+ */
+function renderReplyThreadHtml(comment, thread, rootCommentId, options) {
+  if (!thread.expanded) return '';
+
+  const total = Math.max(comment.replyCount + thread.replyDelta, thread.items.length);
+  let body = '';
+
+  if (thread.loading) {
+    body = `<p class="watch-comment-replies__hint">${materialIcon('progress_activity', 'watch-comment-replies__spin')}加载回复中…</p>`;
+  } else if (thread.items.length === 0 && !thread.error) {
+    body = '<p class="watch-comment-replies__hint">暂无回复</p>';
+  } else {
+    body = thread.items
+      .map((reply) => {
+        const replyBtn = reply.authorId
+          ? `<button type="button" class="watch-comment__reply-btn" data-comment-reply-to="${reply.id}" data-comment-reply-root="${rootCommentId}" data-comment-reply-name="${escapeHtml(reply.authorName)}" data-comment-reply-user="${reply.authorId}">回复</button>`
+          : '';
+        return renderCommentRow(reply, {
+          bodyIdPrefix: options.replyBodyIdPrefix,
+          compact: true,
+          currentUserId: options.currentUserId,
+          rootCommentId,
+          replyActionHtml: replyBtn,
+        });
+      })
+      .join('');
+  }
+
+  if (thread.error) {
+    body += `<p class="watch-comment-replies__error">${escapeHtml(thread.error)} <button type="button" class="watch-comment-replies__retry" data-comment-replies-retry="${rootCommentId}">重试</button></p>`;
+  }
+
+  if (thread.loadingMore) {
+    body += `<p class="watch-comment-replies__hint">${materialIcon('progress_activity', 'watch-comment-replies__spin')}加载更多…</p>`;
+  } else if (thread.hasMore && thread.items.length > 0) {
+    body += `<button type="button" class="watch-comment-replies__more" data-comment-replies-more="${rootCommentId}">
+      ${materialIcon('expand_more', 'watch-comment-replies__more-icon')}
+      <span>加载更多回复（已显示 ${thread.items.length}/${total}）</span>
+    </button>`;
+  }
+
+  return `<div class="watch-comment-replies" data-comment-replies="${rootCommentId}">${body}</div>`;
 }
 
 /**
  * @param {CommunityComment[]} comments
- * @param {{ bodyIdPrefix: string }} options
+ * @param {{
+ *   bodyIdPrefix: string,
+ *   replyBodyIdPrefix: string,
+ *   replyStore: CommentReplyStore,
+ *   currentUserId?: number | null,
+ * }} options
  */
 export function renderCommentsHtml(comments, options) {
   if (comments.length === 0) {
     return '<p class="watch-comments__empty">还没有评论，来抢沙发吧~</p>';
   }
-  const bodyIdPrefix = options.bodyIdPrefix;
+
+  const currentUserId = options.currentUserId ?? resolveMineUserId(null);
+
   return comments
     .map((item) => {
-      const avatarSrc = mediaSrcForCover(item.avatar);
-      const avatarInner = avatarSrc
-        ? `<img class="watch-comment__avatar" src="${escapeHtml(avatarSrc)}" alt="" />`
-        : `<span class="watch-comment__avatar watch-comment__avatar--ph"></span>`;
-      const avatar = authorLink(item.authorId, avatarInner, 'watch-comment__avatar-btn');
-      const author = item.authorId
-        ? authorLink(item.authorId, escapeHtml(item.authorName), 'watch-comment__author')
-        : `<p class="watch-comment__author">${escapeHtml(item.authorName)}</p>`;
+      const thread = options.replyStore.ensure(item.id);
+      const replyTotal = options.replyStore.replyTotal(item, item.id);
+      const toggleLabel = thread.expanded ? '收起回复' : `${formatCount(replyTotal)} 条回复`;
+      const threadHtml = thread.expanded
+        ? renderReplyThreadHtml(item, thread, item.id, {
+            replyBodyIdPrefix: options.replyBodyIdPrefix,
+            currentUserId,
+          })
+        : '';
+
       return `
-        <article class="watch-comment" data-comment-id="${item.id}">
-          ${avatar}
-          <div class="watch-comment__body">
-            ${author}
-            <div class="watch-comment__text markdown-body" id="${bodyIdPrefix}-${item.id}"></div>
-            <div class="watch-comment__meta">
-              ${renderCommentLikeButton(item)}
-              ${
-                item.replyCount > 0
-                  ? `<span class="watch-comment__replies">${formatCount(item.replyCount)} 回复</span>`
-                  : ''
-              }
-            </div>
+        <div class="watch-comment-thread" data-comment-thread="${item.id}">
+          ${renderCommentRow(item, { bodyIdPrefix: options.bodyIdPrefix, currentUserId, rootCommentId: item.id })}
+          <div class="watch-comment-thread__actions">
+            ${
+              replyTotal > 0 || thread.expanded
+                ? `<button type="button" class="watch-comment__reply-toggle" data-comment-replies-toggle="${item.id}">${toggleLabel}</button>`
+                : ''
+            }
+            <button type="button" class="watch-comment__reply-btn" data-comment-reply="${item.id}">回复</button>
           </div>
-        </article>`;
+          ${threadHtml}
+        </div>`;
     })
     .join('');
 }
 
 /**
  * @param {CommunityComment[]} comments
- * @param {string} bodyIdPrefix
+ * @param {CommentReplyStore} replyStore
+ * @param {{ bodyIdPrefix: string, replyBodyIdPrefix: string }} options
  */
-export function mountCommentRichText(comments, bodyIdPrefix) {
+export function mountAllCommentRichText(comments, replyStore, options) {
   comments.forEach((item) => {
-    const el = document.getElementById(`${bodyIdPrefix}-${item.id}`);
+    const el = document.getElementById(`${options.bodyIdPrefix}-${item.id}`);
     if (el && item.rawContent) mountRichContent(el, item.rawContent);
+    const thread = replyStore.get(item.id);
+    thread?.items.forEach((reply) => {
+      const replyEl = document.getElementById(`${options.replyBodyIdPrefix}-${reply.id}`);
+      if (replyEl && reply.rawContent) mountRichContent(replyEl, reply.rawContent);
+    });
   });
 }
 
 /**
- * @param {HTMLButtonElement} btn
+ * @param {CommunityComment[]} comments
+ * @param {CommentReplyStore} replyStore
+ * @param {number} commentId
+ */
+function findCommentEntry(comments, replyStore, commentId) {
+  const root = comments.find((entry) => entry.id === commentId);
+  if (root) return { item: root, list: comments };
+
+  for (const [, thread] of replyStore.entries()) {
+    const reply = thread.items.find((entry) => entry.id === commentId);
+    if (reply) return { item: reply, list: thread.items };
+  }
+  return null;
+}
+
+/**
+ * @param {HTMLElement} commentEl
  * @param {CommunityComment} item
  */
-function syncCommentLikeButton(btn, item) {
-  btn.classList.toggle('is-active', item.liked);
-  btn.setAttribute('aria-label', item.liked ? '取消赞' : '点赞');
-  btn.setAttribute('title', item.liked ? '取消赞' : '点赞');
-  const countEl = btn.querySelector('.watch-comment__like-count');
-  if (countEl) countEl.textContent = formatCount(item.likes);
+function syncCommentReactionUi(commentEl, item) {
+  const likeBtn = commentEl.querySelector('[data-comment-like]');
+  const dislikeBtn = commentEl.querySelector('[data-comment-dislike]');
+  if (likeBtn instanceof HTMLButtonElement) {
+    likeBtn.classList.toggle('is-active', item.liked);
+    likeBtn.setAttribute('aria-label', item.liked ? '取消赞' : '点赞');
+    likeBtn.setAttribute('title', item.liked ? '取消赞' : '点赞');
+    const countEl = likeBtn.querySelector('.watch-comment__like-count');
+    if (countEl) countEl.textContent = formatCount(item.likes);
+  }
+  if (dislikeBtn instanceof HTMLButtonElement) {
+    dislikeBtn.classList.toggle('is-active', item.disliked);
+    dislikeBtn.setAttribute('aria-label', item.disliked ? '取消踩' : '点踩');
+    dislikeBtn.setAttribute('title', item.disliked ? '取消踩' : '点踩');
+    const countEl = dislikeBtn.querySelector('.watch-comment__dislike-count');
+    if (countEl) countEl.textContent = formatCount(item.dislikes);
+  }
 }
 
 /**
@@ -118,28 +325,212 @@ function syncCommentLikeButton(btn, item) {
  * @param {{
  *   getComments: () => CommunityComment[],
  *   setComments: (comments: CommunityComment[]) => void,
+ *   replyStore: CommentReplyStore,
  * }} options
+ * @param {boolean} dislike
  */
-async function toggleCommentLike(commentId, btn, options) {
+async function toggleCommentReaction(commentId, btn, options, dislike) {
   if (!Number.isFinite(commentId) || commentId <= 0) return;
   if (!requireLogin()) return;
-  const comments = options.getComments();
-  const item = comments.find((entry) => entry.id === commentId);
-  if (!item || btn.disabled) return;
+  const found = findCommentEntry(options.getComments(), options.replyStore, commentId);
+  if (!found || btn.disabled) return;
 
-  const nextLiked = !item.liked;
+  const { item } = found;
+  const active = dislike ? item.disliked : item.liked;
+  const action = active ? 'cancel' : dislike ? 'dislike' : 'like';
+  const commentEl = btn.closest('.watch-comment');
   btn.disabled = true;
+  const sibling = commentEl?.querySelector(
+    dislike ? '[data-comment-like]' : '[data-comment-dislike]',
+  );
+  if (sibling instanceof HTMLButtonElement) sibling.disabled = true;
+
   try {
-    await setResourceLike(commentId, nextLiked, COMMENT_LIKE_RESOURCE_TYPE);
-    item.liked = nextLiked;
-    item.likes = Math.max(0, item.likes + (nextLiked ? 1 : -1));
-    options.setComments(comments);
-    syncCommentLikeButton(btn, item);
+    await setCommentReaction(commentId, action);
+    const status = await fetchReactionStatus(commentId, 4);
+    item.liked = status.liked;
+    item.disliked = status.disliked;
+    item.likes = status.likes;
+    item.dislikes = status.dislikes;
+    if (commentEl instanceof HTMLElement) {
+      syncCommentReactionUi(commentEl, item);
+    }
   } catch (err) {
     alert(err instanceof Error ? err.message : '操作失败');
   } finally {
     btn.disabled = false;
+    if (sibling instanceof HTMLButtonElement) sibling.disabled = false;
   }
+}
+
+/**
+ * @param {number} rootCommentId
+ * @param {CommentReplyStore} replyStore
+ * @param {CommunityComment[]} comments
+ * @param {{ loadMore?: boolean }} opts
+ */
+async function loadCommentReplies(rootCommentId, replyStore, comments, opts = {}) {
+  const comment = comments.find((entry) => entry.id === rootCommentId);
+  if (!comment) return;
+  const thread = replyStore.ensure(rootCommentId);
+  const loadMore = opts.loadMore === true;
+  const page = loadMore ? thread.page + 1 : 1;
+
+  if (loadMore) {
+    thread.loadingMore = true;
+  } else {
+    thread.loading = true;
+    thread.items = [];
+    thread.page = 0;
+    thread.hasMore = false;
+  }
+  thread.error = null;
+
+  try {
+    const incoming = await fetchCommentReplies(rootCommentId, page);
+    const previous = loadMore ? thread.items : [];
+    const merged = mergeCommentReplyPages(previous, incoming);
+    const addedCount = merged.length - previous.length;
+    const total = replyStore.replyTotal(comment, rootCommentId);
+    thread.items = merged;
+    thread.page = page;
+    thread.hasMore = addedCount > 0 && merged.length < total;
+  } catch (err) {
+    thread.error = err instanceof Error ? err.message : '加载失败';
+  } finally {
+    thread.loading = false;
+    thread.loadingMore = false;
+  }
+}
+
+/**
+ * @param {number} commentId
+ * @param {number} rootCommentId
+ * @param {{
+ *   getComments: () => CommunityComment[],
+ *   setComments: (comments: CommunityComment[]) => void,
+ *   replyStore: CommentReplyStore,
+ *   onRefresh: () => void,
+ * }} options
+ */
+async function handleDeleteComment(commentId, rootCommentId, options) {
+  if (!Number.isFinite(commentId) || commentId <= 0) return;
+  if (!requireLogin()) return;
+  if (!confirm('确定删除这条评论？')) return;
+
+  try {
+    await deleteComment(commentId);
+    const comments = options.getComments();
+    if (comments.some((entry) => entry.id === commentId)) {
+      options.setComments(comments.filter((entry) => entry.id !== commentId));
+    } else if (Number.isFinite(rootCommentId)) {
+      const thread = options.replyStore.get(rootCommentId);
+      if (thread) {
+        thread.items = thread.items.filter((entry) => entry.id !== commentId);
+        thread.replyDelta -= 1;
+      }
+    }
+    options.onRefresh();
+  } catch (err) {
+    alert(err instanceof Error ? err.message : '删除失败');
+  }
+}
+
+function getReplyDialog() {
+  return /** @type {HTMLDialogElement | null} */ (document.getElementById('comment-reply-dialog'));
+}
+
+/**
+ * @param {{
+ *   rootCommentId: number,
+ *   mentionUserId?: number | null,
+ *   mentionName?: string | null,
+ *   onSuccess?: () => void,
+ * }} options
+ */
+export function openCommentReplyDialog(options) {
+  if (!requireLogin()) return;
+  replyDialogContext = {
+    rootCommentId: options.rootCommentId,
+    mentionUserId: options.mentionUserId ?? null,
+    mentionName: options.mentionName ?? null,
+    onSuccess: options.onSuccess ?? null,
+  };
+
+  const dialog = getReplyDialog();
+  const input = /** @type {HTMLTextAreaElement | null} */ (
+    document.getElementById('comment-reply-input')
+  );
+  const hint = document.getElementById('comment-reply-hint');
+  const title = document.getElementById('comment-reply-title');
+  if (!dialog || !input) return;
+
+  if (options.mentionName) {
+    title.textContent = `回复 ${options.mentionName}`;
+    hint.textContent = `将回复到该评论下，并 @${options.mentionName}`;
+    input.value = '';
+  } else {
+    title.textContent = '回复评论';
+    hint.textContent = '友善交流，理性发言';
+    input.value = '';
+  }
+
+  dialog.showModal();
+  window.requestAnimationFrame(() => input.focus());
+}
+
+async function submitReplyDialog() {
+  const context = replyDialogContext;
+  const dialog = getReplyDialog();
+  const input = /** @type {HTMLTextAreaElement | null} */ (
+    document.getElementById('comment-reply-input')
+  );
+  const submitBtn = document.getElementById('comment-reply-submit');
+  if (!context || !input) return;
+
+  const text = input.value.trim();
+  if (!text) {
+    alert('请填写回复内容');
+    input.focus();
+    return;
+  }
+
+  if (submitBtn instanceof HTMLButtonElement) submitBtn.disabled = true;
+  try {
+    await createCommentReply(context.rootCommentId, text, {
+      userId: context.mentionUserId,
+      name: context.mentionName,
+    });
+    context.onSuccess?.();
+    replyDialogContext = null;
+    dialog?.close();
+    input.value = '';
+  } catch (err) {
+    alert(err instanceof Error ? err.message : '回复失败');
+  } finally {
+    if (submitBtn instanceof HTMLButtonElement) submitBtn.disabled = false;
+  }
+}
+
+export function bindCommentReplyDialog() {
+  if (replyDialogBound) return;
+  replyDialogBound = true;
+
+  const dialog = getReplyDialog();
+  document.getElementById('comment-reply-close')?.addEventListener('click', () => dialog?.close());
+  document.getElementById('comment-reply-cancel')?.addEventListener('click', () => dialog?.close());
+  dialog?.addEventListener('click', (event) => {
+    if (event.target === dialog) dialog.close();
+  });
+  dialog?.addEventListener('close', () => {
+    replyDialogContext = null;
+    const submitBtn = document.getElementById('comment-reply-submit');
+    if (submitBtn instanceof HTMLButtonElement) submitBtn.disabled = false;
+  });
+  document.getElementById('comment-reply-form')?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    void submitReplyDialog();
+  });
 }
 
 /**
@@ -147,17 +538,150 @@ async function toggleCommentLike(commentId, btn, options) {
  * @param {{
  *   getComments: () => CommunityComment[],
  *   setComments: (comments: CommunityComment[]) => void,
+ *   replyStore: CommentReplyStore,
+ *   bodyIdPrefix: string,
+ *   replyBodyIdPrefix: string,
+ *   onRefresh: () => void,
  * }} options
  */
-export function bindCommentLikeActions(root, options) {
-  if (!root || root.dataset.commentLikeBound === '1') return;
-  root.dataset.commentLikeBound = '1';
+export function bindCommentSection(root, options) {
+  if (!root || root.dataset.commentSectionBound === '1') return;
+  root.dataset.commentSectionBound = '1';
+
+  bindCommentReplyDialog();
+
   root.addEventListener('click', (event) => {
     const target = /** @type {HTMLElement} */ (event.target);
-    const btn = target.closest('[data-comment-like]');
-    if (!(btn instanceof HTMLButtonElement)) return;
-    event.preventDefault();
-    const commentId = Number(btn.getAttribute('data-comment-like'));
-    void toggleCommentLike(commentId, btn, options);
+
+    const likeBtn = target.closest('[data-comment-like]');
+    if (likeBtn instanceof HTMLButtonElement) {
+      event.preventDefault();
+      const commentId = Number(likeBtn.getAttribute('data-comment-like'));
+      void toggleCommentReaction(commentId, likeBtn, options, false);
+      return;
+    }
+
+    const dislikeBtn = target.closest('[data-comment-dislike]');
+    if (dislikeBtn instanceof HTMLButtonElement) {
+      event.preventDefault();
+      const commentId = Number(dislikeBtn.getAttribute('data-comment-dislike'));
+      void toggleCommentReaction(commentId, dislikeBtn, options, true);
+      return;
+    }
+
+    const replyRootBtn = target.closest('[data-comment-reply]');
+    if (replyRootBtn instanceof HTMLButtonElement) {
+      const rootCommentId = Number(replyRootBtn.getAttribute('data-comment-reply'));
+      if (!Number.isFinite(rootCommentId)) return;
+      openCommentReplyDialog({
+        rootCommentId,
+        onSuccess: () => {
+          const thread = options.replyStore.ensure(rootCommentId);
+          thread.replyDelta += 1;
+          if (thread.expanded) {
+            void loadCommentReplies(rootCommentId, options.replyStore, options.getComments()).then(
+              () => options.onRefresh(),
+            );
+          } else {
+            options.onRefresh();
+          }
+        },
+      });
+      return;
+    }
+
+    const replyToBtn = target.closest('[data-comment-reply-to]');
+    if (replyToBtn instanceof HTMLButtonElement) {
+      const rootCommentId = Number(
+        replyToBtn.getAttribute('data-comment-reply-root') ||
+          replyToBtn.closest('[data-comment-thread]')?.getAttribute('data-comment-thread'),
+      );
+      const mentionUserId = Number(replyToBtn.getAttribute('data-comment-reply-user'));
+      const mentionName = replyToBtn.getAttribute('data-comment-reply-name') ?? '';
+      if (!Number.isFinite(rootCommentId)) return;
+      openCommentReplyDialog({
+        rootCommentId,
+        mentionUserId: Number.isFinite(mentionUserId) ? mentionUserId : null,
+        mentionName: mentionName || null,
+        onSuccess: () => {
+          const thread = options.replyStore.ensure(rootCommentId);
+          thread.replyDelta += 1;
+          if (thread.expanded) {
+            void loadCommentReplies(rootCommentId, options.replyStore, options.getComments()).then(
+              () => options.onRefresh(),
+            );
+          } else {
+            options.onRefresh();
+          }
+        },
+      });
+      return;
+    }
+
+    const toggleBtn = target.closest('[data-comment-replies-toggle]');
+    if (toggleBtn instanceof HTMLButtonElement) {
+      const rootCommentId = Number(toggleBtn.getAttribute('data-comment-replies-toggle'));
+      if (!Number.isFinite(rootCommentId)) return;
+      const thread = options.replyStore.ensure(rootCommentId);
+      if (thread.expanded) {
+        thread.expanded = false;
+        options.onRefresh();
+        return;
+      }
+      thread.expanded = true;
+      options.onRefresh();
+      void loadCommentReplies(rootCommentId, options.replyStore, options.getComments()).then(() =>
+        options.onRefresh(),
+      );
+      return;
+    }
+
+    const moreBtn = target.closest('[data-comment-replies-more]');
+    if (moreBtn instanceof HTMLButtonElement) {
+      const rootCommentId = Number(moreBtn.getAttribute('data-comment-replies-more'));
+      if (!Number.isFinite(rootCommentId)) return;
+      void loadCommentReplies(rootCommentId, options.replyStore, options.getComments(), {
+        loadMore: true,
+      }).then(() => options.onRefresh());
+      return;
+    }
+
+    const retryBtn = target.closest('[data-comment-replies-retry]');
+    if (retryBtn instanceof HTMLButtonElement) {
+      const rootCommentId = Number(retryBtn.getAttribute('data-comment-replies-retry'));
+      if (!Number.isFinite(rootCommentId)) return;
+      const thread = options.replyStore.ensure(rootCommentId);
+      void loadCommentReplies(rootCommentId, options.replyStore, options.getComments(), {
+        loadMore: thread.page > 0,
+      }).then(() => options.onRefresh());
+      return;
+    }
+
+    const deleteBtn = target.closest('[data-comment-delete]');
+    if (deleteBtn instanceof HTMLButtonElement) {
+      const commentId = Number(deleteBtn.getAttribute('data-comment-delete'));
+      const rootCommentId = Number(deleteBtn.getAttribute('data-comment-delete-root'));
+      void handleDeleteComment(commentId, rootCommentId, options);
+    }
+  });
+}
+
+/** @deprecated 使用 bindCommentSection */
+export function bindCommentLikeActions(root, options) {
+  bindCommentSection(root, {
+    getComments: options.getComments,
+    setComments: options.setComments,
+    replyStore: createCommentReplyStore(),
+    bodyIdPrefix: 'watch-comment-body',
+    replyBodyIdPrefix: 'watch-comment-reply',
+    onRefresh: () => {},
+  });
+}
+
+/** @deprecated 使用 mountAllCommentRichText */
+export function mountCommentRichText(comments, bodyIdPrefix) {
+  comments.forEach((item) => {
+    const el = document.getElementById(`${bodyIdPrefix}-${item.id}`);
+    if (el && item.rawContent) mountRichContent(el, item.rawContent);
   });
 }
