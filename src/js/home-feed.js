@@ -1,5 +1,5 @@
 import { materialIcon } from './icons.js';
-import { fetchHotList, fetchRecommendList } from './content-api.js';
+import { fetchHotList, fetchRecommendList, mediaSrcForCover } from './content-api.js';
 
 /** @typedef {'recommend' | 'hot' | 'article' | 'video'} HomeTabId */
 
@@ -64,8 +64,9 @@ function escapeHtml(text) {
  */
 function renderVideoCard(item) {
   const hue = Number.parseInt(item.id, 10) % 360 || 200;
-  const cover = item.cover
-    ? `<img class="video-card__cover-img" src="${escapeHtml(item.cover)}" alt="" loading="lazy" />`
+  const coverSrc = mediaSrcForCover(item.cover);
+  const cover = coverSrc
+    ? `<img class="video-card__cover-img" src="${escapeHtml(coverSrc)}" alt="" loading="lazy" decoding="async" />`
     : `<div class="video-card__cover" style="--ph: ${hue}"></div>`;
   const dateLabel = formatDateLabel(item.createdAt);
 

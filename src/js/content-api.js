@@ -65,14 +65,48 @@ function mergeResourceInfo(raw) {
 }
 
 /**
+ * 与 Flutter `home_repository.dart` 中 `_coverUrl` 一致：相对路径走 CDN，避免误请求 api 域名。
  * @param {unknown} value
+ * @returns {string | null}
+ */
+export function resolveCoverUrl(value) {
+  const cover = `${value ?? ''}`.trim();
+  if (!cover) return null;
+  if (cover.startsWith('//')) return `https:${cover}`;
+  if (cover.startsWith('/')) return `https://cdn2.mfuns.net${cover}`;
+  if (cover.startsWith('static/')) return `https://cdn2.mfuns.net/${cover}`;
+  if (cover.startsWith('https://resource.mfuns.net/')) {
+    return cover.replace('https://resource.mfuns.net', 'https://cdn2.mfuns.net');
+  }
+  if (/^https?:\/\/api\.mfuns\.net\//i.test(cover)) {
+    return cover.replace(/^https?:\/\/api\.mfuns\.net/i, 'https://cdn2.mfuns.net');
+  }
+  return cover;
+}
+
+/**
+ * Electron 内用主进程代拉 CDN（带 Referer），避免 file:// 页面直连被防盗链拦截。
+ * @param {string | null} resolvedHttpsUrl
+ * @returns {string | null}
+ */
+export function mediaSrcForCover(resolvedHttpsUrl) {
+  if (!resolvedHttpsUrl) return null;
+  if (typeof window !== 'undefined' && window.electronAPI) {
+    return `mfuns-media://load/?u=${encodeURIComponent(resolvedHttpsUrl)}`;
+  }
+  return resolvedHttpsUrl;
+}
+
+/**
+ * @param {unknown} value
+ * @returns {string | null}
  */
 function pickCoverUrl(value) {
-  if (typeof value === 'string' && value.length > 0) return value;
+  if (typeof value === 'string' && value.length > 0) return resolveCoverUrl(value);
   if (value && typeof value === 'object') {
     const obj = /** @type {Record<string, unknown>} */ (value);
     const url = obj.url ?? obj.src ?? obj.cover;
-    if (typeof url === 'string' && url.length > 0) return url;
+    if (typeof url === 'string' && url.length > 0) return resolveCoverUrl(url);
   }
   return null;
 }
@@ -119,10 +153,15 @@ export function parseContentPreview(raw) {
     (typeof item.summary === 'string' && item.summary.trim().slice(0, 40)) ||
     '未命名内容';
 
+  const resource =
+    item.resource && typeof item.resource === 'object'
+      ? /** @type {Record<string, unknown>} */ (item.resource)
+      : null;
+
   return {
     id: String(id),
     title,
-    cover: pickCoverUrl(item.cover),
+    cover: pickCoverUrl(item.cover ?? item.cover_url ?? resource?.cover),
     author,
     type: parseContentType(raw),
     views: Number(item.view_count ?? item.views ?? 0) || 0,
