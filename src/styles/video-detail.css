@@ -279,9 +279,6 @@ html[data-theme='dark'] .watch-side-scroll::-webkit-scrollbar-thumb {
 
 .watch-desc {
   margin-bottom: 14px;
-  padding: 12px;
-  border-radius: var(--radius-md);
-  background: var(--bg-subtle);
 }
 
 .watch-desc__text {
@@ -473,11 +470,7 @@ html[data-theme='dark'] .watch-side-scroll::-webkit-scrollbar-thumb {
 }
 
 .watch-comment__text {
-  margin: 0 0 6px;
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--text-primary);
-  word-break: break-word;
+  margin-bottom: 6px;
 }
 
 .watch-comment__meta {

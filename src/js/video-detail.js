@@ -1,5 +1,6 @@
 import { materialIcon } from './icons.js';
 import { mediaPlaybackSrc, mediaSrcForCover } from './content-api.js';
+import { mountRichContent } from './rich-content.js';
 import { loadSession } from './auth.js';
 import { getCurrentPage, setPage } from './pages.js';
 import { requireLogin } from './login-ui.js';
@@ -126,7 +127,7 @@ function renderComments(comments) {
           ${avatar}
           <div class="watch-comment__body">
             <p class="watch-comment__author">${escapeHtml(item.authorName)}</p>
-            <p class="watch-comment__text">${escapeHtml(item.content)}</p>
+            <div class="watch-comment__text markdown-body" id="watch-comment-body-${item.id}"></div>
             <div class="watch-comment__meta">
               <span>${formatCount(item.likes)} 赞</span>
               ${item.replyCount > 0 ? `<span>${formatCount(item.replyCount)} 回复</span>` : ''}
@@ -216,8 +217,8 @@ function renderSidePanel() {
           </button>
         </div>
         ${
-          detail.description
-            ? `<div class="watch-desc"><p class="watch-desc__text">${escapeHtml(detail.description)}</p></div>`
+          detail.rawDescription
+            ? `<div class="watch-desc markdown-body" id="watch-desc-rich"></div>`
             : ''
         }
         ${
@@ -241,6 +242,19 @@ function renderSidePanel() {
     </div>`;
 
   bindSidePanelEvents();
+  hydrateRichMarkdown();
+}
+
+function hydrateRichMarkdown() {
+  const detail = currentDetail;
+  const descEl = document.getElementById('watch-desc-rich');
+  if (descEl && detail?.rawDescription) {
+    mountRichContent(descEl, detail.rawDescription);
+  }
+  commentItems.forEach((item) => {
+    const el = document.getElementById(`watch-comment-body-${item.id}`);
+    if (el && item.rawContent) mountRichContent(el, item.rawContent);
+  });
 }
 
 function bindSidePanelEvents() {

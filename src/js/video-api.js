@@ -15,6 +15,7 @@ import {
 /** @typedef {{
  *   preview: ContentPreview,
  *   description: string,
+ *   rawDescription: string,
  *   tags: string[],
  *   commentAreaId: number | null,
  *   authorId: number | null,
@@ -27,6 +28,7 @@ import {
  *   authorName: string,
  *   avatar: string | null,
  *   content: string,
+ *   rawContent: string,
  *   likes: number,
  *   liked: boolean,
  *   replyCount: number,
@@ -124,13 +126,16 @@ function parseVideoDetail(seed, data) {
   const avatarRaw = user.avatar ?? user.face;
   const likes = asInt(like.count) ?? asInt(resource.like_count ?? root.like_count) ?? 0;
 
+  const rawDescription = `${resource.content ?? resource.summary ?? root.content ?? ''}`;
+
   return {
     preview: {
       ...preview,
       comments: detailCommentCount(root, resource),
       views: asInt(root.view_count ?? resource.view_count) ?? preview.views,
     },
-    description: commentPlainText(resource.content ?? resource.summary ?? root.content ?? ''),
+    description: commentPlainText(rawDescription),
+    rawDescription,
     tags: [
       ...parseTags(root.tags),
       ...parseTags(resource.tags ?? resource.tag),
@@ -193,12 +198,14 @@ function parseComment(raw) {
   const user =
     asMap(json.user).id != null ? asMap(json.user) : asMap(json.user_info);
   const like = asMap(asMap(json.like_status).like);
+  const rawContent = `${json.content ?? ''}`;
   return {
     id,
     authorName:
       `${user.name ?? user.username ?? user.nickname ?? json.user_name ?? json.nickname ?? '用户'}`.trim(),
     avatar: resolveCoverUrl(user.avatar ?? user.face ?? json.avatar),
-    content: commentPlainText(json.content),
+    content: commentPlainText(rawContent),
+    rawContent,
     likes: asInt(like.count ?? json.like_count) ?? 0,
     liked: like.is_active === true || like.is_active === 1,
     replyCount: asInt(json.reply_count) ?? 0,

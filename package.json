@@ -14,5 +14,9 @@
     "electron": "^44.4.3",
     "electronmon": "^2.0.4",
     "material-symbols": "^0.47.4"
+  },
+  "dependencies": {
+    "dompurify": "^3.4.15",
+    "marked": "^18.0.13"
   }
 }
