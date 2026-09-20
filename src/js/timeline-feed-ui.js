@@ -14,6 +14,7 @@ import { requireLogin } from './login-ui.js';
  *   domIdPrefix?: string,
  *   profileFallback?: { name?: string, avatar?: string | null } | null,
  *   spaceOwnerId?: number | null,
+ *   hideCardActions?: boolean,
  * }} TimelineFeedContext
  */
 
@@ -209,11 +210,15 @@ export function renderFeedCard(item, ctx = {}) {
         ${images ? `<div class="${imagesClass}">${images}</div>` : ''}
         ${resourceHtml}
       </div>
-      <footer class="user-space__feed-card__actions">
+      ${
+        ctx.hideCardActions
+          ? ''
+          : `<footer class="user-space__feed-card__actions">
         <button type="button" class="user-space__feed-card__action">${materialIcon('forward', 'user-space__feed-card__action-icon')}<span>${formatFeedCount(item.reposts)}</span></button>
         <button type="button" class="user-space__feed-card__action">${materialIcon('chat_bubble', 'user-space__feed-card__action-icon')}<span>${formatFeedCount(item.comments)}</span></button>
         <button type="button" class="user-space__feed-card__action">${materialIcon('thumb_up', 'user-space__feed-card__action-icon')}<span>${formatFeedCount(item.likes)}</span></button>
-      </footer>
+      </footer>`
+      }
     </article>`;
 }
 

@@ -170,6 +170,7 @@ function renderDetailContent(detail) {
     domIdPrefix: FEED_DETAIL_DOM,
     profileFallback: null,
     spaceOwnerId: null,
+    hideCardActions: true,
   });
   hydrateFeedCards([detail.feed], FEED_DETAIL_DOM, { clampBody: false });
 
