@@ -1,106 +1,283 @@
 .login-panel {
+  position: fixed;
+  inset: 0;
+  margin: 0;
+  padding: 24px;
   border: none;
-  padding: 0;
-  border-radius: var(--radius-lg);
+  width: 100vw;
+  max-width: none;
+  height: 100vh;
+  max-height: none;
   background: transparent;
-  max-width: calc(100vw - 32px);
+  overflow: auto;
+}
+
+.login-panel[open] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .login-panel::backdrop {
-  background: rgba(0, 0, 0, 0.42);
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(2px);
 }
 
-.login-panel__inner {
-  width: min(400px, 92vw);
+.login-panel__card {
+  position: relative;
+  flex-shrink: 0;
+  width: min(440px, 100%);
   margin: 0;
-  padding: 0;
-  border: 1px solid var(--border-subtle);
+  padding: 36px 40px 28px;
   border-radius: var(--radius-lg);
   background: var(--bg-elevated);
   color: var(--text-primary);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.18);
-}
-
-.login-panel__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 18px;
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.login-panel__head h2 {
-  margin: 0;
-  font-size: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.22);
 }
 
 .login-panel__close {
-  width: 32px;
-  height: 32px;
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 2;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
   border-radius: var(--radius-sm);
-  font-size: 20px;
+  font-size: 22px;
   line-height: 1;
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
 }
 
 .login-panel__close:hover {
   background: var(--bg-hover);
+  color: var(--text-primary);
 }
 
-.login-panel__body {
-  padding: 16px 18px 20px;
-  display: grid;
-  gap: 14px;
+.login-panel__layout {
+  display: block;
+}
+
+.login-panel__form {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding-top: 4px;
+}
+
+.login-panel__tabs {
+  display: flex;
+  gap: 28px;
+  margin-bottom: 24px;
+}
+
+.login-panel__tab {
+  position: relative;
+  padding: 0 0 8px;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  transition: color 160ms ease;
+}
+
+.login-panel__tab:hover {
+  color: var(--text-secondary);
+}
+
+.login-panel__tab.is-active {
+  color: var(--accent);
+}
+
+.login-panel__tab.is-active::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.login-panel__pane[hidden] {
+  display: none;
+}
+
+.login-panel__fields {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--bg-base);
+}
+
+.login-panel__field-row {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.login-panel__field-row:last-child {
+  border-bottom: none;
+}
+
+.login-panel__field-row input {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  border: none;
+  padding: 0 14px;
+  background: transparent;
+  color: var(--text-primary);
+  outline: none;
+  font-size: 14px;
+}
+
+.login-panel__field-row input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.login-panel__prefix {
+  flex-shrink: 0;
+  padding: 0 14px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  border-right: 1px solid var(--border-subtle);
+  height: 44px;
+  display: flex;
+  align-items: center;
+}
+
+.login-panel__code-btn {
+  flex-shrink: 0;
+  height: 44px;
+  padding: 0 14px;
+  font-size: 13px;
+  color: var(--accent);
+  white-space: nowrap;
+  border-left: 1px solid var(--border-subtle);
+}
+
+.login-panel__code-btn:disabled {
+  color: var(--text-tertiary);
+  cursor: not-allowed;
 }
 
 .login-panel__error {
-  margin: 0;
+  margin: 12px 0 0;
+  min-height: 18px;
   font-size: 13px;
   color: #e81123;
 }
 
-.login-panel__error[hidden] {
+.login-panel__error:empty {
   display: none;
 }
 
-.login-panel__logged {
-  margin: 0;
-  font-size: 14px;
-  color: var(--text-secondary);
-}
-
-.field input[type='text'],
-.field input[type='password'] {
-  height: 36px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border-subtle);
-  background: var(--bg-base);
-  color: var(--text-primary);
-  padding: 0 10px;
-}
-
-.btn-primary {
-  height: 36px;
-  padding: 0 16px;
-  border-radius: var(--radius-sm);
+.login-panel__submit {
+  margin-top: 20px;
+  width: 100%;
+  height: 44px;
   border: none;
+  border-radius: var(--radius-md);
   background: var(--accent);
   color: #fff;
+  font-size: 16px;
   font-weight: 600;
+  transition: filter 160ms ease;
 }
 
-.btn-primary:hover {
+.login-panel__submit:hover {
   filter: brightness(1.05);
 }
 
-.btn-primary:disabled {
+.login-panel__submit:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-.login-panel__actions {
+.login-panel__legal {
+  margin: 16px 0 0;
+  font-size: 12px;
+  line-height: 1.7;
+  text-align: center;
+  color: var(--text-tertiary);
+}
+
+.login-panel__legal a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.login-panel__legal a:hover {
+  text-decoration: underline;
+}
+
+.login-panel__decor {
+  pointer-events: none;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 72px;
+  overflow: hidden;
+}
+
+.login-panel__mascot {
+  position: absolute;
+  bottom: -8px;
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  opacity: 0.18;
+}
+
+.login-panel__mascot--left {
+  left: 24px;
+  transform: rotate(-8deg);
+}
+
+.login-panel__mascot--right {
+  right: 24px;
+  transform: rotate(8deg) scaleX(-1);
+}
+
+.login-panel__logged {
+  padding: 48px 24px 56px;
+  text-align: center;
+}
+
+.login-panel__logged-title {
+  margin: 0 0 8px;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.login-panel__logged-sub {
+  margin: 0 0 28px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.login-panel__logged-actions {
   display: flex;
-  gap: 10px;
-  justify-content: flex-end;
-  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+}
+
+.btn-secondary {
+  height: 40px;
+  padding: 0 20px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.btn-secondary:hover {
+  background: var(--bg-hover);
 }

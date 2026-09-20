@@ -10,6 +10,8 @@ import {
   clearSession,
   loadSession,
   loginWithPassword,
+  loginWithSms,
+  sendLoginCode,
   userAvatarUrl,
   userDisplayName,
 } from './auth.js';
@@ -157,31 +159,63 @@ function renderShell() {
       </div>
     </div>
 
-    <dialog class="login-panel" id="login-panel" aria-labelledby="login-title">
-      <form method="dialog" class="login-panel__inner" id="login-form">
-        <header class="login-panel__head">
-          <h2 id="login-title">登录 MFuns</h2>
-          <button type="button" class="login-panel__close" id="login-panel-close" aria-label="关闭">${materialIcon('close')}</button>
-        </header>
-        <div class="login-panel__body">
-          <p class="login-panel__logged" id="login-logged-hint" hidden></p>
-          <div id="login-fields">
-            <label class="field">
-              <span>账号</span>
-              <input type="text" id="login-account" name="account" autocomplete="username" />
-            </label>
-            <label class="field">
-              <span>密码</span>
-              <input type="password" id="login-password" name="password" autocomplete="current-password" />
-            </label>
-            <p class="login-panel__error" id="login-error" hidden></p>
-            <div class="login-panel__actions">
-              <button type="button" class="btn-secondary" id="btn-logout" hidden>退出登录</button>
-              <button type="button" class="btn-primary" id="btn-login-submit">登录</button>
-            </div>
+    <dialog class="login-panel app-no-drag" id="login-panel" aria-labelledby="login-title">
+      <div class="login-panel__card">
+        <button type="button" class="login-panel__close" id="login-panel-close" aria-label="关闭">${materialIcon('close')}</button>
+
+        <div class="login-panel__logged" id="login-logged-view" hidden>
+          <h2 class="login-panel__logged-title" id="login-title">已登录</h2>
+          <p class="login-panel__logged-sub" id="login-logged-hint"></p>
+          <div class="login-panel__logged-actions">
+            <button type="button" class="btn-secondary" id="btn-logout">退出登录</button>
           </div>
         </div>
-      </form>
+
+        <div class="login-panel__layout" id="login-guest-view">
+          <section class="login-panel__form" aria-label="账号登录">
+            <nav class="login-panel__tabs" aria-label="登录方式">
+              <button type="button" class="login-panel__tab is-active" data-login-tab="password">密码登录</button>
+              <button type="button" class="login-panel__tab" data-login-tab="sms">短信登录</button>
+            </nav>
+
+            <div class="login-panel__pane" id="login-tab-password" data-login-pane="password">
+              <div class="login-panel__fields">
+                <div class="login-panel__field-row">
+                  <input type="text" id="login-account" autocomplete="username" placeholder="请输入账号" />
+                </div>
+                <div class="login-panel__field-row">
+                  <input type="password" id="login-password" autocomplete="current-password" placeholder="请输入密码" />
+                </div>
+              </div>
+            </div>
+
+            <div class="login-panel__pane" id="login-tab-sms" data-login-pane="sms" hidden>
+              <div class="login-panel__fields">
+                <div class="login-panel__field-row">
+                  <span class="login-panel__prefix">+86</span>
+                  <input type="tel" id="login-phone" autocomplete="tel" placeholder="请输入手机号" />
+                  <button type="button" class="login-panel__code-btn" id="btn-send-code">获取验证码</button>
+                </div>
+                <div class="login-panel__field-row">
+                  <input type="text" id="login-sms-code" inputmode="numeric" autocomplete="one-time-code" placeholder="请输入验证码" />
+                </div>
+              </div>
+            </div>
+
+            <p class="login-panel__error" id="login-error" role="alert"></p>
+            <button type="button" class="login-panel__submit" id="btn-login-submit">登录</button>
+            <p class="login-panel__legal">
+              未注册过 MFuns 的手机号，我们将自动帮你注册账号<br />
+              登录或完成注册即代表你同意 <a href="#">用户协议</a> 和 <a href="#">隐私政策</a>
+            </p>
+          </section>
+        </div>
+
+        <div class="login-panel__decor" aria-hidden="true">
+          <img class="login-panel__mascot login-panel__mascot--left" src="assets/mfuns_logo.png" alt="" />
+          <img class="login-panel__mascot login-panel__mascot--right" src="assets/mfuns_logo.png" alt="" />
+        </div>
+      </div>
     </dialog>
 
     <dialog class="settings-panel" id="settings-panel" aria-labelledby="settings-title">
@@ -320,77 +354,160 @@ function syncLoginUi() {
 
 function bindLogin() {
   const dialog = /** @type {HTMLDialogElement | null} */ (document.getElementById('login-panel'));
-  const form = /** @type {HTMLFormElement | null} */ (document.getElementById('login-form'));
+  const guestView = document.getElementById('login-guest-view');
+  const loggedView = document.getElementById('login-logged-view');
   const accountInput = /** @type {HTMLInputElement | null} */ (document.getElementById('login-account'));
   const passwordInput = /** @type {HTMLInputElement | null} */ (document.getElementById('login-password'));
+  const phoneInput = /** @type {HTMLInputElement | null} */ (document.getElementById('login-phone'));
+  const smsCodeInput = /** @type {HTMLInputElement | null} */ (document.getElementById('login-sms-code'));
   const errorEl = document.getElementById('login-error');
-  const submitBtn = document.getElementById('btn-login-submit');
+  const submitBtn = /** @type {HTMLButtonElement | null} */ (document.getElementById('btn-login-submit'));
+  const sendCodeBtn = /** @type {HTMLButtonElement | null} */ (document.getElementById('btn-send-code'));
   const logoutBtn = document.getElementById('btn-logout');
   const loggedHint = document.getElementById('login-logged-hint');
-  const loginFields = document.getElementById('login-fields');
+
+  /** @type {'password' | 'sms'} */
+  let activeTab = 'password';
+  let smsCooldownTimer = /** @type {ReturnType<typeof setInterval> | null} */ (null);
+  let smsCooldownLeft = 0;
+
+  const setError = (message = '') => {
+    if (errorEl) errorEl.textContent = message;
+  };
+
+  const setActiveTab = (tab) => {
+    activeTab = tab;
+    document.querySelectorAll('[data-login-tab]').forEach((el) => {
+      el.classList.toggle('is-active', el.getAttribute('data-login-tab') === tab);
+    });
+    document.querySelectorAll('[data-login-pane]').forEach((el) => {
+      const pane = el.getAttribute('data-login-pane');
+      el.hidden = pane !== tab;
+    });
+    if (submitBtn) {
+      submitBtn.textContent = tab === 'sms' ? '登录 / 注册' : '登录';
+    }
+    setError('');
+  };
+
+  const stopSmsCooldown = () => {
+    if (smsCooldownTimer) clearInterval(smsCooldownTimer);
+    smsCooldownTimer = null;
+    smsCooldownLeft = 0;
+    if (sendCodeBtn) {
+      sendCodeBtn.disabled = false;
+      sendCodeBtn.textContent = '获取验证码';
+    }
+  };
+
+  const startSmsCooldown = (seconds = 60) => {
+    stopSmsCooldown();
+    smsCooldownLeft = seconds;
+    if (!sendCodeBtn) return;
+    sendCodeBtn.disabled = true;
+    sendCodeBtn.textContent = `${smsCooldownLeft}s`;
+    smsCooldownTimer = setInterval(() => {
+      smsCooldownLeft -= 1;
+      if (smsCooldownLeft <= 0) {
+        stopSmsCooldown();
+        return;
+      }
+      if (sendCodeBtn) sendCodeBtn.textContent = `${smsCooldownLeft}s`;
+    }, 1000);
+  };
+
+  const resetGuestForm = () => {
+    setActiveTab('password');
+    setError('');
+    if (passwordInput) passwordInput.value = '';
+    if (phoneInput) phoneInput.value = '';
+    if (smsCodeInput) smsCodeInput.value = '';
+    stopSmsCooldown();
+  };
 
   const openLoginDialog = () => {
     const session = loadSession();
     const loggedIn = Boolean(session?.token);
 
-    if (errorEl) {
-      errorEl.hidden = true;
-      errorEl.textContent = '';
-    }
-
     if (loggedIn) {
+      guestView?.setAttribute('hidden', '');
+      loggedView?.removeAttribute('hidden');
       if (loggedHint) {
-        loggedHint.hidden = false;
         loggedHint.textContent = `当前账号：${userDisplayName(session?.user)}`;
       }
-      if (loginFields) loginFields.hidden = true;
-      logoutBtn?.removeAttribute('hidden');
     } else {
-      if (loggedHint) loggedHint.hidden = true;
-      if (loginFields) loginFields.hidden = false;
-      logoutBtn?.setAttribute('hidden', '');
-      if (passwordInput) passwordInput.value = '';
+      loggedView?.setAttribute('hidden', '');
+      guestView?.removeAttribute('hidden');
+      resetGuestForm();
     }
 
     dialog?.showModal();
-    if (!loggedIn) accountInput?.focus();
+    if (!loggedIn) {
+      (activeTab === 'sms' ? phoneInput : accountInput)?.focus();
+    }
   };
 
   document.getElementById('btn-open-login')?.addEventListener('click', openLoginDialog);
   document.getElementById('login-panel-close')?.addEventListener('click', () => dialog?.close());
 
-  form?.addEventListener('submit', (e) => {
-    e.preventDefault();
-    if (!loadSession()?.token) {
-      submitBtn?.click();
+  dialog?.addEventListener('close', () => {
+    stopSmsCooldown();
+  });
+
+  dialog?.addEventListener('click', (e) => {
+    if (e.target === dialog) dialog.close();
+  });
+
+  document.querySelectorAll('[data-login-tab]').forEach((tab) => {
+    tab.addEventListener('click', () => {
+      const id = tab.getAttribute('data-login-tab');
+      if (id === 'password' || id === 'sms') {
+        setActiveTab(id);
+        (id === 'sms' ? phoneInput : accountInput)?.focus();
+      }
+    });
+  });
+
+  sendCodeBtn?.addEventListener('click', async () => {
+    if (smsCooldownLeft > 0) return;
+    setError('');
+    sendCodeBtn.disabled = true;
+    try {
+      await sendLoginCode(phoneInput?.value ?? '');
+      startSmsCooldown(60);
+    } catch (err) {
+      sendCodeBtn.disabled = false;
+      setError(err instanceof Error ? err.message : '验证码发送失败');
     }
   });
 
-  submitBtn?.addEventListener('click', async (e) => {
+  submitBtn?.addEventListener('click', async () => {
     if (loadSession()?.token) return;
-    e.preventDefault();
 
-    const account = accountInput?.value ?? '';
-    const password = passwordInput?.value ?? '';
-
-    if (errorEl) {
-      errorEl.hidden = true;
-      errorEl.textContent = '';
-    }
-
+    setError('');
     submitBtn.disabled = true;
     try {
-      await loginWithPassword(account, password);
+      if (activeTab === 'password') {
+        await loginWithPassword(accountInput?.value ?? '', passwordInput?.value ?? '');
+      } else {
+        await loginWithSms(phoneInput?.value ?? '', smsCodeInput?.value ?? '');
+      }
       syncLoginUi();
       dialog?.close();
     } catch (err) {
-      if (errorEl) {
-        errorEl.hidden = false;
-        errorEl.textContent = err instanceof Error ? err.message : '登录失败';
-      }
+      setError(err instanceof Error ? err.message : '登录失败');
     } finally {
       submitBtn.disabled = false;
     }
+  });
+
+  [accountInput, passwordInput, phoneInput, smsCodeInput].forEach((input) => {
+    input?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        submitBtn?.click();
+      }
+    });
   });
 
   logoutBtn?.addEventListener('click', () => {
@@ -399,6 +516,7 @@ function bindLogin() {
     dialog?.close();
   });
 
+  setActiveTab('password');
   syncLoginUi();
 }
 
