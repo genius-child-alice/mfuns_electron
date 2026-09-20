@@ -21,10 +21,18 @@ import {
 
 /** @typedef {{
  *   id: number,
+ *   title: string,
+ *   rawTitle: string,
  *   content: string,
+ *   rawContent: string,
  *   createdAt: string | null,
  *   likes: number,
  *   comments: number,
+ *   reposts: number,
+ *   views: number,
+ *   pinned: boolean,
+ *   authorName: string,
+ *   authorAvatar: string | null,
  *   images: string[],
  *   resource: import('./content-api.js').ContentPreview | null,
  * }} TimelineFeedItem */
@@ -316,19 +324,45 @@ function parseTimelineFeedItem(raw) {
   const source = asMap(json.feed).id != null ? { ...json, ...asMap(json.feed) } : json;
   const extra = asMap(source.extra);
   const resourceRaw = extra.resource ?? source.resource;
-  const resource = resourceRaw ? parseContentPreview(resourceRaw) : null;
+  let resource = resourceRaw ? parseContentPreview(resourceRaw) : null;
+  if (!resource) {
+    const resourceId = source.resource_id ?? extra.resource_id;
+    const resourceType = source.resource_type ?? extra.resource_type;
+    if (resourceId != null && (resourceType === 1 || resourceType === '1' || resourceType === 'video')) {
+      resource = parseContentPreview({
+        resource_id: resourceId,
+        id: resourceId,
+        type: 1,
+        ...asMap(resourceRaw),
+      });
+    }
+  }
+  const rawTitle = `${source.title ?? ''}`.trim();
   const rawContent = `${source.content ?? source.text ?? source.summary ?? ''}`;
   const id = asInt(source.id ?? source.feed_id);
   if (id == null) return null;
+  const user =
+    asMap(source.user).id != null || asMap(source.user).name
+      ? asMap(source.user)
+      : asMap(source.user_info);
+  const like = asMap(asMap(source.like_status).like);
   return {
     id,
+    title: feedPlainText(rawTitle) || rawTitle,
+    rawTitle,
     content: feedPlainText(rawContent) || `${rawContent}`.trim(),
+    rawContent,
     createdAt:
       (typeof source.created_at === 'string' && source.created_at) ||
       (typeof source.time === 'string' && source.time) ||
       null,
-    likes: asInt(source.like_count ?? source.likes) ?? 0,
+    likes: asInt(like.count ?? source.like_count ?? source.likes) ?? 0,
     comments: asInt(source.comment_count ?? source.comments) ?? 0,
+    reposts: asInt(source.forward_count ?? source.repost_count ?? source.forwards) ?? 0,
+    views: asInt(source.view_count ?? source.views) ?? 0,
+    pinned: source.is_top === 1 || source.is_top === true || source.top === 1,
+    authorName: `${user.name ?? user.username ?? user.nickname ?? ''}`.trim() || 'MFuns 用户',
+    authorAvatar: resolveCoverUrl(user.avatar ?? user.face),
     images: parseFeedImages(source.images ?? source.image_list ?? source.pictures ?? extra.images),
     resource,
   };

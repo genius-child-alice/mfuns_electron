@@ -1,6 +1,6 @@
 import { API_BASE, loadSession } from './auth.js';
 
-/** @typedef {{ id: string, title: string, cover: string | null, author: string, type: number, views: number, comments: number, createdAt: string | null }} ContentPreview */
+/** @typedef {{ id: string, title: string, cover: string | null, author: string, authorId: number | null, authorAvatar: string | null, type: number, views: number, comments: number, createdAt: string | null }} ContentPreview */
 
 /**
  * @param {Response} res
@@ -247,6 +247,15 @@ export function parseContentPreview(raw) {
     (typeof item.user_name === 'string' && item.user_name) ||
     'MFuns 用户';
 
+  const authorIdRaw = user?.id ?? user?.user_id ?? item.user_id ?? item.author_id;
+  let authorId = null;
+  if (typeof authorIdRaw === 'number' && Number.isFinite(authorIdRaw)) {
+    authorId = Math.trunc(authorIdRaw);
+  } else {
+    const parsed = Number.parseInt(`${authorIdRaw ?? ''}`, 10);
+    if (Number.isFinite(parsed)) authorId = parsed;
+  }
+
   const title =
     (typeof item.title === 'string' && item.title.trim()) ||
     (typeof item.summary === 'string' && item.summary.trim().slice(0, 40)) ||
@@ -262,6 +271,8 @@ export function parseContentPreview(raw) {
     title,
     cover: pickCoverUrl(item.cover ?? item.cover_url ?? resource?.cover),
     author,
+    authorId,
+    authorAvatar: pickCoverUrl(user?.avatar ?? user?.face ?? item.author_avatar),
     type: parseContentType(raw),
     views: Number(item.view_count ?? item.views ?? 0) || 0,
     comments: Number(item.comment_count ?? item.comments ?? 0) || 0,

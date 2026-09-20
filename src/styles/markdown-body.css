@@ -120,3 +120,38 @@
 .watch-comment__text.markdown-body {
   margin-bottom: 6px;
 }
+
+/* 动态/信息流：标题与正文不用主题色强调 */
+.markdown-body.markdown-body--feed {
+  color: inherit;
+}
+
+.markdown-body.markdown-body--feed a {
+  color: #00aeec;
+  text-decoration: none;
+}
+
+.markdown-body.markdown-body--feed a:hover {
+  text-decoration: underline;
+}
+
+.user-space__feed-card__title.markdown-body--feed {
+  color: var(--text-primary);
+}
+
+.user-space__feed-card__title.markdown-body--feed h1,
+.user-space__feed-card__title.markdown-body--feed h2,
+.user-space__feed-card__title.markdown-body--feed h3,
+.user-space__feed-card__title.markdown-body--feed h4,
+.user-space__feed-card__title.markdown-body--feed strong {
+  color: var(--text-primary);
+}
+
+.user-space__feed-card__text.markdown-body--feed {
+  color: var(--text-primary);
+}
+
+.markdown-body.markdown-body--feed blockquote {
+  border-left-color: var(--border-subtle);
+  background: var(--bg-subtle);
+}
