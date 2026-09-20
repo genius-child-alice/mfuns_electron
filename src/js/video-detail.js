@@ -67,6 +67,17 @@ function escapeHtml(text) {
     .replace(/"/g, '&quot;');
 }
 
+/**
+ * @param {number | null | undefined} userId
+ * @param {string} innerHtml
+ * @param {string} className
+ * @param {string} [title]
+ */
+function authorProfileLink(userId, innerHtml, className, title = '进入空间') {
+  if (userId == null || userId <= 0) return innerHtml;
+  return `<button type="button" class="watch-user-link ${className}" data-author-profile="${userId}" title="${title}">${innerHtml}</button>`;
+}
+
 function getRoot() {
   return document.getElementById('watch-page-root');
 }
@@ -103,14 +114,26 @@ function renderComments(comments) {
   return comments
     .map((item) => {
       const avatarSrc = mediaSrcForCover(item.avatar);
-      const avatar = avatarSrc
+      const avatarInner = avatarSrc
         ? `<img class="watch-comment__avatar" src="${escapeHtml(avatarSrc)}" alt="" />`
         : `<span class="watch-comment__avatar watch-comment__avatar--ph"></span>`;
+      const avatar = authorProfileLink(
+        item.authorId,
+        avatarInner,
+        'watch-comment__avatar-btn',
+      );
+      const author = item.authorId
+        ? authorProfileLink(
+            item.authorId,
+            escapeHtml(item.authorName),
+            'watch-comment__author',
+          )
+        : `<p class="watch-comment__author">${escapeHtml(item.authorName)}</p>`;
       return `
         <article class="watch-comment">
           ${avatar}
           <div class="watch-comment__body">
-            <p class="watch-comment__author">${escapeHtml(item.authorName)}</p>
+            ${author}
             <div class="watch-comment__text markdown-body" id="watch-comment-body-${item.id}"></div>
             <div class="watch-comment__meta">
               <span>${formatCount(item.likes)} 赞</span>
@@ -230,13 +253,21 @@ function renderSidePanel() {
           <div class="watch-author__main">
             ${
               avatarSrc && detail.authorId
-                ? `<button type="button" class="watch-author__avatar-btn" data-author-profile="${detail.authorId}" title="进入空间"><img class="watch-author__avatar" src="${escapeHtml(avatarSrc)}" alt="" /></button>`
+                ? `<button type="button" class="watch-user-link watch-author__avatar-btn" data-author-profile="${detail.authorId}" title="进入空间"><img class="watch-author__avatar" src="${escapeHtml(avatarSrc)}" alt="" /></button>`
                 : avatarSrc
                   ? `<img class="watch-author__avatar" src="${escapeHtml(avatarSrc)}" alt="" />`
                   : '<span class="watch-author__avatar watch-author__avatar--ph"></span>'
             }
             <div class="watch-author__info">
-              <p class="watch-author__name">${escapeHtml(preview.author)}</p>
+              ${
+                detail.authorId
+                  ? authorProfileLink(
+                      detail.authorId,
+                      escapeHtml(preview.author),
+                      'watch-author__name',
+                    )
+                  : `<p class="watch-author__name">${escapeHtml(preview.author)}</p>`
+              }
               <p class="watch-author__meta">${escapeHtml(authorMeta)}</p>
             </div>
           </div>

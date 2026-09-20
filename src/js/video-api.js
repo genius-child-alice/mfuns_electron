@@ -25,6 +25,7 @@ import {
 
 /** @typedef {{
  *   id: number,
+ *   authorId: number | null,
  *   authorName: string,
  *   avatar: string | null,
  *   content: string,
@@ -199,8 +200,10 @@ function parseComment(raw) {
     asMap(json.user).id != null ? asMap(json.user) : asMap(json.user_info);
   const like = asMap(asMap(json.like_status).like);
   const rawContent = `${json.content ?? ''}`;
+  const authorId = asInt(user.id ?? user.user_id ?? json.user_id);
   return {
     id,
+    authorId,
     authorName:
       `${user.name ?? user.username ?? user.nickname ?? json.user_name ?? json.nickname ?? '用户'}`.trim(),
     avatar: resolveCoverUrl(user.avatar ?? user.face ?? json.avatar),
