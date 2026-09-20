@@ -23,6 +23,10 @@
   backdrop-filter: blur(2px);
 }
 
+html[data-theme='dark'] .login-panel::backdrop {
+  background: rgba(0, 0, 0, 0.72);
+}
+
 .login-panel__card {
   position: relative;
   flex-shrink: 0;
@@ -214,35 +218,6 @@
 
 .login-panel__legal a:hover {
   text-decoration: underline;
-}
-
-.login-panel__decor {
-  pointer-events: none;
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 72px;
-  overflow: hidden;
-}
-
-.login-panel__mascot {
-  position: absolute;
-  bottom: -8px;
-  width: 72px;
-  height: 72px;
-  object-fit: contain;
-  opacity: 0.18;
-}
-
-.login-panel__mascot--left {
-  left: 24px;
-  transform: rotate(-8deg);
-}
-
-.login-panel__mascot--right {
-  right: 24px;
-  transform: rotate(8deg) scaleX(-1);
 }
 
 .login-panel__logged {

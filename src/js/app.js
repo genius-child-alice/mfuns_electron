@@ -16,6 +16,19 @@ import {
   userDisplayName,
 } from './auth.js';
 import { bindLegalLinks, LEGAL_URLS } from './legal.js';
+import {
+  bindOpenLoginTriggers,
+  feedPageHtml,
+  homePageHtml,
+  minePageHtml,
+  settingsPageHtml,
+  setPage,
+  syncPagesAuthState,
+} from './pages.js';
+import { registerOpenLoginHandler, requireLogin } from './login-ui.js';
+
+/** @type {() => void} */
+let syncSettingsForm = () => {};
 
 const DEFAULT_AVATAR_SRC = 'assets/mfuns_logo.png';
 
@@ -38,6 +51,11 @@ const SIDEBAR_TOOLS = [
   { id: 'theme', icon: 'dark_mode', label: '外观', idAttr: 'btn-theme-toggle' },
   { id: 'settings', icon: 'settings', label: '设置', idAttr: 'btn-open-settings' },
 ];
+
+function goToSettingsPage() {
+  setPage('settings');
+  syncSettingsForm();
+}
 
 function navIcon(name) {
   return materialIcon(name, 'material-symbols-outlined--nav');
@@ -111,7 +129,8 @@ function renderShell() {
             <button
               type="button"
               class="sidebar__item sidebar__item--icon-only"
-              ${tool.idAttr ? `id="${tool.idAttr}"` : `data-nav="${tool.id}"`}
+              ${tool.idAttr ? `id="${tool.idAttr}"` : ''}
+              data-sidebar-tool="${tool.id}"
               title="${tool.label}"
             >
               ${materialIcon(tool.icon, 'material-symbols-outlined--nav')}
@@ -127,7 +146,7 @@ function renderShell() {
             <a class="topbar__logo-link app-no-drag" href="#" aria-label="MFuns 首页">
               <span class="topbar__logo-mark" aria-hidden="true"></span>
             </a>
-            <nav class="topbar__tabs app-no-drag" aria-label="内容分类">
+            <nav class="topbar__tabs app-no-drag" id="topbar-tabs-home" aria-label="内容分类">
               ${TOP_TABS.map(
                 (tab, index) =>
                   `<button type="button" class="topbar__tab ${index === 0 ? 'is-active' : ''}" data-tab="${tab.id}">${tab.label}</button>`,
@@ -151,8 +170,11 @@ function renderShell() {
           </div>
         </header>
 
-        <main class="content" id="main-content">
-          <div class="content-grid">${placeholderCards()}</div>
+        <main class="content content--home" id="main-content">
+          ${homePageHtml(placeholderCards())}
+          ${feedPageHtml()}
+          ${minePageHtml()}
+          ${settingsPageHtml()}
           <button type="button" class="btn-refresh app-no-drag" aria-label="刷新">
             ${materialIcon('refresh')}
           </button>
@@ -214,55 +236,34 @@ function renderShell() {
             </p>
           </section>
         </div>
-
-        <div class="login-panel__decor" aria-hidden="true">
-          <img class="login-panel__mascot login-panel__mascot--left" src="assets/mfuns_logo.png" alt="" />
-          <img class="login-panel__mascot login-panel__mascot--right" src="assets/mfuns_logo.png" alt="" />
-        </div>
       </div>
     </dialog>
 
-    <dialog class="settings-panel" id="settings-panel" aria-labelledby="settings-title">
-      <form method="dialog" class="settings-panel__inner">
-        <header class="settings-panel__head">
-          <h2 id="settings-title">设置</h2>
-          <button type="submit" class="settings-panel__close" aria-label="关闭">${materialIcon('close')}</button>
-        </header>
-        <section class="settings-section">
-          <h3>外观</h3>
-          <label class="field">
-            <span>主题模式</span>
-            <select id="setting-color-scheme">
-              <option value="light">浅色</option>
-              <option value="dark">深色</option>
-            </select>
-          </label>
-          <label class="field">
-            <span>主题色</span>
-            <div class="field-row">
-              <input type="color" id="setting-accent-picker" />
-              <input type="text" id="setting-accent-text" spellcheck="false" placeholder="rgb(123, 127, 247)" />
-            </div>
-          </label>
-          <button type="button" class="btn-secondary" id="btn-reset-accent">恢复默认主题色</button>
-        </section>
-      </form>
-    </dialog>
   `;
 }
 
 function bindNavigation() {
   document.querySelectorAll('.sidebar__main [data-nav]').forEach((el) => {
     el.addEventListener('click', () => {
-      document
-        .querySelectorAll('.sidebar__main .sidebar__item')
-        .forEach((item) => item.classList.remove('is-active'));
-      el.classList.add('is-active');
+      const pageId = el.getAttribute('data-nav');
+      if (pageId === 'home' || pageId === 'feed' || pageId === 'mine') {
+        setPage(pageId);
+      }
     });
   });
 
+  document.querySelectorAll('.mine-tabs__item').forEach((tab) => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.mine-tabs__item').forEach((t) => t.classList.remove('is-active'));
+      tab.classList.add('is-active');
+    });
+  });
+
+  bindOpenLoginTriggers();
+
   document.querySelector('.topbar__logo-link')?.addEventListener('click', (e) => {
     e.preventDefault();
+    setPage('home');
   });
 
   document.querySelectorAll('[data-tab]').forEach((el) => {
@@ -270,6 +271,18 @@ function bindNavigation() {
       document.querySelectorAll('.topbar__tab').forEach((tab) => tab.classList.remove('is-active'));
       el.classList.add('is-active');
     });
+  });
+
+  document.querySelector('[data-sidebar-tool="upload"]')?.addEventListener('click', () => {
+    if (!requireLogin()) return;
+  });
+
+  document.querySelector('[data-sidebar-tool="message"]')?.addEventListener('click', () => {
+    if (!requireLogin()) return;
+  });
+
+  document.getElementById('btn-open-settings')?.addEventListener('click', () => {
+    goToSettingsPage();
   });
 }
 
@@ -280,12 +293,11 @@ function parseRgbText(text) {
 }
 
 function bindSettings() {
-  const dialog = document.getElementById('settings-panel');
   const schemeSelect = document.getElementById('setting-color-scheme');
   const picker = /** @type {HTMLInputElement | null} */ (document.getElementById('setting-accent-picker'));
   const text = /** @type {HTMLInputElement | null} */ (document.getElementById('setting-accent-text'));
 
-  const syncForm = () => {
+  syncSettingsForm = () => {
     const prefs = loadPreferences();
     if (schemeSelect) schemeSelect.value = prefs.colorScheme;
     if (picker) picker.value = accentToHex(prefs.accent);
@@ -295,14 +307,9 @@ function bindSettings() {
     updateThemeToggleIcon(prefs.colorScheme);
   };
 
-  document.getElementById('btn-open-settings')?.addEventListener('click', () => {
-    syncForm();
-    dialog?.showModal();
-  });
-
   schemeSelect?.addEventListener('change', () => {
     savePreferences({ colorScheme: /** @type {'light'|'dark'} */ (schemeSelect.value) });
-    syncForm();
+    syncSettingsForm();
   });
 
   picker?.addEventListener('input', () => {
@@ -311,28 +318,28 @@ function bindSettings() {
     const g = Number.parseInt(picker.value.slice(3, 5), 16);
     const b = Number.parseInt(picker.value.slice(5, 7), 16);
     savePreferences({ accent: { r, g, b } });
-    syncForm();
+    syncSettingsForm();
   });
 
   text?.addEventListener('change', () => {
     const rgb = parseRgbText(text.value);
     if (!rgb) return;
     savePreferences({ accent: rgb });
-    syncForm();
+    syncSettingsForm();
   });
 
   document.getElementById('btn-reset-accent')?.addEventListener('click', () => {
     savePreferences({ accent: { r: 123, g: 127, b: 247 } });
-    syncForm();
+    syncSettingsForm();
   });
 
   document.getElementById('btn-theme-toggle')?.addEventListener('click', () => {
     const prefs = loadPreferences();
     savePreferences({ colorScheme: prefs.colorScheme === 'dark' ? 'light' : 'dark' });
-    syncForm();
+    syncSettingsForm();
   });
 
-  syncForm();
+  syncSettingsForm();
 }
 
 function syncLoginUi() {
@@ -354,6 +361,8 @@ function syncLoginUi() {
     img.src = remote || DEFAULT_AVATAR_SRC;
     img.classList.toggle('sidebar__avatar-img--brand', !remote);
   }
+
+  syncPagesAuthState();
 }
 
 function bindLogin() {
@@ -450,6 +459,8 @@ function bindLogin() {
       (activeTab === 'sms' ? phoneInput : accountInput)?.focus();
     }
   };
+
+  registerOpenLoginHandler(openLoginDialog);
 
   document.getElementById('btn-open-login')?.addEventListener('click', openLoginDialog);
   document.getElementById('login-panel-close')?.addEventListener('click', () => dialog?.close());

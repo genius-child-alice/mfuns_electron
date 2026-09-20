@@ -4,6 +4,10 @@
   box-sizing: border-box;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 html,
 body {
   margin: 0;
@@ -44,43 +48,53 @@ body {
   --radius-lg: 12px;
   /* 顶栏窗口按钮 hover 方块（边长 = 搜索框高度） */
   --window-btn-size: var(--search-height);
+  --feed-aside-width: 220px;
 }
 
+/* 浅色 / 深色背景与文字均为 R=G=B 纯灰；强调色、错误色除外 */
 html[data-theme='light'] {
   --bg-base: #ffffff;
   --bg-content: #ffffff;
   --bg-elevated: #ffffff;
   --bg-sidebar: #ffffff;
+  --bg-pane: #ffffff;
+  --bg-subtle: #f2f2f2;
+  --page-canvas: #f6f6f6;
   --bg-hover: rgba(0, 0, 0, 0.05);
   --border-subtle: rgba(0, 0, 0, 0.06);
-  --text-primary: #18191c;
-  --text-secondary: #61666d;
-  --text-tertiary: #9499a0;
-  --search-bg: #f1f2f3;
-  --card-cover: #e3e5e7;
+  --text-primary: #181818;
+  --text-secondary: #666666;
+  --text-tertiary: #999999;
+  --search-bg: #f2f2f2;
+  --card-cover: #e3e3e3;
   --window-btn-hover: rgba(0, 0, 0, 0.06);
   --window-btn-hover-bg: var(--search-bg);
   --window-close-hover: #e81123;
-  --window-close-fg-hover: #fff;
+  --window-close-fg-hover: #ffffff;
+  --topbar-bg: var(--bg-elevated);
 }
 
 html[data-theme='dark'] {
-  --bg-base: #0f0f10;
-  --bg-content: #141416;
-  --bg-elevated: #18191c;
-  --bg-sidebar: #141416;
+  --bg-pane: #1a1a1a;
+  --bg-content: var(--bg-pane);
+  --page-canvas: var(--bg-pane);
+  --topbar-bg: var(--bg-pane);
+  --bg-base: var(--bg-pane);
+  --bg-sidebar: #1e1e1e;
+  --bg-elevated: #232323;
+  --bg-subtle: #2a2a2a;
   --bg-hover: rgba(255, 255, 255, 0.06);
-  --border-subtle: rgba(255, 255, 255, 0.08);
-  --text-primary: #e3e5e7;
-  --text-secondary: #a7abb0;
-  --text-tertiary: #757a81;
-  --search-bg: #232527;
-  --card-cover: #2f3134;
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --text-primary: #e3e3e3;
+  --text-secondary: #949494;
+  --text-tertiary: #727272;
+  --search-bg: #252525;
+  --card-cover: #2a2a2a;
   --window-btn-hover: rgba(255, 255, 255, 0.08);
-  --window-btn-hover-bg: var(--search-bg);
+  --window-btn-hover-bg: #2a2a2a;
   --window-close-hover: #e81123;
-  --window-close-fg-hover: #fff;
-  --accent-soft: rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.22);
+  --window-close-fg-hover: #ffffff;
+  --accent-soft: rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.28);
 }
 
 button,
