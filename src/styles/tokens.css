@@ -35,8 +35,10 @@ body {
   --logo-height: 38px;
   --logo-width: calc(96px * var(--logo-height) / 28px);
   --logo-margin-x: 42px;
-  /* 顶栏搜索框上下留白；侧栏按钮纵向间距与之对齐 */
+  /* 顶栏搜索框上下留白 */
   --shell-inset-y: calc((var(--topbar-height) - var(--search-height)) / 2);
+  --sidebar-item-gap: calc(var(--shell-inset-y) / 2);
+  --sidebar-bottom-item-gap: calc(var(--sidebar-item-gap) * 0.5);
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 12px;

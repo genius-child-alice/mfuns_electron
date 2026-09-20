@@ -22,13 +22,13 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--shell-inset-y);
+  gap: var(--sidebar-item-gap);
   width: 100%;
   padding: 0 var(--sidebar-inset-x);
 }
 
 .sidebar__bottom {
-  padding-bottom: var(--shell-inset-y);
+  gap: var(--sidebar-bottom-item-gap);
 }
 
 .sidebar__item {
