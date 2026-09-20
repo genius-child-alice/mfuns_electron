@@ -6,6 +6,15 @@ import {
 } from './theme.js';
 import { runSplash } from './splash.js';
 import { materialIcon } from './icons.js';
+import {
+  clearSession,
+  loadSession,
+  loginWithPassword,
+  userAvatarUrl,
+  userDisplayName,
+} from './auth.js';
+
+const DEFAULT_AVATAR_SRC = 'assets/mfuns_logo.png';
 
 const NAV_ITEMS = [
   { id: 'home', label: '首页', icon: 'home' },
@@ -86,6 +95,15 @@ function renderShell() {
           ).join('')}
         </div>
         <div class="sidebar__bottom">
+          <button
+            type="button"
+            class="sidebar__avatar app-no-drag"
+            id="btn-open-login"
+            title="登录"
+            aria-label="登录"
+          >
+            <img class="sidebar__avatar-img" src="${DEFAULT_AVATAR_SRC}" alt="" width="40" height="40" />
+          </button>
           ${SIDEBAR_TOOLS.map(
             (tool) => `
             <button
@@ -114,20 +132,25 @@ function renderShell() {
               ).join('')}
             </nav>
           </div>
-          <div class="topbar__center app-drag">
+          <div class="topbar__actions app-drag">
             <div class="topbar__search app-no-drag">
               <label class="search-field">
+                <input type="search" class="search-input" placeholder="搜索你感兴趣的视频" aria-label="搜索" />
                 ${materialIcon('search', 'material-symbols-outlined--search')}
-                <input type="search" class="search-input" placeholder="搜索视频、文章、用户" aria-label="搜索" />
               </label>
             </div>
-          </div>
-          <div class="topbar__right app-no-drag">
-            <button type="button" class="topbar__user">登录</button>
-            <div class="window-controls">
-              <button type="button" id="btn-minimize" class="window-btn" aria-label="最小化">${materialIcon('minimize', 'material-symbols-outlined--window')}</button>
-              <button type="button" id="btn-maximize" class="window-btn" aria-label="最大化">${materialIcon('crop_square', 'material-symbols-outlined--window')}</button>
-              <button type="button" id="btn-close" class="window-btn window-btn--close" aria-label="关闭">${materialIcon('close', 'material-symbols-outlined--window')}</button>
+            <div class="topbar__chrome app-no-drag" aria-label="窗口控制">
+              <div class="window-controls">
+                <button type="button" id="btn-minimize" class="window-btn window-btn--minimize" aria-label="最小化">
+                  <span class="window-btn__glyph" aria-hidden="true"></span>
+                </button>
+                <button type="button" id="btn-maximize" class="window-btn window-btn--maximize" aria-label="最大化">
+                  <span class="window-btn__glyph" aria-hidden="true"></span>
+                </button>
+                <button type="button" id="btn-close" class="window-btn window-btn--close" aria-label="关闭">
+                  <span class="window-btn__glyph" aria-hidden="true"></span>
+                </button>
+              </div>
             </div>
           </div>
         </header>
@@ -140,6 +163,33 @@ function renderShell() {
         </main>
       </div>
     </div>
+
+    <dialog class="login-panel" id="login-panel" aria-labelledby="login-title">
+      <form method="dialog" class="login-panel__inner" id="login-form">
+        <header class="login-panel__head">
+          <h2 id="login-title">登录 MFuns</h2>
+          <button type="button" class="login-panel__close" id="login-panel-close" aria-label="关闭">${materialIcon('close')}</button>
+        </header>
+        <div class="login-panel__body">
+          <p class="login-panel__logged" id="login-logged-hint" hidden></p>
+          <div id="login-fields">
+            <label class="field">
+              <span>账号</span>
+              <input type="text" id="login-account" name="account" autocomplete="username" />
+            </label>
+            <label class="field">
+              <span>密码</span>
+              <input type="password" id="login-password" name="password" autocomplete="current-password" />
+            </label>
+            <p class="login-panel__error" id="login-error" hidden></p>
+            <div class="login-panel__actions">
+              <button type="button" class="btn-secondary" id="btn-logout" hidden>退出登录</button>
+              <button type="button" class="btn-primary" id="btn-login-submit">登录</button>
+            </div>
+          </div>
+        </div>
+      </form>
+    </dialog>
 
     <dialog class="settings-panel" id="settings-panel" aria-labelledby="settings-title">
       <form method="dialog" class="settings-panel__inner">
@@ -254,6 +304,111 @@ function bindSettings() {
   syncForm();
 }
 
+function syncLoginUi() {
+  const session = loadSession();
+  const avatarBtn = document.getElementById('btn-open-login');
+  const img = /** @type {HTMLImageElement | null} */ (
+    avatarBtn?.querySelector('.sidebar__avatar-img')
+  );
+  const loggedIn = Boolean(session?.token);
+
+  if (avatarBtn) {
+    avatarBtn.classList.toggle('is-logged-in', loggedIn);
+    avatarBtn.title = loggedIn ? userDisplayName(session?.user) : '登录';
+    avatarBtn.setAttribute('aria-label', loggedIn ? userDisplayName(session?.user) : '登录');
+  }
+
+  if (img) {
+    const remote = userAvatarUrl(session?.user);
+    img.src = remote || DEFAULT_AVATAR_SRC;
+    img.classList.toggle('sidebar__avatar-img--brand', !remote);
+  }
+}
+
+function bindLogin() {
+  const dialog = /** @type {HTMLDialogElement | null} */ (document.getElementById('login-panel'));
+  const form = /** @type {HTMLFormElement | null} */ (document.getElementById('login-form'));
+  const accountInput = /** @type {HTMLInputElement | null} */ (document.getElementById('login-account'));
+  const passwordInput = /** @type {HTMLInputElement | null} */ (document.getElementById('login-password'));
+  const errorEl = document.getElementById('login-error');
+  const submitBtn = document.getElementById('btn-login-submit');
+  const logoutBtn = document.getElementById('btn-logout');
+  const loggedHint = document.getElementById('login-logged-hint');
+  const loginFields = document.getElementById('login-fields');
+
+  const openLoginDialog = () => {
+    const session = loadSession();
+    const loggedIn = Boolean(session?.token);
+
+    if (errorEl) {
+      errorEl.hidden = true;
+      errorEl.textContent = '';
+    }
+
+    if (loggedIn) {
+      if (loggedHint) {
+        loggedHint.hidden = false;
+        loggedHint.textContent = `当前账号：${userDisplayName(session?.user)}`;
+      }
+      if (loginFields) loginFields.hidden = true;
+      logoutBtn?.removeAttribute('hidden');
+    } else {
+      if (loggedHint) loggedHint.hidden = true;
+      if (loginFields) loginFields.hidden = false;
+      logoutBtn?.setAttribute('hidden', '');
+      if (passwordInput) passwordInput.value = '';
+    }
+
+    dialog?.showModal();
+    if (!loggedIn) accountInput?.focus();
+  };
+
+  document.getElementById('btn-open-login')?.addEventListener('click', openLoginDialog);
+  document.getElementById('login-panel-close')?.addEventListener('click', () => dialog?.close());
+
+  form?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (!loadSession()?.token) {
+      submitBtn?.click();
+    }
+  });
+
+  submitBtn?.addEventListener('click', async (e) => {
+    if (loadSession()?.token) return;
+    e.preventDefault();
+
+    const account = accountInput?.value ?? '';
+    const password = passwordInput?.value ?? '';
+
+    if (errorEl) {
+      errorEl.hidden = true;
+      errorEl.textContent = '';
+    }
+
+    submitBtn.disabled = true;
+    try {
+      await loginWithPassword(account, password);
+      syncLoginUi();
+      dialog?.close();
+    } catch (err) {
+      if (errorEl) {
+        errorEl.hidden = false;
+        errorEl.textContent = err instanceof Error ? err.message : '登录失败';
+      }
+    } finally {
+      submitBtn.disabled = false;
+    }
+  });
+
+  logoutBtn?.addEventListener('click', () => {
+    clearSession();
+    syncLoginUi();
+    dialog?.close();
+  });
+
+  syncLoginUi();
+}
+
 function updateThemeToggleIcon(scheme) {
   const btn = document.getElementById('btn-theme-toggle');
   if (!btn) return;
@@ -266,5 +421,6 @@ renderShell();
 bindWindowControls();
 bindNavigation();
 bindSettings();
+bindLogin();
 
 runSplash();

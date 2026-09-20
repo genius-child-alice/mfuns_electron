@@ -1,0 +1,106 @@
+.login-panel {
+  border: none;
+  padding: 0;
+  border-radius: var(--radius-lg);
+  background: transparent;
+  max-width: calc(100vw - 32px);
+}
+
+.login-panel::backdrop {
+  background: rgba(0, 0, 0, 0.42);
+}
+
+.login-panel__inner {
+  width: min(400px, 92vw);
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.18);
+}
+
+.login-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.login-panel__head h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.login-panel__close {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  font-size: 20px;
+  line-height: 1;
+  color: var(--text-secondary);
+}
+
+.login-panel__close:hover {
+  background: var(--bg-hover);
+}
+
+.login-panel__body {
+  padding: 16px 18px 20px;
+  display: grid;
+  gap: 14px;
+}
+
+.login-panel__error {
+  margin: 0;
+  font-size: 13px;
+  color: #e81123;
+}
+
+.login-panel__error[hidden] {
+  display: none;
+}
+
+.login-panel__logged {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.field input[type='text'],
+.field input[type='password'] {
+  height: 36px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-base);
+  color: var(--text-primary);
+  padding: 0 10px;
+}
+
+.btn-primary {
+  height: 36px;
+  padding: 0 16px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.btn-primary:hover {
+  filter: brightness(1.05);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.login-panel__actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
