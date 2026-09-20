@@ -50,6 +50,7 @@
     { "method": "GET", "path": "/v1/favorite/is_favorite", "query": ["resource_id", "resource_type"] },
     { "method": "POST", "path": "/v1/favorite/add_favorite", "body": ["list_id", "resource_id", "type"], "auth": true },
     { "method": "POST", "path": "/v1/favorite/remove_favorite_by_resource", "body": ["list_id", "resource_id", "type"], "auth": true },
+    { "method": "POST", "path": "/v1/favorite/create_favorite_list", "body": ["name", "desc"], "auth": true, "note": "Electron client; not in Flutter scan" },
     { "method": "GET", "path": "/v1/history/get", "query": ["start_time"], "auth": true },
     { "method": "GET", "path": "/v1/follow/count", "query": ["user_id"] },
     { "method": "GET", "path": "/v1/follow/status", "query": ["user_id"] },

@@ -262,6 +262,35 @@ function renderShell() {
           <button type="button" class="favorite-picker__close" id="favorite-picker-close" aria-label="关闭">${materialIcon('close')}</button>
         </header>
         <div class="favorite-picker__body" id="favorite-picker-list"></div>
+        <footer class="favorite-picker__footer">
+          <button type="button" class="favorite-picker__create" id="favorite-picker-create">
+            ${materialIcon('add', 'favorite-picker__create-icon')}
+            <span>新建收藏夹</span>
+          </button>
+        </footer>
+      </div>
+    </dialog>
+
+    <dialog class="favorite-folder-create app-no-drag" id="favorite-folder-create-dialog" aria-labelledby="favorite-folder-create-title">
+      <div class="favorite-folder-create__card">
+        <header class="favorite-folder-create__head">
+          <h2 class="favorite-folder-create__title" id="favorite-folder-create-title">新建收藏夹</h2>
+          <button type="button" class="favorite-folder-create__close" id="favorite-folder-create-close" aria-label="关闭">${materialIcon('close')}</button>
+        </header>
+        <form class="favorite-folder-create__form" id="favorite-folder-create-form">
+          <label class="favorite-folder-create__field">
+            <span class="favorite-folder-create__label">名称</span>
+            <input class="favorite-folder-create__input" id="favorite-folder-create-name" name="name" maxlength="50" required placeholder="给收藏夹起个名字" />
+          </label>
+          <label class="favorite-folder-create__field">
+            <span class="favorite-folder-create__label">简介（可选）</span>
+            <textarea class="favorite-folder-create__textarea" id="favorite-folder-create-desc" name="desc" maxlength="200" rows="3" placeholder="简单介绍一下这个收藏夹"></textarea>
+          </label>
+          <div class="favorite-folder-create__actions">
+            <button type="button" class="favorite-folder-create__cancel" id="favorite-folder-create-cancel">取消</button>
+            <button type="submit" class="btn-accent favorite-folder-create__submit">创建</button>
+          </div>
+        </form>
       </div>
     </dialog>
 

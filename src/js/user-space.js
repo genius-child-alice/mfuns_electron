@@ -22,6 +22,7 @@ import {
   fetchFavoriteItemsPage,
   resolveMineUserId,
 } from './favorite-api.js';
+import { favoriteFolderCreateButtonHtml, openCreateFavoriteFolderDialog } from './favorite-ui.js';
 
 const FEED_DOM_PREFIX = 'user-space-feed';
 
@@ -252,11 +253,13 @@ function isSelfSpace() {
  * @param {import('./favorite-api.js').FavoriteFolder[]} folders
  */
 function renderFavoriteFoldersHtml(folders) {
+  const toolbar = `<div class="mine-favorite-folders__toolbar user-space__favorite-toolbar">${favoriteFolderCreateButtonHtml('mine-favorite-folders__create')}</div>`;
   if (folders.length === 0) {
-    return '<p class="user-space__empty">暂无收藏夹</p>';
+    return `${toolbar}<p class="user-space__empty">暂无收藏夹</p>`;
   }
   return `
     <div class="mine-favorite-folders user-space__favorite-folders">
+      ${toolbar}
       ${folders
         .map(
           (folder) => `
@@ -582,6 +585,15 @@ function onBodyClick(event) {
   if (target.closest('#user-space-favorite-back')) {
     resetFavoriteListState();
     void loadFirstPage();
+    return;
+  }
+
+  if (target.closest('[data-create-favorite-folder]') && isSelfSpace() && activeTab === 'favorite') {
+    openCreateFavoriteFolderDialog({
+      onCreated: () => {
+        void loadFirstPage();
+      },
+    });
     return;
   }
 

@@ -240,6 +240,12 @@
 
 - **Body:** `list_id`, `resource_id`, `type`
 
+### `POST /v1/favorite/create_favorite_list`
+
+- **需登录:** 是
+- **Body:** `name`（必填）, `desc`（可选）
+- **说明:** 开源 Flutter 客户端未调用；Electron 客户端用于新建收藏夹。若服务端路径不同，以实际抓包为准。
+
 ### `GET /v1/history/get`
 
 - **Query:** `start_time`（可选，分页游标）

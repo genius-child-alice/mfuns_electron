@@ -184,6 +184,63 @@ export async function removeFavorite(listId, resourceId, resourceType) {
 }
 
 /**
+ * @param {unknown} data
+ * @param {{ name: string, desc: string }} fallback
+ * @returns {FavoriteFolder | null}
+ */
+export function parseCreatedFavoriteFolder(data, fallback) {
+  const root = asMap(data);
+  const nested = asMap(root.data ?? root.list ?? root.folder);
+  const fromPayload =
+    parseFavoriteFolder(root) || parseFavoriteFolder(nested) || parseFavoriteFolder(root.data);
+  if (fromPayload) {
+    if (!fromPayload.name && fallback.name) {
+      return { ...fromPayload, name: fallback.name, desc: fallback.desc || fromPayload.desc };
+    }
+    return fromPayload;
+  }
+  const id = asInt(
+    root.id ?? nested.id ?? root.list_id ?? nested.list_id ?? root.favorite_id ?? nested.favorite_id,
+  );
+  if (id == null || id <= 0) return null;
+  return {
+    id,
+    name: fallback.name || '收藏夹',
+    desc: fallback.desc,
+    count: 0,
+  };
+}
+
+/**
+ * @param {string} name
+ * @param {string} [desc]
+ * @returns {Promise<FavoriteFolder>}
+ */
+export async function createFavoriteFolder(name, desc = '') {
+  const trimmedName = name.trim();
+  const trimmedDesc = desc.trim();
+  if (!trimmedName) {
+    throw new Error('请填写收藏夹名称');
+  }
+  const data = await apiPostJson('/v1/favorite/create_favorite_list', {
+    name: trimmedName,
+    desc: trimmedDesc,
+  });
+  const folder = parseCreatedFavoriteFolder(data, { name: trimmedName, desc: trimmedDesc });
+  if (folder) return folder;
+
+  const userId = resolveMineUserId(null);
+  if (userId != null) {
+    const folders = await fetchFavoriteFolderList(userId);
+    const match =
+      folders.find((entry) => entry.name === trimmedName) ??
+      folders.find((entry) => entry.name.includes(trimmedName));
+    if (match) return match;
+  }
+  throw new Error('创建成功但未返回收藏夹信息，请刷新列表查看');
+}
+
+/**
  * @param {number | null | undefined} userId
  */
 export function resolveMineUserId(userId) {

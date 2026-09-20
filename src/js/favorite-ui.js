@@ -2,6 +2,7 @@ import { materialIcon } from './icons.js';
 import { requireLogin } from './login-ui.js';
 import {
   addFavorite,
+  createFavoriteFolder,
   fetchFavoriteFolderList,
   fetchFavoriteStatus,
   removeFavorite,
@@ -48,11 +49,22 @@ function setPickerLoading(loading) {
 /**
  * @param {FavoriteFolder[]} folders
  */
+/**
+ * @param {string} [extraClass]
+ */
+export function favoriteFolderCreateButtonHtml(extraClass = '') {
+  const cls = ['favorite-folder-create-btn', extraClass].filter(Boolean).join(' ');
+  return `<button type="button" class="${cls}" data-create-favorite-folder>
+    ${materialIcon('add', 'favorite-folder-create-btn__icon')}
+    <span>新建收藏夹</span>
+  </button>`;
+}
+
 function renderPickerList(folders) {
   const list = getListEl();
   if (!list) return;
   if (folders.length === 0) {
-    list.innerHTML = '<p class="favorite-picker__empty">暂无收藏夹</p>';
+    list.innerHTML = '<p class="favorite-picker__empty">暂无收藏夹，可先新建一个</p>';
     return;
   }
   list.innerHTML = folders
@@ -181,10 +193,104 @@ export async function toggleResourceFavorite(options) {
   });
 }
 
+/** @type {((folder: FavoriteFolder) => void) | null} */
+let createFolderOnComplete = null;
+
+function getCreateDialog() {
+  return /** @type {HTMLDialogElement | null} */ (
+    document.getElementById('favorite-folder-create-dialog')
+  );
+}
+
+function setCreateDialogLoading(loading) {
+  getCreateDialog()?.classList.toggle('favorite-folder-create--loading', loading);
+}
+
+/**
+ * @param {{ onCreated?: (folder: FavoriteFolder) => void }} [options]
+ */
+export function openCreateFavoriteFolderDialog(options = {}) {
+  if (!requireLogin()) return;
+  createFolderOnComplete = options.onCreated ?? null;
+  const dialog = getCreateDialog();
+  const form = document.getElementById('favorite-folder-create-form');
+  const nameInput = /** @type {HTMLInputElement | null} */ (
+    document.getElementById('favorite-folder-create-name')
+  );
+  const descInput = /** @type {HTMLTextAreaElement | null} */ (
+    document.getElementById('favorite-folder-create-desc')
+  );
+  if (!dialog || !form || !nameInput) return;
+  form.reset();
+  if (descInput) descInput.value = '';
+  dialog.showModal();
+  window.requestAnimationFrame(() => nameInput.focus());
+}
+
+async function submitCreateFavoriteFolder(event) {
+  event.preventDefault();
+  const nameInput = /** @type {HTMLInputElement | null} */ (
+    document.getElementById('favorite-folder-create-name')
+  );
+  const descInput = /** @type {HTMLTextAreaElement | null} */ (
+    document.getElementById('favorite-folder-create-desc')
+  );
+  if (!nameInput) return;
+  const name = nameInput.value.trim();
+  if (!name) {
+    alert('请填写收藏夹名称');
+    nameInput.focus();
+    return;
+  }
+  setCreateDialogLoading(true);
+  try {
+    const folder = await createFavoriteFolder(name, descInput?.value ?? '');
+    createFolderOnComplete?.(folder);
+    createFolderOnComplete = null;
+    getCreateDialog()?.close();
+  } catch (err) {
+    alert(err instanceof Error ? err.message : '创建失败');
+  } finally {
+    setCreateDialogLoading(false);
+  }
+}
+
 export function bindFavoritePicker() {
   const dialog = getDialog();
   document.getElementById('favorite-picker-close')?.addEventListener('click', () => dialog?.close());
   dialog?.addEventListener('click', (event) => {
     if (event.target === dialog) dialog.close();
   });
+
+  document.getElementById('favorite-picker-create')?.addEventListener('click', () => {
+    openCreateFavoriteFolderDialog({
+      onCreated: (folder) => {
+        void loadPickerFolders().then(() => {
+          if (pickerContext.resourceId && folder.id > 0) {
+            void pickFolder(folder.id);
+          }
+        });
+      },
+    });
+  });
+
+  const createDialog = getCreateDialog();
+  document
+    .getElementById('favorite-folder-create-cancel')
+    ?.addEventListener('click', () => createDialog?.close());
+  document.getElementById('favorite-folder-create-close')?.addEventListener('click', () =>
+    createDialog?.close(),
+  );
+  createDialog?.addEventListener('click', (event) => {
+    if (event.target === createDialog) createDialog.close();
+  });
+  createDialog?.addEventListener('close', () => {
+    createFolderOnComplete = null;
+    setCreateDialogLoading(false);
+  });
+  document
+    .getElementById('favorite-folder-create-form')
+    ?.addEventListener('submit', (event) => {
+      void submitCreateFavoriteFolder(event);
+    });
 }

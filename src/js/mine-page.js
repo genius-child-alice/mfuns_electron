@@ -11,6 +11,7 @@ import {
   fetchFavoriteItemsPage,
   resolveMineUserId,
 } from './favorite-api.js';
+import { favoriteFolderCreateButtonHtml, openCreateFavoriteFolderDialog } from './favorite-ui.js';
 import { renderVideoCard } from './home-feed.js';
 
 /** @typedef {import('./history-api.js').HistoryEntry} HistoryEntry */
@@ -346,15 +347,28 @@ function resetFavoriteState() {
 /**
  * @param {import('./favorite-api.js').FavoriteFolder[]} folders
  */
+function bindFavoriteFolderCreateButton(root) {
+  root.querySelector('[data-create-favorite-folder]')?.addEventListener('click', () => {
+    openCreateFavoriteFolderDialog({
+      onCreated: () => {
+        void loadFavoriteFolders();
+      },
+    });
+  });
+}
+
 function renderFavoriteFoldersView(folders) {
   const root = getRootEl();
   if (!root) return;
+  const toolbar = `<div class="mine-favorite-folders__toolbar">${favoriteFolderCreateButtonHtml('mine-favorite-folders__create')}</div>`;
   if (folders.length === 0) {
-    root.innerHTML = '<p class="mine-history__empty">暂无收藏夹</p>';
+    root.innerHTML = `${toolbar}<p class="mine-history__empty">暂无收藏夹</p>`;
+    bindFavoriteFolderCreateButton(root);
     return;
   }
   root.innerHTML = `
     <div class="mine-favorite-folders">
+      ${toolbar}
       ${folders
         .map(
           (folder) => `
@@ -374,6 +388,8 @@ function renderFavoriteFoldersView(folders) {
         )
         .join('')}
     </div>`;
+
+  bindFavoriteFolderCreateButton(root);
 
   root.querySelectorAll('[data-favorite-folder-id]').forEach((btn) => {
     btn.addEventListener('click', () => {
