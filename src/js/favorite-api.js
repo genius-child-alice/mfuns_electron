@@ -1,4 +1,4 @@
-import { apiGet, apiPostJson, parseContentPreview } from './content-api.js';
+import { apiGet, apiPostForm, apiPostJson, parseContentPreview } from './content-api.js';
 import { loadSession } from './auth.js';
 
 /** @typedef {import('./content-api.js').ContentPreview} ContentPreview */
@@ -60,7 +60,7 @@ function parseFavoriteFolder(raw) {
   const id = asInt(item.id ?? item.list_id ?? item.favorite_id);
   if (id == null || id <= 0) return null;
   const name = `${item.name ?? item.title ?? '收藏夹'}`.trim() || '收藏夹';
-  const desc = `${item.desc ?? item.description ?? ''}`.trim();
+  const desc = `${item.desc ?? item.description ?? item.info ?? ''}`.trim();
   const count = asInt(item.count ?? item.item_count ?? item.total) ?? 0;
   return { id, name, desc, count };
 }
@@ -184,6 +184,62 @@ export async function removeFavorite(listId, resourceId, resourceType) {
 }
 
 /**
+ * @param {string} name
+ * @param {string} desc
+ * @returns {Record<string, string>}
+ */
+function buildFavoriteFolderWriteBody(name, desc) {
+  const trimmedName = name.trim();
+  const trimmedDesc = desc.trim();
+  return {
+    name: trimmedName,
+    desc: trimmedDesc,
+    info: trimmedDesc || trimmedName,
+  };
+}
+
+/**
+ * @param {string} path
+ * @param {Record<string, string>} body
+ */
+async function postFavoriteFolderWrite(path, body) {
+  const { name, desc, info, ...rest } = body;
+  /** @type {Record<string, string>[]} */
+  const variants = [
+    { ...rest, name, desc, info },
+    { ...rest, name, info },
+    { ...rest, name, desc, info: info || name },
+  ];
+
+  let lastError = null;
+  for (const payload of variants) {
+    try {
+      return await apiPostJson(path, payload);
+    } catch (err) {
+      lastError = err;
+      const message = err instanceof Error ? err.message : '';
+      if (!message.includes('信息不能为空')) {
+        throw err;
+      }
+    }
+  }
+
+  for (const payload of variants) {
+    try {
+      return await apiPostForm(path, payload);
+    } catch (err) {
+      lastError = err;
+      const message = err instanceof Error ? err.message : '';
+      if (!message.includes('信息不能为空')) {
+        throw err;
+      }
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error('保存收藏夹失败');
+}
+
+/**
  * @param {unknown} data
  * @param {{ name: string, desc: string }} fallback
  * @returns {FavoriteFolder | null}
@@ -225,11 +281,11 @@ export async function updateFavoriteFolder(listId, name, desc = '') {
   if (!Number.isFinite(listId) || listId <= 0) {
     throw new Error('无效的收藏夹');
   }
-  await apiPostJson('/v1/favorite/update_favorite_list', {
-    list_id: listId,
-    favorite_id: listId,
-    name: trimmedName,
-    desc: trimmedDesc,
+  const folderBody = buildFavoriteFolderWriteBody(trimmedName, trimmedDesc);
+  await postFavoriteFolderWrite('/v1/favorite/update_favorite_list', {
+    ...folderBody,
+    list_id: String(listId),
+    favorite_id: String(listId),
   });
   return { id: listId, name: trimmedName, desc: trimmedDesc, count: 0 };
 }
@@ -315,10 +371,8 @@ export async function createFavoriteFolder(name, desc = '') {
   if (!trimmedName) {
     throw new Error('请填写收藏夹名称');
   }
-  const data = await apiPostJson('/v1/favorite/create_favorite_list', {
-    name: trimmedName,
-    desc: trimmedDesc,
-  });
+  const folderBody = buildFavoriteFolderWriteBody(trimmedName, trimmedDesc);
+  const data = await postFavoriteFolderWrite('/v1/favorite/create_favorite_list', folderBody);
   const folder = parseCreatedFavoriteFolder(data, { name: trimmedName, desc: trimmedDesc });
   if (folder) return folder;
 

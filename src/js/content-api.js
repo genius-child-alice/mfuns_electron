@@ -58,6 +58,32 @@ export async function apiPostJson(path, body = {}) {
 }
 
 /**
+ * @param {string} path
+ * @param {Record<string, string | number | boolean>} fields
+ */
+export async function apiPostForm(path, fields = {}) {
+  /** @type {Record<string, string>} */
+  const headers = {
+    Accept: 'application/json',
+    'Content-Type': 'application/x-www-form-urlencoded',
+  };
+  const token = loadSession()?.token;
+  if (token) headers.Authorization = token;
+
+  const params = new URLSearchParams();
+  Object.entries(fields).forEach(([key, value]) => {
+    params.set(key, String(value));
+  });
+
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'POST',
+    headers,
+    body: params.toString(),
+  });
+  return parseApiJson(res);
+}
+
+/**
  * @param {unknown} data
  * @returns {unknown[]}
  */

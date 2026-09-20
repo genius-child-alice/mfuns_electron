@@ -243,13 +243,13 @@
 ### `POST /v1/favorite/create_favorite_list`
 
 - **需登录:** 是
-- **Body:** `name`（必填）, `desc`（可选）
-- **说明:** 开源 Flutter 客户端未调用；Electron 客户端用于新建收藏夹。若服务端路径不同，以实际抓包为准。
+- **Body:** `name`（必填）, `desc`（可选）, `info`（简介；服务端校验字段，无简介时可与 `name` 相同）
+- **说明:** 开源 Flutter 客户端未调用；Electron 客户端用于新建收藏夹。仅传 `name`/`desc` 时可能返回「信息不能为空」，需带 `info`。
 
 ### `POST /v1/favorite/update_favorite_list`
 
 - **需登录:** 是
-- **Body:** `list_id` / `favorite_id`, `name`, `desc`（可选）
+- **Body:** `list_id` / `favorite_id`, `name`, `desc`（可选）, `info`（同 create）
 - **说明:** Electron 客户端用于编辑收藏夹名称与简介；路径以实际抓包为准。
 
 ### `POST /v1/favorite/delete_favorite_list`
