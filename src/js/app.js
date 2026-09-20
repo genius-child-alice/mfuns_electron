@@ -24,6 +24,7 @@ import {
   minePageHtml,
   settingsPageHtml,
   watchPageHtml,
+  articlePageHtml,
   spacePageHtml,
   setPage,
   syncPagesAuthState,
@@ -33,6 +34,7 @@ import { bindHomeFeed } from './home-feed.js';
 import { bindFeedPage } from './feed-page.js';
 import { bindFeedDetail } from './feed-detail.js';
 import { bindVideoDetail } from './video-detail.js';
+import { bindArticleDetail } from './article-detail.js';
 import { bindUserSpace } from './user-space.js';
 import { bindMinePage, refreshMinePage } from './mine-page.js';
 
@@ -154,6 +156,7 @@ function renderShell() {
           ${minePageHtml()}
           ${settingsPageHtml()}
           ${watchPageHtml()}
+          ${articlePageHtml()}
           ${spacePageHtml()}
           <button type="button" class="btn-refresh app-no-drag" aria-label="刷新">
             ${materialIcon('refresh')}
@@ -563,6 +566,7 @@ bindHomeFeed();
 bindFeedPage();
 bindFeedDetail();
 bindVideoDetail();
+bindArticleDetail();
 bindUserSpace();
 bindMinePage();
 

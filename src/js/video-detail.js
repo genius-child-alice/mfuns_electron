@@ -1,4 +1,4 @@
-import { materialIcon } from './icons.js';
+import { materialIcon, viewCountIcon } from './icons.js';
 import { mediaSrcForCover } from './content-api.js';
 import { destroyWatchPlayer, getWatchPlayer } from './watch-player.js';
 import { mountRichContent } from './rich-content.js';
@@ -298,7 +298,7 @@ function renderSidePanel() {
         </div>
 
         <div class="watch-video-meta">
-          <span>${materialIcon('play_arrow', 'watch-meta-icon')}${formatCount(preview.views)}</span>
+          <span>${viewCountIcon('watch-meta-icon')}${formatCount(preview.views)}</span>
           <span>${materialIcon('subtitles', 'watch-meta-icon')}${formatCount(danmakuCount)}</span>
           ${
             dateLabel

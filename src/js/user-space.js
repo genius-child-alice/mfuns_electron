@@ -1,10 +1,10 @@
-import { materialIcon } from './icons.js';
+import { materialIcon, viewCountIcon } from './icons.js';
 import { loadSession } from './auth.js';
 import { mediaSrcForCover } from './content-api.js';
 import { renderVideoCard } from './home-feed.js';
 import { getCurrentPage, setPage } from './pages.js';
 import { requireLogin } from './login-ui.js';
-import { openVideoDetail } from './video-detail.js';
+import { openContentDetail, previewFromCard } from './content-nav.js';
 import { fetchFollowStatus, setFollow } from './video-api.js';
 import {
   handleTimelineFeedClick,
@@ -195,7 +195,7 @@ function renderArticleRow(item) {
     <article class="user-space__article" data-content-id="${escapeHtml(item.id)}" data-content-type="${item.type}">
       <h3 class="user-space__article-title">${escapeHtml(item.title)}</h3>
       <p class="user-space__article-meta">
-        <span>${materialIcon('thumb_up', 'user-space__meta-icon')}${formatCount(item.views)}</span>
+        <span>${viewCountIcon('user-space__meta-icon')}${formatCount(item.views)}</span>
         <span>${materialIcon('chat_bubble', 'user-space__meta-icon')}${formatCount(item.comments)}</span>
       </p>
     </article>`;
@@ -438,23 +438,19 @@ function onBodyClick(event) {
   }
 
   const target = /** @type {HTMLElement} */ (event.target);
+
+  const articleRow = target.closest('.user-space__article');
+  if (articleRow) {
+    const preview = previewFromCard(articleRow, { author: currentProfile?.name ?? '' });
+    if (preview?.type === 0) void openContentDetail(preview);
+    return;
+  }
+
   const card = target.closest('.video-card');
   if (!card) return;
-  const id = card.getAttribute('data-content-id');
-  const type = Number(card.getAttribute('data-content-type'));
-  if (!id || type !== 1) return;
-  const titleEl = card.querySelector('.video-card__title');
-  const authorEl = card.querySelector('.video-card__sub span');
-  void openVideoDetail({
-    id,
-    title: titleEl?.textContent?.trim() ?? '',
-    cover: null,
-    author: authorEl?.textContent?.trim() ?? currentProfile?.name ?? '',
-    type: 1,
-    views: 0,
-    comments: 0,
-    createdAt: null,
-  });
+  const preview = previewFromCard(card, { author: currentProfile?.name ?? '' });
+  if (!preview || (preview.type !== 0 && preview.type !== 1)) return;
+  void openContentDetail(preview);
 }
 
 export function bindUserSpace() {

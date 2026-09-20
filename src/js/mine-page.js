@@ -4,7 +4,7 @@ import { mediaSrcForCover } from './content-api.js';
 import { fetchHistoryPage } from './history-api.js';
 import { isLoggedIn } from './login-ui.js';
 import { getCurrentPage } from './pages.js';
-import { openVideoDetail } from './video-detail.js';
+import { openContentDetail, previewFromCard } from './content-nav.js';
 import { fetchMineDashboard } from './user-profile-api.js';
 
 /** @typedef {import('./history-api.js').HistoryEntry} HistoryEntry */
@@ -301,21 +301,9 @@ function bindHistoryCardClicks(root) {
     card.addEventListener('click', (event) => {
       const target = /** @type {HTMLElement} */ (event.target);
       if (target.closest('.mine-history-card__more')) return;
-      const id = card.getAttribute('data-content-id');
-      const type = Number(card.getAttribute('data-content-type'));
-      if (!id || type !== 1) return;
-      const titleEl = card.querySelector('.mine-history-card__title');
-      const authorEl = card.querySelector('.mine-history-card__up-name');
-      void openVideoDetail({
-        id,
-        title: titleEl?.textContent?.trim() ?? '',
-        cover: null,
-        author: authorEl?.textContent?.trim() ?? '',
-        type: 1,
-        views: 0,
-        comments: 0,
-        createdAt: null,
-      });
+      const preview = previewFromCard(card);
+      if (!preview || (preview.type !== 0 && preview.type !== 1)) return;
+      void openContentDetail(preview);
     });
   });
 }

@@ -1,4 +1,4 @@
-import { materialIcon } from './icons.js';
+import { materialIcon, viewCountIcon } from './icons.js';
 import {
   fetchCategories,
   fetchHotList,
@@ -6,7 +6,7 @@ import {
   fetchRecommendList,
   mediaSrcForCover,
 } from './content-api.js';
-import { openVideoDetail } from './video-detail.js';
+import { openContentDetail, previewFromCard } from './content-nav.js';
 
 /** @typedef {'recommend' | 'hot' | 'category'} HomeTabId */
 
@@ -81,7 +81,7 @@ export function renderVideoCard(item) {
         ${cover}
         <div class="video-card__stats">
           <div class="video-card__stats-left">
-            <span class="video-card__stat">${materialIcon('play_arrow', 'video-card__stat-icon')}${formatCount(item.views)}</span>
+            <span class="video-card__stat">${viewCountIcon('video-card__stat-icon')}${formatCount(item.views)}</span>
             <span class="video-card__stat">${materialIcon('chat_bubble', 'video-card__stat-icon')}${formatCount(item.comments)}</span>
           </div>
         </div>
@@ -459,23 +459,9 @@ export function bindHomeFeed() {
     const target = /** @type {HTMLElement} */ (event.target);
     const card = target.closest('.video-card');
     if (!card) return;
-    const id = card.getAttribute('data-content-id');
-    const type = Number(card.getAttribute('data-content-type'));
-    if (!id || type !== 1) return;
-    const titleEl = card.querySelector('.video-card__title');
-    const authorEl = card.querySelector('.video-card__sub span');
-    void openVideoDetail({
-      id,
-      title: titleEl?.textContent?.trim() ?? '',
-      cover: null,
-      author: authorEl?.textContent?.trim() ?? '',
-      authorId: null,
-      authorAvatar: null,
-      type: 1,
-      views: 0,
-      comments: 0,
-      createdAt: null,
-    });
+    const preview = previewFromCard(card);
+    if (!preview || (preview.type !== 0 && preview.type !== 1)) return;
+    void openContentDetail(preview);
   });
 
   syncCategoryStripVisible();

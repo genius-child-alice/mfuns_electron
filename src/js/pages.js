@@ -5,7 +5,7 @@ import { destroyWatchPlayer } from './watch-player.js';
 
 const DEFAULT_AVATAR = 'assets/mfuns_logo.png';
 
-/** @typedef {'home' | 'feed' | 'mine' | 'settings' | 'watch' | 'space'} PageId */
+/** @typedef {'home' | 'feed' | 'mine' | 'settings' | 'watch' | 'article' | 'space'} PageId */
 
 /** @type {PageId} */
 let currentPage = 'home';
@@ -252,6 +252,23 @@ export function watchPageHtml() {
     </div>`;
 }
 
+export function articlePageHtml() {
+  return `
+    <div class="page-view page-view--article" data-page="article" hidden>
+      <div class="article-page" id="article-page-root">
+        <header class="article-toolbar app-no-drag">
+          <button type="button" class="article-back" id="article-back-btn">
+            ${materialIcon('arrow_back', 'article-back-icon')}
+            <span>返回</span>
+          </button>
+        </header>
+        <div class="article-scroll" id="article-scroll">
+          <div class="article-body" id="article-body-root"></div>
+        </div>
+      </div>
+    </div>`;
+}
+
 export function spacePageHtml() {
   return `
     <div class="page-view page-view--space" data-page="space" hidden>
@@ -339,6 +356,7 @@ export function setPage(pageId) {
   main?.classList.toggle('content--mine', pageId === 'mine');
   main?.classList.toggle('content--settings', pageId === 'settings');
   main?.classList.toggle('content--watch', pageId === 'watch');
+  main?.classList.toggle('content--article', pageId === 'article');
   main?.classList.toggle('content--space', pageId === 'space');
 
   const homeTabs = document.getElementById('topbar-tabs-home');
@@ -346,7 +364,7 @@ export function setPage(pageId) {
 
   document
     .querySelector('.btn-refresh')
-    ?.toggleAttribute('hidden', pageId === 'watch' || pageId === 'space');
+    ?.toggleAttribute('hidden', pageId === 'watch' || pageId === 'article' || pageId === 'space');
 
   syncPagesAuthState();
 
