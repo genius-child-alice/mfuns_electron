@@ -35,6 +35,7 @@ import { bindFeedPage } from './feed-page.js';
 import { bindFeedDetail } from './feed-detail.js';
 import { bindVideoDetail } from './video-detail.js';
 import { bindArticleDetail } from './article-detail.js';
+import { bindFavoritePicker } from './favorite-ui.js';
 import { bindUserSpace } from './user-space.js';
 import { bindMinePage, refreshMinePage } from './mine-page.js';
 
@@ -251,6 +252,16 @@ function renderShell() {
           <textarea class="feed-detail__composer-input" id="feed-detail-comment-input" rows="2" placeholder="发一条友善的评论"></textarea>
           <button type="submit" class="btn-accent feed-detail__composer-submit">发布</button>
         </form>
+      </div>
+    </dialog>
+
+    <dialog class="favorite-picker app-no-drag" id="favorite-picker-dialog" aria-labelledby="favorite-picker-title">
+      <div class="favorite-picker__card">
+        <header class="favorite-picker__head">
+          <h2 class="favorite-picker__title" id="favorite-picker-title">选择收藏夹</h2>
+          <button type="button" class="favorite-picker__close" id="favorite-picker-close" aria-label="关闭">${materialIcon('close')}</button>
+        </header>
+        <div class="favorite-picker__body" id="favorite-picker-list"></div>
       </div>
     </dialog>
 
@@ -556,18 +567,27 @@ function updateThemeToggleIcon(scheme) {
   btn.innerHTML = `${materialIcon(icon, 'material-symbols-outlined--nav')}<span class="sr-only">外观</span>`;
 }
 
-initTheme();
-renderShell();
-bindWindowControls();
-bindNavigation();
-bindSettings();
-bindLogin();
-bindHomeFeed();
-bindFeedPage();
-bindFeedDetail();
-bindVideoDetail();
-bindArticleDetail();
-bindUserSpace();
-bindMinePage();
+function bootApp() {
+  initTheme();
+  renderShell();
+  bindWindowControls();
+  bindNavigation();
+  bindSettings();
+  bindLogin();
+  bindHomeFeed();
+  bindFeedPage();
+  bindFeedDetail();
+  bindVideoDetail();
+  bindArticleDetail();
+  bindFavoritePicker();
+  bindUserSpace();
+  bindMinePage();
+}
 
-runSplash();
+try {
+  bootApp();
+} catch (err) {
+  console.error('应用初始化失败', err);
+} finally {
+  runSplash();
+}

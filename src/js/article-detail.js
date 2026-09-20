@@ -15,6 +15,8 @@ import {
   setResourceLike,
 } from './video-api.js';
 import { fetchUserProfile } from './user-profile-api.js';
+import { fetchFavoriteStatus } from './favorite-api.js';
+import { toggleResourceFavorite } from './favorite-ui.js';
 
 /** @typedef {import('./content-api.js').ContentPreview} ContentPreview */
 /** @typedef {import('./article-api.js').ArticleDetail} ArticleDetail */
@@ -30,6 +32,9 @@ let likeCount = 0;
 let following = false;
 let authorFans = 0;
 let authorTotalLikes = 0;
+let favorited = false;
+/** @type {number | null} */
+let favoriteListId = null;
 
 /** @type {import('./video-api.js').CommunityComment[]} */
 let commentItems = [];
@@ -129,6 +134,10 @@ function renderInteractBar() {
       <button type="button" class="watch-interact-bar__item ${liked ? 'is-active' : ''}" id="article-like-btn">
         <span class="watch-interact-bar__icon">${materialIcon('thumb_up')}</span>
         <span class="watch-interact-bar__label">${formatCount(likeCount)}</span>
+      </button>
+      <button type="button" class="watch-interact-bar__item ${favorited ? 'is-active' : ''}" id="article-fav-btn">
+        <span class="watch-interact-bar__icon">${materialIcon('star')}</span>
+        <span class="watch-interact-bar__label">收藏</span>
       </button>
       <button type="button" class="watch-interact-bar__item" id="article-share-btn">
         <span class="watch-interact-bar__icon">${materialIcon('share')}</span>
@@ -230,6 +239,21 @@ function hydrateRichMarkdown() {
 }
 
 function bindPageEvents() {
+  document.getElementById('article-fav-btn')?.addEventListener('click', () => {
+    if (!currentDetail) return;
+    void toggleResourceFavorite({
+      resourceId: currentDetail.preview.id,
+      resourceType: 0,
+      favorited,
+      listId: favoriteListId,
+      onChange: (next) => {
+        favorited = next.favorited;
+        favoriteListId = next.listId;
+        renderPage();
+      },
+    });
+  });
+
   document.getElementById('article-like-btn')?.addEventListener('click', async () => {
     if (!currentDetail || !requireLogin()) return;
     try {
@@ -312,6 +336,8 @@ export async function openArticleDetail(preview) {
   returnPage = getCurrentPage();
   setPage('article');
   document.getElementById('article-scroll')?.scrollTo(0, 0);
+  favorited = false;
+  favoriteListId = null;
   authorFans = 0;
   authorTotalLikes = 0;
   setLoading(true);
@@ -336,19 +362,29 @@ export async function openArticleDetail(preview) {
       detail.authorId && session?.token
         ? fetchFollowStatus(detail.authorId).catch(() => false)
         : Promise.resolve(false);
+    const favoritePromise =
+      session?.token
+        ? fetchFavoriteStatus(detail.preview.id, 0).catch(() => ({
+            favorited: false,
+            listId: null,
+          }))
+        : Promise.resolve({ favorited: false, listId: null });
     const authorProfilePromise =
       detail.authorId != null
         ? fetchUserProfile(detail.authorId).catch(() => null)
         : Promise.resolve(null);
 
-    const [likeStatus, followStatus, authorProfile] = await Promise.all([
+    const [likeStatus, followStatus, authorProfile, favoriteStatus] = await Promise.all([
       likePromise,
       followPromise,
       authorProfilePromise,
+      favoritePromise,
     ]);
     liked = likeStatus.liked;
     likeCount = likeStatus.likes || detail.likes;
     following = followStatus;
+    favorited = favoriteStatus.favorited;
+    favoriteListId = favoriteStatus.listId;
     if (authorProfile) {
       authorFans = authorProfile.fans;
       authorTotalLikes = authorProfile.totalLikes;

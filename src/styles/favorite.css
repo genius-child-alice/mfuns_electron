@@ -1,0 +1,230 @@
+.favorite-picker {
+  width: min(420px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  padding: 0;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text-primary);
+}
+
+.favorite-picker::backdrop {
+  background: rgb(0 0 0 / 50%);
+  backdrop-filter: blur(4px);
+}
+
+.favorite-picker__card {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 48px);
+  border-radius: 12px;
+  background: var(--bg-pane);
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 20px 60px rgb(0 0 0 / 40%);
+  overflow: hidden;
+}
+
+.favorite-picker__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.favorite-picker__title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.favorite-picker__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.favorite-picker__close:hover {
+  background: var(--bg-hover);
+}
+
+.favorite-picker__body {
+  overflow: auto;
+  padding: 8px;
+  min-height: 120px;
+  max-height: min(420px, 60vh);
+}
+
+.favorite-picker--loading .favorite-picker__body {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.favorite-picker__empty {
+  margin: 24px 12px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.favorite-picker__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.favorite-picker__item:hover {
+  background: var(--bg-hover);
+}
+
+.favorite-picker__item-icon .material-symbols-outlined {
+  font-size: 28px;
+  color: var(--accent);
+}
+
+.favorite-picker__item-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.favorite-picker__item-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.favorite-picker__item-desc {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.favorite-picker__item-count {
+  flex-shrink: 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.mine-favorite-folders {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 720px;
+}
+
+.mine-favorite-folder {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: var(--bg-surface);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mine-favorite-folder:hover {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border-subtle));
+  background: var(--bg-hover);
+}
+
+.mine-favorite-folder__icon .material-symbols-outlined {
+  font-size: 32px;
+  color: var(--accent);
+}
+
+.mine-favorite-folder__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mine-favorite-folder__name {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.mine-favorite-folder__desc {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mine-favorite-folder__count {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.mine-favorite-folder__chevron {
+  font-size: 22px;
+  color: var(--text-tertiary);
+}
+
+.mine-favorite-items__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.mine-favorite-items__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 8px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font: inherit;
+  cursor: pointer;
+}
+
+.mine-favorite-items__back:hover {
+  background: var(--bg-hover);
+}
+
+.mine-favorite-items__back-icon {
+  font-size: 20px;
+}
+
+.mine-favorite-items__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.mine-favorite-items__empty {
+  grid-column: 1 / -1;
+}

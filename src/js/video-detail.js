@@ -18,6 +18,8 @@ import {
   setResourceLike,
 } from './video-api.js';
 import { fetchUserProfile } from './user-profile-api.js';
+import { fetchFavoriteStatus } from './favorite-api.js';
+import { toggleResourceFavorite } from './favorite-ui.js';
 
 /** @typedef {import('./content-api.js').ContentPreview} ContentPreview */
 /** @typedef {import('./video-api.js').VideoDetail} VideoDetail */
@@ -40,6 +42,9 @@ let following = false;
 let authorFans = 0;
 let authorTotalLikes = 0;
 let descExpanded = false;
+let favorited = false;
+/** @type {number | null} */
+let favoriteListId = null;
 
 /** @type {ContentPreview[]} */
 let relatedItems = [];
@@ -205,7 +210,7 @@ function renderIntroToolbar() {
         <span class="watch-interact-bar__icon">${materialIcon('paid')}</span>
         <span class="watch-interact-bar__label">投币</span>
       </button>
-      <button type="button" class="watch-interact-bar__item watch-interact-bar__item--disabled" id="watch-fav-btn" disabled title="暂未开放">
+      <button type="button" class="watch-interact-bar__item ${favorited ? 'is-active' : ''}" id="watch-fav-btn">
         <span class="watch-interact-bar__icon">${materialIcon('star')}</span>
         <span class="watch-interact-bar__label">收藏</span>
       </button>
@@ -390,6 +395,21 @@ function bindSidePanelEvents() {
     });
   });
 
+  document.getElementById('watch-fav-btn')?.addEventListener('click', () => {
+    if (!currentDetail) return;
+    void toggleResourceFavorite({
+      resourceId: currentDetail.preview.id,
+      resourceType: 1,
+      favorited,
+      listId: favoriteListId,
+      onChange: (next) => {
+        favorited = next.favorited;
+        favoriteListId = next.listId;
+        renderSidePanel();
+      },
+    });
+  });
+
   document.getElementById('watch-like-btn')?.addEventListener('click', async () => {
     if (!currentDetail || !requireLogin()) return;
     try {
@@ -505,6 +525,8 @@ export async function openVideoDetail(preview) {
   activePartIndex = 0;
   activeTab = 'intro';
   descExpanded = false;
+  favorited = false;
+  favoriteListId = null;
   authorFans = 0;
   authorTotalLikes = 0;
   setLoading(true);
@@ -546,19 +568,29 @@ export async function openVideoDetail(preview) {
       detail.authorId && session?.token
         ? fetchFollowStatus(detail.authorId).catch(() => false)
         : Promise.resolve(false);
+    const favoritePromise =
+      session?.token
+        ? fetchFavoriteStatus(detail.preview.id, 1).catch(() => ({
+            favorited: false,
+            listId: null,
+          }))
+        : Promise.resolve({ favorited: false, listId: null });
     const authorProfilePromise =
       detail.authorId != null
         ? fetchUserProfile(detail.authorId).catch(() => null)
         : Promise.resolve(null);
 
-    const [likeStatus, followStatus, authorProfile] = await Promise.all([
+    const [likeStatus, followStatus, authorProfile, favoriteStatus] = await Promise.all([
       likePromise,
       followPromise,
       authorProfilePromise,
+      favoritePromise,
     ]);
     liked = likeStatus.liked;
     likeCount = likeStatus.likes || detail.likes;
     following = followStatus;
+    favorited = favoriteStatus.favorited;
+    favoriteListId = favoriteStatus.listId;
     if (authorProfile) {
       authorFans = authorProfile.fans;
       authorTotalLikes = authorProfile.totalLikes;

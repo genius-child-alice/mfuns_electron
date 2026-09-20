@@ -6,6 +6,12 @@ import { isLoggedIn } from './login-ui.js';
 import { getCurrentPage } from './pages.js';
 import { openContentDetail, previewFromCard } from './content-nav.js';
 import { fetchMineDashboard } from './user-profile-api.js';
+import {
+  fetchFavoriteFolderList,
+  fetchFavoriteItemsPage,
+  resolveMineUserId,
+} from './favorite-api.js';
+import { renderVideoCard } from './home-feed.js';
 
 /** @typedef {import('./history-api.js').HistoryEntry} HistoryEntry */
 /** @typedef {'history' | 'offline' | 'favorite' | 'watchlater'} MineTabId */
@@ -27,6 +33,19 @@ let searchQuery = '';
 const SCROLL_PREFETCH_MIN_PX = 480;
 
 let profileLoading = false;
+
+/** @type {import('./favorite-api.js').FavoriteFolder[]} */
+let favoriteFolders = [];
+/** @type {number | null} */
+let activeFavoriteFolderId = null;
+/** @type {string} */
+let activeFavoriteFolderName = '';
+/** @type {import('./content-api.js').ContentPreview[]} */
+let favoriteItems = [];
+/** @type {number | null} */
+let favoriteNextLastId = null;
+let favoriteItemsHasMore = true;
+let favoriteLoading = false;
 
 /**
  * @param {number} n
@@ -314,6 +333,190 @@ function resetHistoryState() {
   hasMore = true;
 }
 
+function resetFavoriteState() {
+  favoriteFolders = [];
+  activeFavoriteFolderId = null;
+  activeFavoriteFolderName = '';
+  favoriteItems = [];
+  favoriteNextLastId = null;
+  favoriteItemsHasMore = true;
+  favoriteLoading = false;
+}
+
+/**
+ * @param {import('./favorite-api.js').FavoriteFolder[]} folders
+ */
+function renderFavoriteFoldersView(folders) {
+  const root = getRootEl();
+  if (!root) return;
+  if (folders.length === 0) {
+    root.innerHTML = '<p class="mine-history__empty">暂无收藏夹</p>';
+    return;
+  }
+  root.innerHTML = `
+    <div class="mine-favorite-folders">
+      ${folders
+        .map(
+          (folder) => `
+        <button type="button" class="mine-favorite-folder" data-favorite-folder-id="${folder.id}">
+          <span class="mine-favorite-folder__icon">${materialIcon('folder')}</span>
+          <span class="mine-favorite-folder__main">
+            <span class="mine-favorite-folder__name">${escapeHtml(folder.name)}</span>
+            ${
+              folder.desc
+                ? `<span class="mine-favorite-folder__desc">${escapeHtml(folder.desc)}</span>`
+                : ''
+            }
+          </span>
+          <span class="mine-favorite-folder__count">${formatCount(folder.count)}</span>
+          ${materialIcon('chevron_right', 'mine-favorite-folder__chevron')}
+        </button>`,
+        )
+        .join('')}
+    </div>`;
+
+  root.querySelectorAll('[data-favorite-folder-id]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = Number(btn.getAttribute('data-favorite-folder-id'));
+      const folder = folders.find((entry) => entry.id === id);
+      if (!folder) return;
+      activeFavoriteFolderId = id;
+      activeFavoriteFolderName = folder.name;
+      favoriteItems = [];
+      favoriteNextLastId = null;
+      favoriteItemsHasMore = true;
+      void loadFavoriteItemsFirstPage();
+    });
+  });
+}
+
+function renderFavoriteItemsView() {
+  const root = getRootEl();
+  if (!root) return;
+  const title = activeFavoriteFolderName || '收藏夹';
+  root.innerHTML = `
+    <div class="mine-favorite-items">
+      <header class="mine-favorite-items__head">
+        <button type="button" class="mine-favorite-items__back" id="mine-favorite-back">
+          ${materialIcon('arrow_back', 'mine-favorite-items__back-icon')}
+          <span>返回</span>
+        </button>
+        <h2 class="mine-favorite-items__title">${escapeHtml(title)}</h2>
+      </header>
+      <div class="content-grid" id="mine-favorite-grid">
+        ${
+          favoriteItems.length === 0
+            ? '<p class="mine-history__empty mine-favorite-items__empty">该收藏夹暂无内容</p>'
+            : favoriteItems.map((item) => renderVideoCard(item)).join('')
+        }
+      </div>
+    </div>`;
+
+  document.getElementById('mine-favorite-back')?.addEventListener('click', () => {
+    activeFavoriteFolderId = null;
+    activeFavoriteFolderName = '';
+    favoriteItems = [];
+    favoriteNextLastId = null;
+    favoriteItemsHasMore = true;
+    renderFavoriteFoldersView(favoriteFolders);
+  });
+
+  const grid = document.getElementById('mine-favorite-grid');
+  grid?.addEventListener('click', (event) => {
+    const target = /** @type {HTMLElement} */ (event.target);
+    const card = target.closest('.video-card');
+    if (!card) return;
+    const preview = previewFromCard(card);
+    if (!preview || (preview.type !== 0 && preview.type !== 1)) return;
+    void openContentDetail(preview);
+  });
+}
+
+function appendFavoriteLoadMoreHint() {
+  const root = getRootEl();
+  if (!root || document.getElementById('mine-favorite-load-more')) return;
+  const grid = document.getElementById('mine-favorite-grid');
+  grid?.insertAdjacentHTML(
+    'afterend',
+    `<p class="mine-history__loading" id="mine-favorite-load-more">${materialIcon('progress_activity', 'mine-history__spin')}加载更多…</p>`,
+  );
+}
+
+async function loadFavoriteFolders() {
+  if (!isLoggedIn() || favoriteLoading) return;
+  const userId = resolveMineUserId(sessionUserId(loadSession()?.user));
+  if (userId == null) {
+    renderPanelPlaceholder('请先登录');
+    return;
+  }
+
+  favoriteLoading = true;
+  activeFavoriteFolderId = null;
+  renderPanelPlaceholder('加载中…');
+  try {
+    favoriteFolders = await fetchFavoriteFolderList(userId);
+    renderFavoriteFoldersView(favoriteFolders);
+  } catch (err) {
+    renderPanelPlaceholder(err instanceof Error ? err.message : '加载失败');
+  } finally {
+    favoriteLoading = false;
+  }
+}
+
+async function loadFavoriteItemsFirstPage() {
+  if (!isLoggedIn() || favoriteLoading || activeFavoriteFolderId == null) return;
+  favoriteLoading = true;
+  renderFavoriteItemsView();
+  const grid = document.getElementById('mine-favorite-grid');
+  if (grid) grid.innerHTML = '<p class="mine-history__loading">加载中…</p>';
+
+  try {
+    const page = await fetchFavoriteItemsPage(activeFavoriteFolderId);
+    favoriteItems = page.items;
+    favoriteNextLastId = page.nextLastId;
+    favoriteItemsHasMore = page.hasMore && page.items.length > 0;
+    renderFavoriteItemsView();
+  } catch (err) {
+    const root = getRootEl();
+    if (root) {
+      root.innerHTML = `<p class="mine-history__empty">${escapeHtml(err instanceof Error ? err.message : '加载失败')}</p>`;
+    }
+  } finally {
+    favoriteLoading = false;
+  }
+}
+
+async function loadFavoriteItemsMore() {
+  if (
+    !isLoggedIn() ||
+    favoriteLoading ||
+    !favoriteItemsHasMore ||
+    activeTab !== 'favorite' ||
+    activeFavoriteFolderId == null
+  ) {
+    return;
+  }
+
+  favoriteLoading = true;
+  appendFavoriteLoadMoreHint();
+  try {
+    const page = await fetchFavoriteItemsPage(activeFavoriteFolderId, favoriteNextLastId);
+    document.getElementById('mine-favorite-load-more')?.remove();
+    if (page.items.length === 0) {
+      favoriteItemsHasMore = false;
+      return;
+    }
+    favoriteItems = favoriteItems.concat(page.items);
+    favoriteNextLastId = page.nextLastId;
+    favoriteItemsHasMore = page.hasMore;
+    renderFavoriteItemsView();
+  } catch {
+    document.getElementById('mine-favorite-load-more')?.remove();
+  } finally {
+    favoriteLoading = false;
+  }
+}
+
 function appendLoadMoreHint() {
   const root = getRootEl();
   if (!root || document.getElementById('mine-history-load-more')) return;
@@ -390,9 +593,23 @@ function showTabPanel(tab) {
     return;
   }
 
+  if (tab === 'favorite') {
+    if (activeFavoriteFolderId != null) {
+      if (favoriteItems.length === 0 && !favoriteLoading) {
+        void loadFavoriteItemsFirstPage();
+      } else {
+        renderFavoriteItemsView();
+      }
+    } else if (favoriteFolders.length === 0 && !favoriteLoading) {
+      void loadFavoriteFolders();
+    } else {
+      renderFavoriteFoldersView(favoriteFolders);
+    }
+    return;
+  }
+
   const messages = {
     offline: '离线缓存功能开发中',
-    favorite: '我的收藏功能开发中',
     watchlater: '稍后再看功能开发中',
   };
   renderPanelPlaceholder(messages[tab]);
@@ -405,21 +622,35 @@ function shouldPrefetchMore(container) {
 }
 
 function onMainScroll() {
-  if (getCurrentPage() !== 'mine' || activeTab !== 'history') return;
-  if (!hasMore || loading || searchQuery.trim()) return;
+  if (getCurrentPage() !== 'mine') return;
   const main = document.getElementById('main-content');
   if (!main || !shouldPrefetchMore(main)) return;
-  void loadHistoryMore();
+
+  if (activeTab === 'history') {
+    if (!hasMore || loading || searchQuery.trim()) return;
+    void loadHistoryMore();
+    return;
+  }
+
+  if (activeTab === 'favorite' && activeFavoriteFolderId != null) {
+    if (!favoriteItemsHasMore || favoriteLoading) return;
+    void loadFavoriteItemsMore();
+  }
 }
 
 export function refreshMinePage() {
   if (!isLoggedIn()) {
     resetHistoryState();
+    resetFavoriteState();
     return;
   }
   void loadMineDashboard();
   if (getCurrentPage() === 'mine' && activeTab === 'history') {
     void loadHistoryFirstPage();
+  }
+  if (getCurrentPage() === 'mine' && activeTab === 'favorite') {
+    resetFavoriteState();
+    void loadFavoriteFolders();
   }
 }
 
@@ -429,6 +660,16 @@ export function onMinePageEnter() {
   if (activeTab === 'history') {
     if (allHistoryItems.length === 0) void loadHistoryFirstPage();
     else renderHistoryView();
+  }
+  if (activeTab === 'favorite') {
+    if (activeFavoriteFolderId != null) {
+      if (favoriteItems.length === 0) void loadFavoriteItemsFirstPage();
+      else renderFavoriteItemsView();
+    } else if (favoriteFolders.length === 0) {
+      void loadFavoriteFolders();
+    } else {
+      renderFavoriteFoldersView(favoriteFolders);
+    }
   }
 }
 
