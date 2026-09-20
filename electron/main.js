@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 
 const isDev = !app.isPackaged;
+const appIconPath = path.join(__dirname, '../src/assets/favicon.ico');
 
 /** @type {BrowserWindow | null} */
 let mainWindow = null;
@@ -14,6 +15,7 @@ function createWindow() {
     minHeight: 640,
     show: false,
     frame: false,
+    icon: appIconPath,
     backgroundColor: '#7B7FF7',
     titleBarStyle: 'hidden',
     webPreferences: {
@@ -47,6 +49,9 @@ ipcMain.on('window:maximize', () => {
 ipcMain.on('window:close', () => mainWindow?.close());
 
 app.whenReady().then(() => {
+  if (process.platform === 'darwin' && app.dock) {
+    app.dock.setIcon(appIconPath);
+  }
   createWindow();
 
   app.on('activate', () => {
