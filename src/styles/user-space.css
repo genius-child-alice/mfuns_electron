@@ -356,6 +356,7 @@
   border-radius: 8px;
   background: var(--bg-elevated);
   border: 1px solid color-mix(in srgb, var(--border-subtle) 65%, transparent);
+  cursor: pointer;
 }
 
 .user-space__feed-card__top {

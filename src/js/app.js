@@ -31,6 +31,7 @@ import {
 import { registerOpenLoginHandler, requireLogin } from './login-ui.js';
 import { bindHomeFeed } from './home-feed.js';
 import { bindFeedPage } from './feed-page.js';
+import { bindFeedDetail } from './feed-detail.js';
 import { bindVideoDetail } from './video-detail.js';
 import { bindUserSpace } from './user-space.js';
 import { bindMinePage, refreshMinePage } from './mine-page.js';
@@ -216,6 +217,38 @@ function renderShell() {
             </p>
           </section>
         </div>
+      </div>
+    </dialog>
+
+    <dialog class="feed-detail app-no-drag" id="feed-detail-dialog" aria-labelledby="feed-detail-title">
+      <div class="feed-detail__shell">
+        <div class="feed-detail__head">
+          <button type="button" class="feed-detail__close" id="feed-detail-close" aria-label="关闭">${materialIcon('close')}</button>
+        </div>
+        <div class="feed-detail__scroll">
+          <p class="feed-detail__loading" id="feed-detail-loading" hidden>${materialIcon('progress_activity', 'feed-page__spin')}加载中…</p>
+          <p class="feed-detail__error" id="feed-detail-error" hidden role="alert"></p>
+          <div class="feed-detail__post" id="feed-detail-post"></div>
+          <nav class="feed-detail__tabs" aria-label="动态互动">
+            <button type="button" class="feed-detail__tab" data-feed-detail-tab="repost">转发</button>
+            <button type="button" class="feed-detail__tab is-active" data-feed-detail-tab="comment">评论</button>
+          </nav>
+          <div id="feed-detail-repost-panel" hidden>
+            <p class="feed-detail__repost-empty">暂无转发内容</p>
+          </div>
+          <div id="feed-detail-comment-panel">
+            <div class="feed-detail__sort">
+              <button type="button" class="feed-detail__sort-btn is-active" data-feed-comment-order="desc">最热</button>
+              <span class="feed-detail__sort-sep">|</span>
+              <button type="button" class="feed-detail__sort-btn" data-feed-comment-order="asc">最新</button>
+            </div>
+            <div class="watch-comments" id="feed-detail-comment-list"></div>
+          </div>
+        </div>
+        <form class="feed-detail__composer" id="feed-detail-composer">
+          <textarea class="feed-detail__composer-input" id="feed-detail-comment-input" rows="2" placeholder="发一条友善的评论"></textarea>
+          <button type="submit" class="btn-accent feed-detail__composer-submit">发布</button>
+        </form>
       </div>
     </dialog>
 
@@ -529,6 +562,7 @@ bindSettings();
 bindLogin();
 bindHomeFeed();
 bindFeedPage();
+bindFeedDetail();
 bindVideoDetail();
 bindUserSpace();
 bindMinePage();

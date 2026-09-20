@@ -285,11 +285,11 @@ export async function fetchVideoPlayParts(videoId) {
  * @param {number} areaId
  * @param {number} [page]
  */
-export async function fetchCommentList(areaId, page = 1) {
+export async function fetchCommentList(areaId, page = 1, order = 'desc') {
   const data = await apiGet('/v1/comment/list', {
     area_id: areaId,
     page,
-    order: 'desc',
+    order,
     html: 0,
   });
   return parseCommentList(data);

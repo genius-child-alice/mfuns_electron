@@ -32,6 +32,7 @@ import {
  *   views: number,
  *   pinned: boolean,
  *   authorName: string,
+ *   authorId: number | null,
  *   authorAvatar: string | null,
  *   images: string[],
  *   resource: import('./content-api.js').ContentPreview | null,
@@ -362,6 +363,7 @@ function parseTimelineFeedItem(raw) {
     views: asInt(source.view_count ?? source.views) ?? 0,
     pinned: source.is_top === 1 || source.is_top === true || source.top === 1,
     authorName: `${user.name ?? user.username ?? user.nickname ?? ''}`.trim() || 'MFuns 用户',
+    authorId: asInt(user.id ?? user.user_id ?? source.user_id ?? source.author_id),
     authorAvatar: resolveCoverUrl(user.avatar ?? user.face),
     images: parseFeedImages(source.images ?? source.image_list ?? source.pictures ?? extra.images),
     resource,
@@ -396,6 +398,31 @@ export async function fetchUserFeeds(userId, startId = -1) {
  * @param {number} startId
  * @param {number} viewerUserId 当前登录用户 id
  */
+/**
+ * @typedef {{
+ *   feed: TimelineFeedItem,
+ *   commentAreaId: number | null,
+ *   rawContent: string,
+ * }} FeedDetail
+ */
+
+/**
+ * @param {number} feedId
+ * @returns {Promise<FeedDetail>}
+ */
+export async function fetchFeedDetail(feedId) {
+  const data = await apiGet('/v1/feeds/get', { id: feedId, html: 1 });
+  const source = asMap(data);
+  const merged = asMap(source.feed).id != null ? { ...source, ...asMap(source.feed) } : source;
+  const feed = parseTimelineFeedItem(merged);
+  if (!feed) throw new Error('动态不存在或已删除');
+  return {
+    feed,
+    commentAreaId: asInt(source.comment_area_id ?? merged.comment_area_id),
+    rawContent: `${source.content ?? merged.content ?? merged.text ?? ''}`,
+  };
+}
+
 export async function fetchFollowingFeeds(startId, viewerUserId) {
   const data = await apiGet('/v1/feeds/list', {
     start_id: startId,

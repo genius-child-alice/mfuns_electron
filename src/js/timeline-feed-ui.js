@@ -228,8 +228,10 @@ export function renderFeedListHtml(items, ctx = {}) {
 /**
  * @param {TimelineFeedItem[]} items
  * @param {string} [domIdPrefix]
+ * @param {{ clampBody?: boolean }} [opts]
  */
-export function hydrateFeedCards(items, domIdPrefix = 'timeline-feed') {
+export function hydrateFeedCards(items, domIdPrefix = 'timeline-feed', opts = {}) {
+  const clampBody = opts.clampBody !== false;
   void loadStickerUrlMap().catch(() => {});
   items.forEach((item) => {
     const titleEl = document.getElementById(`${domIdPrefix}-title-${item.id}`);
@@ -241,7 +243,7 @@ export function hydrateFeedCards(items, domIdPrefix = 'timeline-feed') {
       const source = item.rawContent.trim() || item.content || '分享了一条动态';
       mountRichContent(bodyEl, source);
       bodyEl.parentElement?.querySelector('.user-space__feed-card__expand')?.remove();
-      setupFeedTextExpand(bodyEl);
+      if (clampBody) setupFeedTextExpand(bodyEl);
     }
   });
 }
@@ -305,6 +307,20 @@ export function handleTimelineFeedClick(event, options = {}) {
       createdAt: null,
     });
     return true;
+  }
+
+  const feedCard = target.closest('.user-space__feed-card');
+  if (
+    feedCard &&
+    !target.closest(
+      'button, a, .user-space__feed-video, .user-space__feed-card__expand, .user-space__feed-card__more',
+    )
+  ) {
+    const id = Number.parseInt(feedCard.getAttribute('data-feed-id') ?? '', 10);
+    if (Number.isFinite(id)) {
+      void import('./feed-detail.js').then((mod) => mod.openFeedDetail(id));
+      return true;
+    }
   }
 
   const videoBtn = target.closest('[data-video-id]');
