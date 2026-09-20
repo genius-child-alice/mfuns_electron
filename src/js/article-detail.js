@@ -17,6 +17,11 @@ import {
 import { fetchUserProfile } from './user-profile-api.js';
 import { resolveFavoriteStatus, resolveMineUserId } from './favorite-api.js';
 import { toggleResourceFavorite } from './favorite-ui.js';
+import {
+  bindCommentLikeActions,
+  mountCommentRichText,
+  renderCommentsHtml,
+} from './comment-ui.js';
 
 /** @typedef {import('./content-api.js').ContentPreview} ContentPreview */
 /** @typedef {import('./article-api.js').ArticleDetail} ArticleDetail */
@@ -85,47 +90,6 @@ function authorProfileLink(userId, innerHtml, className, title = '进入空间')
 
 function getRoot() {
   return document.getElementById('article-body-root');
-}
-
-/**
- * @param {import('./video-api.js').CommunityComment[]} comments
- */
-function renderComments(comments) {
-  if (comments.length === 0) {
-    return '<p class="watch-comments__empty">还没有评论，来抢沙发吧~</p>';
-  }
-  return comments
-    .map((item) => {
-      const avatarSrc = mediaSrcForCover(item.avatar);
-      const avatarInner = avatarSrc
-        ? `<img class="watch-comment__avatar" src="${escapeHtml(avatarSrc)}" alt="" />`
-        : `<span class="watch-comment__avatar watch-comment__avatar--ph"></span>`;
-      const avatar = authorProfileLink(
-        item.authorId,
-        avatarInner,
-        'watch-comment__avatar-btn',
-      );
-      const author = item.authorId
-        ? authorProfileLink(
-            item.authorId,
-            escapeHtml(item.authorName),
-            'watch-comment__author',
-          )
-        : `<p class="watch-comment__author">${escapeHtml(item.authorName)}</p>`;
-      return `
-        <article class="watch-comment">
-          ${avatar}
-          <div class="watch-comment__body">
-            ${author}
-            <div class="watch-comment__text markdown-body" id="article-comment-body-${item.id}"></div>
-            <div class="watch-comment__meta">
-              <span>${formatCount(item.likes)} 赞</span>
-              ${item.replyCount > 0 ? `<span>${formatCount(item.replyCount)} 回复</span>` : ''}
-            </div>
-          </div>
-        </article>`;
-    })
-    .join('');
 }
 
 function renderInteractBar() {
@@ -218,7 +182,7 @@ function renderPage() {
           <textarea class="watch-comment-input" id="article-comment-input" rows="3" placeholder="发一条友善的评论"></textarea>
           <button type="submit" class="btn-accent watch-comment-submit">发布</button>
         </form>
-        <div class="watch-comments" id="article-comments-list">${renderComments(commentItems)}</div>
+        <div class="watch-comments" id="article-comments-list">${renderCommentsHtml(commentItems, { bodyIdPrefix: 'article-comment-body' })}</div>
       </section>
     </article>`;
 
@@ -232,10 +196,7 @@ function hydrateRichMarkdown() {
   if (contentEl && detail?.rawContent) {
     mountRichContent(contentEl, detail.rawContent);
   }
-  commentItems.forEach((item) => {
-    const el = document.getElementById(`article-comment-body-${item.id}`);
-    if (el && item.rawContent) mountRichContent(el, item.rawContent);
-  });
+  mountCommentRichText(commentItems, 'article-comment-body');
 }
 
 function bindPageEvents() {
@@ -411,5 +372,12 @@ export function closeArticleDetail() {
 }
 
 export function bindArticleDetail() {
+  bindCommentLikeActions(document.getElementById('article-page-root'), {
+    getComments: () => commentItems,
+    setComments: (comments) => {
+      commentItems = comments;
+    },
+  });
+
   document.getElementById('article-back-btn')?.addEventListener('click', closeArticleDetail);
 }

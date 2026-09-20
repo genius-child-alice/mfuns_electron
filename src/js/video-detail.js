@@ -22,6 +22,11 @@ import { fetchUserProfile } from './user-profile-api.js';
 import { resolveFavoriteStatus, resolveMineUserId } from './favorite-api.js';
 import { toggleResourceFavorite } from './favorite-ui.js';
 import { isVideoInWatchLater, toggleVideoWatchLater } from './watch-later-store.js';
+import {
+  bindCommentLikeActions,
+  mountCommentRichText,
+  renderCommentsHtml,
+} from './comment-ui.js';
 
 /** @typedef {import('./content-api.js').ContentPreview} ContentPreview */
 /** @typedef {import('./video-api.js').VideoDetail} VideoDetail */
@@ -108,47 +113,6 @@ function renderRelatedList(items) {
           ${cover}
           <span class="watch-related__title">${escapeHtml(item.title)}</span>
         </button>`;
-    })
-    .join('');
-}
-
-/**
- * @param {import('./video-api.js').CommunityComment[]} comments
- */
-function renderComments(comments) {
-  if (comments.length === 0) {
-    return '<p class="watch-comments__empty">还没有评论，来抢沙发吧~</p>';
-  }
-  return comments
-    .map((item) => {
-      const avatarSrc = mediaSrcForCover(item.avatar);
-      const avatarInner = avatarSrc
-        ? `<img class="watch-comment__avatar" src="${escapeHtml(avatarSrc)}" alt="" />`
-        : `<span class="watch-comment__avatar watch-comment__avatar--ph"></span>`;
-      const avatar = authorProfileLink(
-        item.authorId,
-        avatarInner,
-        'watch-comment__avatar-btn',
-      );
-      const author = item.authorId
-        ? authorProfileLink(
-            item.authorId,
-            escapeHtml(item.authorName),
-            'watch-comment__author',
-          )
-        : `<p class="watch-comment__author">${escapeHtml(item.authorName)}</p>`;
-      return `
-        <article class="watch-comment">
-          ${avatar}
-          <div class="watch-comment__body">
-            ${author}
-            <div class="watch-comment__text markdown-body" id="watch-comment-body-${item.id}"></div>
-            <div class="watch-comment__meta">
-              <span>${formatCount(item.likes)} 赞</span>
-              ${item.replyCount > 0 ? `<span>${formatCount(item.replyCount)} 回复</span>` : ''}
-            </div>
-          </div>
-        </article>`;
     })
     .join('');
 }
@@ -350,7 +314,7 @@ function renderSidePanel() {
           <textarea class="watch-comment-input" id="watch-comment-input" rows="3" placeholder="发一条友善的评论"></textarea>
           <button type="submit" class="btn-accent watch-comment-submit">发布</button>
         </form>
-        <div class="watch-comments" id="watch-comments-list">${renderComments(commentItems)}</div>
+        <div class="watch-comments" id="watch-comments-list">${renderCommentsHtml(commentItems, { bodyIdPrefix: 'watch-comment-body' })}</div>
       </div>
     </div>`;
 
@@ -364,10 +328,7 @@ function hydrateRichMarkdown() {
   if (descEl && detail?.rawDescription) {
     mountRichContent(descEl, detail.rawDescription);
   }
-  commentItems.forEach((item) => {
-    const el = document.getElementById(`watch-comment-body-${item.id}`);
-    if (el && item.rawContent) mountRichContent(el, item.rawContent);
-  });
+  mountCommentRichText(commentItems, 'watch-comment-body');
 }
 
 function updateSeriesActiveState(index) {
@@ -646,6 +607,13 @@ export function closeVideoDetail() {
 }
 
 export function bindVideoDetail() {
+  bindCommentLikeActions(document.getElementById('watch-page-root'), {
+    getComments: () => commentItems,
+    setComments: (comments) => {
+      commentItems = comments;
+    },
+  });
+
   document.getElementById('watch-back-btn')?.addEventListener('click', closeVideoDetail);
 
   window.addEventListener('mfuns:danmaku-sent', () => {

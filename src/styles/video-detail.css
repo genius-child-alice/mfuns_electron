@@ -1090,8 +1090,46 @@ html[data-theme='dark'] .watch-side-scroll::-webkit-scrollbar-thumb {
 
 .watch-comment__meta {
   display: flex;
+  align-items: center;
   gap: 12px;
   font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.watch-comment__like {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  margin: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-tertiary);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.watch-comment__like:hover:not(:disabled) {
+  color: var(--text-secondary);
+  background: var(--bg-hover);
+}
+
+.watch-comment__like.is-active {
+  color: var(--accent);
+}
+
+.watch-comment__like:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.watch-comment__like-icon {
+  font-size: 16px;
+}
+
+.watch-comment__replies {
   color: var(--text-tertiary);
 }
 

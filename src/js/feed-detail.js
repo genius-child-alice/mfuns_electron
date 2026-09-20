@@ -1,16 +1,17 @@
-import { materialIcon } from './icons.js';
-import { mediaSrcForCover } from './content-api.js';
-import { mountRichContent } from './rich-content.js';
 import { requireLogin } from './login-ui.js';
 import { createComment, fetchCommentList } from './video-api.js';
 import { fetchFeedDetail } from './user-profile-api.js';
 import {
   bindTimelineFeedClick,
-  formatFeedCount,
   handleTimelineFeedClick,
   hydrateFeedCards,
   renderFeedCard,
 } from './timeline-feed-ui.js';
+import {
+  bindCommentLikeActions,
+  mountCommentRichText,
+  renderCommentsHtml,
+} from './comment-ui.js';
 
 /** @typedef {import('./user-profile-api.js').FeedDetail} FeedDetail */
 /** @typedef {import('./video-api.js').CommunityComment} CommunityComment */
@@ -29,55 +30,8 @@ let detailTab = 'comment';
 
 let bound = false;
 
-/**
- * @param {string} text
- */
-function escapeHtml(text) {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
 function getDialog() {
   return /** @type {HTMLDialogElement | null} */ (document.getElementById('feed-detail-dialog'));
-}
-
-/**
- * @param {CommunityComment[]} comments
- */
-function renderComments(comments) {
-  if (comments.length === 0) {
-    return '<p class="watch-comments__empty">还没有评论，来抢沙发吧~</p>';
-  }
-  return comments
-    .map((item) => {
-      const avatarSrc = mediaSrcForCover(item.avatar);
-      const avatarInner = avatarSrc
-        ? `<img class="watch-comment__avatar" src="${escapeHtml(avatarSrc)}" alt="" />`
-        : `<span class="watch-comment__avatar watch-comment__avatar--ph"></span>`;
-      const authorHtml = item.authorId
-        ? `<button type="button" class="watch-comment__author watch-user-link" data-author-profile="${item.authorId}">${escapeHtml(item.authorName)}</button>`
-        : `<p class="watch-comment__author">${escapeHtml(item.authorName)}</p>`;
-      return `
-        <article class="watch-comment">
-          ${
-            item.authorId
-              ? `<button type="button" class="watch-comment__avatar-btn watch-user-link" data-author-profile="${item.authorId}">${avatarInner}</button>`
-              : avatarInner
-          }
-          <div class="watch-comment__body">
-            ${authorHtml}
-            <div class="watch-comment__text markdown-body" id="feed-detail-comment-${item.id}"></div>
-            <div class="watch-comment__meta">
-              <span>${formatFeedCount(item.likes)} 赞</span>
-              ${item.replyCount > 0 ? `<span>${formatFeedCount(item.replyCount)} 回复</span>` : ''}
-            </div>
-          </div>
-        </article>`;
-    })
-    .join('');
 }
 
 function syncTabsUi() {
@@ -96,11 +50,8 @@ function syncSortUi() {
   });
 }
 
-function mountCommentRichText() {
-  commentItems.forEach((item) => {
-    const el = document.getElementById(`feed-detail-comment-${item.id}`);
-    if (el && item.rawContent) mountRichContent(el, item.rawContent);
-  });
+function hydrateCommentRichText() {
+  mountCommentRichText(commentItems, 'feed-detail-comment');
 }
 
 async function reloadComments() {
@@ -110,8 +61,8 @@ async function reloadComments() {
   );
   const list = document.getElementById('feed-detail-comment-list');
   if (list) {
-    list.innerHTML = renderComments(commentItems);
-    mountCommentRichText();
+    list.innerHTML = renderCommentsHtml(commentItems, { bodyIdPrefix: 'feed-detail-comment' });
+    hydrateCommentRichText();
   }
 }
 
@@ -218,6 +169,13 @@ function onDialogClick(event) {
 export function bindFeedDetail() {
   if (bound) return;
   bound = true;
+
+  bindCommentLikeActions(getDialog(), {
+    getComments: () => commentItems,
+    setComments: (comments) => {
+      commentItems = comments;
+    },
+  });
 
   const dialog = getDialog();
   dialog?.addEventListener('click', onDialogClick);
