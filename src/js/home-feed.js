@@ -1,49 +1,57 @@
 import { materialIcon } from './icons.js';
-import { fetchHotList, fetchRecommendList, mediaSrcForCover } from './content-api.js';
+import {
+  fetchCategories,
+  fetchHotList,
+  fetchRecommendByCategory,
+  fetchRecommendList,
+  mediaSrcForCover,
+} from './content-api.js';
 import { openVideoDetail } from './video-detail.js';
 
-/** @typedef {'recommend' | 'hot' | 'article' | 'video'} HomeTabId */
+/** @typedef {'recommend' | 'hot' | 'category'} HomeTabId */
 
 const PAGE_SIZE = 20;
 const RECOMMEND_SIZE_STEP = PAGE_SIZE;
 const MAX_RECOMMEND_SIZE = 200;
-/** 距底部不足该距离时预加载（与视口高度取较大值，避免必须滚到底才请求） */
+const MAX_CATEGORY_SIZE = 100;
 const SCROLL_PREFETCH_MIN_PX = 560;
 const SCROLL_PREFETCH_VIEWPORT_RATIO = 1.5;
 
 /** @type {HomeTabId} */
 let activeHomeTab = 'recommend';
 
-/** @type {boolean} */
 let loading = false;
 
 /** @type {import('./content-api.js').ContentPreview[]} */
 let shownItems = [];
 
-/** @type {boolean} */
 let hasMore = true;
 
-/** @type {number} */
 let recommendRequestSize = PAGE_SIZE;
 
 /** @type {import('./content-api.js').ContentPreview[] | null} */
 let hotFilteredCache = null;
 
-/** @type {number} */
 let hotShownCount = 0;
 
-/**
- * @param {number} n
- */
+/** @type {import('./content-api.js').CategoryNode[]} */
+let categories = [];
+
+let categoriesLoaded = false;
+
+/** @type {number | null} */
+let selectedCategoryId = null;
+
+let categoryRequestSize = PAGE_SIZE;
+
+let categoryStripBound = false;
+
 function formatCount(n) {
   if (!Number.isFinite(n) || n <= 0) return '0';
   if (n >= 10000) return `${(n / 10000).toFixed(1)}万`;
   return String(n);
 }
 
-/**
- * @param {string | null} iso
- */
 function formatDateLabel(iso) {
   if (!iso) return '';
   const date = new Date(iso);
@@ -51,9 +59,6 @@ function formatDateLabel(iso) {
   return `${date.getMonth() + 1}-${date.getDate()}`;
 }
 
-/**
- * @param {string} text
- */
 function escapeHtml(text) {
   return text
     .replace(/&/g, '&amp;')
@@ -62,9 +67,6 @@ function escapeHtml(text) {
     .replace(/"/g, '&quot;');
 }
 
-/**
- * @param {import('./content-api.js').ContentPreview} item
- */
 export function renderVideoCard(item) {
   const hue = Number.parseInt(item.id, 10) % 360 || 200;
   const coverSrc = mediaSrcForCover(item.cover);
@@ -94,19 +96,51 @@ export function renderVideoCard(item) {
     </article>`;
 }
 
-/**
- * @param {HomeTabId} tabId
- * @param {import('./content-api.js').ContentPreview[]} items
- */
-function filterByTab(tabId, items) {
-  if (tabId === 'article') {
-    return items.filter((item) => item.type === 0);
-  }
-  return items.filter((item) => item.type === 1);
-}
-
 function getGridEl() {
   return document.getElementById('home-feed-grid');
+}
+
+function getCategoryStripEl() {
+  return document.getElementById('home-category-strip');
+}
+
+function getCategoryListEl() {
+  return document.getElementById('home-category-list');
+}
+
+function syncCategoryStripVisible() {
+  const strip = getCategoryStripEl();
+  if (strip) strip.hidden = activeHomeTab !== 'category';
+}
+
+function renderCategoryStrip() {
+  const list = getCategoryListEl();
+  if (!list) return;
+  if (categories.length === 0) {
+    list.innerHTML = '<p class="home-category-strip__hint">正在加载分区…</p>';
+    return;
+  }
+  list.innerHTML = categories
+    .map(
+      (cat) =>
+        `<button type="button" class="home-category-strip__item ${cat.id === selectedCategoryId ? 'is-active' : ''}" data-home-category="${cat.id}">${escapeHtml(cat.name)}</button>`,
+    )
+    .join('');
+}
+
+async function ensureCategories() {
+  if (categoriesLoaded && categories.length > 0) {
+    renderCategoryStrip();
+    return;
+  }
+  renderCategoryStrip();
+  categories = await fetchCategories();
+  categoriesLoaded = true;
+  renderCategoryStrip();
+  if (selectedCategoryId == null && categories.length > 0) {
+    selectedCategoryId = categories[0].id;
+    renderCategoryStrip();
+  }
 }
 
 function resetFeedState() {
@@ -115,6 +149,7 @@ function resetFeedState() {
   recommendRequestSize = PAGE_SIZE;
   hotFilteredCache = null;
   hotShownCount = 0;
+  categoryRequestSize = PAGE_SIZE;
   removeLoadMoreIndicator();
 }
 
@@ -164,9 +199,6 @@ function setLoadMoreIndicator(visible) {
   el.innerHTML = `${materialIcon('progress_activity', 'home-feed__spin')}加载更多…`;
 }
 
-/**
- * @param {import('./content-api.js').ContentPreview[]} items
- */
 function appendVideoCards(items) {
   const grid = getGridEl();
   if (!grid || items.length === 0) return;
@@ -180,16 +212,10 @@ function isHomePageVisible() {
   return home != null && !home.hidden;
 }
 
-/**
- * @param {number} clientHeight
- */
 function getScrollPrefetchLead(clientHeight) {
   return Math.max(SCROLL_PREFETCH_MIN_PX, clientHeight * SCROLL_PREFETCH_VIEWPORT_RATIO);
 }
 
-/**
- * @param {HTMLElement} main
- */
 function shouldPrefetchMore(main) {
   const { scrollTop, clientHeight, scrollHeight } = main;
   const distanceToEnd = scrollHeight - (scrollTop + clientHeight);
@@ -206,20 +232,75 @@ function schedulePrefetchCheck() {
 }
 
 /**
+ * @param {number} categoryId
+ * @param {boolean} [replaceGrid]
+ */
+async function loadCategoryContents(categoryId, replaceGrid = true) {
+  selectedCategoryId = categoryId;
+  renderCategoryStrip();
+  if (replaceGrid) {
+    categoryRequestSize = PAGE_SIZE;
+    shownItems = [];
+    hasMore = true;
+    setGridLoading();
+  }
+  const size = Math.min(categoryRequestSize, MAX_CATEGORY_SIZE);
+  const items = await fetchRecommendByCategory(categoryId, size);
+  if (items.length === 0) {
+    hasMore = false;
+    if (replaceGrid) {
+      setGridHtml('<p class="home-feed__empty">该分区暂无内容</p>');
+    }
+    return;
+  }
+  if (replaceGrid) {
+    setGridHtml(items.map((item) => renderVideoCard(item)).join(''));
+    shownItems = [...items];
+  } else {
+    const seen = new Set(shownItems.map((item) => item.id));
+    const newItems = items.filter((item) => !seen.has(item.id));
+    if (newItems.length === 0) {
+      hasMore = false;
+      return;
+    }
+    appendVideoCards(newItems);
+  }
+  hasMore = categoryRequestSize < MAX_CATEGORY_SIZE && items.length >= size;
+}
+
+/**
  * @param {HomeTabId} [tabId]
  */
 export async function loadHomeFeed(tabId = activeHomeTab) {
   if (loading) return;
   activeHomeTab = tabId;
+  syncCategoryStripVisible();
   resetFeedState();
   loading = true;
   setStatus('');
-  setGridLoading();
 
   try {
+    if (tabId === 'category') {
+      setGridLoading();
+      await ensureCategories();
+      if (categories.length === 0) {
+        setGridHtml('<p class="home-feed__empty">暂无分区</p>');
+        hasMore = false;
+        return;
+      }
+      if (selectedCategoryId == null) {
+        selectedCategoryId = categories[0].id;
+        renderCategoryStrip();
+      }
+      await loadCategoryContents(selectedCategoryId, true);
+      return;
+    }
+
+    setGridLoading();
+
     if (tabId === 'hot') {
       const items = await fetchHotList();
-      hotFilteredCache = filterByTab(tabId, items);
+      hotFilteredCache = items;
       if (hotFilteredCache.length === 0) {
         hasMore = false;
         setGridHtml('<p class="home-feed__empty">暂无内容</p>');
@@ -234,16 +315,15 @@ export async function loadHomeFeed(tabId = activeHomeTab) {
     }
 
     const items = await fetchRecommendList(PAGE_SIZE);
-    const filtered = filterByTab(tabId, items);
-    if (filtered.length === 0) {
+    if (items.length === 0) {
       hasMore = false;
       setGridHtml('<p class="home-feed__empty">暂无内容</p>');
       return;
     }
     recommendRequestSize = PAGE_SIZE;
     hasMore = true;
-    setGridHtml(filtered.map((item) => renderVideoCard(item)).join(''));
-    shownItems = [...filtered];
+    setGridHtml(items.map((item) => renderVideoCard(item)).join(''));
+    shownItems = [...items];
   } catch (err) {
     const message = err instanceof Error ? err.message : '加载失败';
     setGridHtml('');
@@ -262,6 +342,20 @@ export async function loadMoreHomeFeed() {
   setLoadMoreIndicator(true);
 
   try {
+    if (activeHomeTab === 'category') {
+      if (selectedCategoryId == null) {
+        hasMore = false;
+        return;
+      }
+      if (categoryRequestSize >= MAX_CATEGORY_SIZE) {
+        hasMore = false;
+        return;
+      }
+      categoryRequestSize += PAGE_SIZE;
+      await loadCategoryContents(selectedCategoryId, false);
+      return;
+    }
+
     if (activeHomeTab === 'hot') {
       if (!hotFilteredCache) {
         hasMore = false;
@@ -285,9 +379,8 @@ export async function loadMoreHomeFeed() {
 
     recommendRequestSize += RECOMMEND_SIZE_STEP;
     const items = await fetchRecommendList(recommendRequestSize);
-    const filtered = filterByTab(activeHomeTab, items);
     const seen = new Set(shownItems.map((item) => item.id));
-    const newItems = filtered.filter((item) => !seen.has(item.id));
+    const newItems = items.filter((item) => !seen.has(item.id));
 
     if (newItems.length === 0) {
       hasMore = false;
@@ -313,6 +406,23 @@ function onMainContentScroll() {
   void loadMoreHomeFeed();
 }
 
+function onCategoryStripClick(event) {
+  const btn = /** @type {HTMLElement} */ (event.target).closest('[data-home-category]');
+  if (!btn) return;
+  const id = Number.parseInt(btn.getAttribute('data-home-category') ?? '', 10);
+  if (!Number.isFinite(id) || id === selectedCategoryId || loading) return;
+  loading = true;
+  resetFeedState();
+  void loadCategoryContents(id, true)
+    .catch((err) => {
+      setStatus(err instanceof Error ? err.message : '加载失败', true);
+    })
+    .finally(() => {
+      loading = false;
+      schedulePrefetchCheck();
+    });
+}
+
 export function getActiveHomeTab() {
   return activeHomeTab;
 }
@@ -321,13 +431,23 @@ export function bindHomeFeed() {
   document.querySelectorAll('[data-tab]').forEach((tab) => {
     tab.addEventListener('click', () => {
       const id = tab.getAttribute('data-tab');
-      if (id === 'recommend' || id === 'hot' || id === 'article' || id === 'video') {
-        loadHomeFeed(id);
+      if (id === 'recommend' || id === 'hot' || id === 'category') {
+        loadHomeFeed(/** @type {HomeTabId} */ (id));
       }
     });
   });
 
+  if (!categoryStripBound) {
+    categoryStripBound = true;
+    getCategoryListEl()?.addEventListener('click', onCategoryStripClick);
+  }
+
   document.querySelector('.btn-refresh')?.addEventListener('click', () => {
+    if (activeHomeTab === 'category' && selectedCategoryId != null) {
+      categoryRequestSize = PAGE_SIZE;
+      void loadCategoryContents(selectedCategoryId, true);
+      return;
+    }
     loadHomeFeed(activeHomeTab);
   });
 
@@ -349,6 +469,8 @@ export function bindHomeFeed() {
       title: titleEl?.textContent?.trim() ?? '',
       cover: null,
       author: authorEl?.textContent?.trim() ?? '',
+      authorId: null,
+      authorAvatar: null,
       type: 1,
       views: 0,
       comments: 0,
@@ -356,5 +478,6 @@ export function bindHomeFeed() {
     });
   });
 
+  syncCategoryStripVisible();
   loadHomeFeed('recommend');
 }

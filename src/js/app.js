@@ -50,8 +50,7 @@ const NAV_ITEMS = [
 const TOP_TABS = [
   { id: 'recommend', label: '推荐' },
   { id: 'hot', label: '热门' },
-  { id: 'article', label: '文章' },
-  { id: 'video', label: '视频' },
+  { id: 'category', label: '分区' },
 ];
 
 const SIDEBAR_TOOLS = [

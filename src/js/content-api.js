@@ -310,3 +310,56 @@ export async function fetchHotList() {
   const data = await apiGet('/v1/leaderboards/hot', {});
   return parsePreviewList(data);
 }
+
+/** @typedef {{ id: number, name: string, parentId: number | null }} CategoryNode */
+
+/**
+ * @param {unknown} raw
+ * @param {CategoryNode[]} output
+ */
+function collectCategories(raw, output) {
+  if (Array.isArray(raw)) {
+    raw.forEach((item) => collectCategories(item, output));
+    return;
+  }
+  if (!raw || typeof raw !== 'object') return;
+  const item = /** @type {Record<string, unknown>} */ (raw);
+  if (item.id != null && item.name != null) {
+    const id = Number.parseInt(`${item.id}`, 10);
+    const name = `${item.name}`.trim();
+    if (Number.isFinite(id) && id !== 0 && name) {
+      const parentRaw = item.parent_id ?? item.parentId;
+      const parentId = parentRaw == null ? null : Number.parseInt(`${parentRaw}`, 10);
+      output.push({
+        id,
+        name,
+        parentId: Number.isFinite(parentId) ? parentId : null,
+      });
+    }
+  }
+  collectCategories(item.children, output);
+  collectCategories(item.list, output);
+}
+
+/**
+ * @returns {Promise<CategoryNode[]>}
+ */
+export async function fetchCategories() {
+  const data = await apiGet('/v1/category/all', {});
+  /** @type {CategoryNode[]} */
+  const all = [];
+  collectCategories(data, all);
+  /** @type {Map<number, CategoryNode>} */
+  const unique = new Map();
+  all.forEach((node) => unique.set(node.id, node));
+  return [...unique.values()].sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'));
+}
+
+/**
+ * @param {number} categoryId
+ * @param {number} [size]
+ */
+export async function fetchRecommendByCategory(categoryId, size = 20) {
+  const data = await apiGet('/v1/recommend/get', { category: categoryId, size });
+  return parsePreviewList(data);
+}

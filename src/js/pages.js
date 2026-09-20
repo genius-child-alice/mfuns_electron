@@ -47,6 +47,9 @@ function guestCenterBlock(title, subtitle) {
 export function homePageHtml() {
   return `
     <div class="page-view page-view--home" data-page="home">
+      <nav class="home-category-strip" id="home-category-strip" hidden aria-label="内容分区">
+        <div class="home-category-strip__scroll" id="home-category-list"></div>
+      </nav>
       <p class="home-feed__status" id="home-feed-status" hidden role="status"></p>
       <div class="content-grid" id="home-feed-grid"></div>
     </div>`;

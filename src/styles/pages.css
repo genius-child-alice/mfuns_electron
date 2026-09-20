@@ -15,6 +15,12 @@ html[data-theme='light'] .content.content--mine {
   min-height: 0;
 }
 
+.content.content--home {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
 .page-view--feed:not([hidden]) {
   flex: 1;
   display: flex;
