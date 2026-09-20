@@ -4,18 +4,50 @@
     <meta charset="UTF-8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self'"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self'"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MFuns</title>
-    <link rel="stylesheet" href="styles.css" />
+    <script>
+      (function () {
+        var KEY = 'mfuns.preferences';
+        var root = document.documentElement;
+        var accent = { r: 123, g: 127, b: 247 };
+        var scheme = 'light';
+        try {
+          var raw = localStorage.getItem(KEY);
+          if (raw) {
+            var prefs = JSON.parse(raw);
+            if (prefs.colorScheme === 'dark') scheme = 'dark';
+            if (prefs.accent && prefs.accent.r != null) accent = prefs.accent;
+          }
+        } catch (e) {}
+        root.dataset.theme = scheme;
+        root.style.setProperty('--accent-r', String(accent.r));
+        root.style.setProperty('--accent-g', String(accent.g));
+        root.style.setProperty('--accent-b', String(accent.b));
+        root.style.setProperty(
+          '--accent',
+          'rgb(' + accent.r + ', ' + accent.g + ', ' + accent.b + ')',
+        );
+      })();
+    </script>
+    <link rel="stylesheet" href="assets/material-symbols/material-icons.css" />
+    <link rel="stylesheet" href="styles/tokens.css" />
+    <link rel="stylesheet" href="styles/material-icons.css" />
+    <link rel="stylesheet" href="styles/splash.css" />
+    <link rel="stylesheet" href="styles/shell.css" />
+    <link rel="stylesheet" href="styles/settings.css" />
   </head>
   <body>
-    <main class="app">
-      <h1>MFuns Electron</h1>
-      <p class="subtitle">项目已初始化，可以开始开发。</p>
-      <dl id="versions" class="versions"></dl>
-    </main>
-    <script src="renderer.js"></script>
+    <div id="splash" class="splash" aria-hidden="false">
+      <div class="splash__inner">
+        <img class="splash__logo" src="assets/mfuns_logo.png" alt="MFuns" />
+      </div>
+    </div>
+
+    <div id="app" class="app app--hidden" aria-hidden="true"></div>
+
+    <script type="module" src="js/app.js"></script>
   </body>
 </html>

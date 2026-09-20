@@ -5,11 +5,13 @@
   "main": "electron/main.js",
   "scripts": {
     "start": "electron .",
-    "dev": "electron ."
+    "dev": "electron .",
+    "postinstall": "node scripts/sync-material-icons.js"
   },
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "electron": "^44.4.3"
+    "electron": "^44.4.3",
+    "material-symbols": "^0.47.4"
   }
 }

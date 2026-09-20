@@ -1,0 +1,114 @@
+.settings-panel {
+  border: none;
+  padding: 0;
+  border-radius: var(--radius-lg);
+  background: transparent;
+  max-width: calc(100vw - 32px);
+}
+
+.settings-panel::backdrop {
+  background: rgba(0, 0, 0, 0.42);
+}
+
+.settings-panel__inner {
+  width: min(420px, 92vw);
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.18);
+}
+
+.settings-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.settings-panel__head h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.settings-panel__close {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  font-size: 20px;
+  line-height: 1;
+  color: var(--text-secondary);
+}
+
+.settings-panel__close:hover {
+  background: var(--bg-hover);
+}
+
+.settings-section {
+  padding: 16px 18px 20px;
+  display: grid;
+  gap: 14px;
+}
+
+.settings-section h3 {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.field {
+  display: grid;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.field span {
+  color: var(--text-secondary);
+}
+
+.field select,
+.field input[type='text'] {
+  height: 36px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-base);
+  color: var(--text-primary);
+  padding: 0 10px;
+}
+
+.field-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.field-row input[type='color'] {
+  width: 42px;
+  height: 36px;
+  padding: 2px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-base);
+}
+
+.field-row input[type='text'] {
+  flex: 1;
+}
+
+.btn-secondary {
+  justify-self: start;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-base);
+  color: var(--text-primary);
+}
+
+.btn-secondary:hover {
+  background: var(--bg-hover);
+}

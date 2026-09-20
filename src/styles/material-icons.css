@@ -1,0 +1,21 @@
+.material-symbols-outlined {
+  font-variation-settings:
+    'FILL' 0,
+    'wght' 400,
+    'GRAD' 0,
+    'opsz' 24;
+  user-select: none;
+}
+
+.material-symbols-outlined--nav {
+  font-size: 22px;
+}
+
+.material-symbols-outlined--window {
+  font-size: 16px;
+}
+
+.material-symbols-outlined--search {
+  font-size: 20px;
+  color: var(--text-tertiary);
+}

@@ -1,15 +1,21 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 
 const isDev = !app.isPackaged;
 
+/** @type {BrowserWindow | null} */
+let mainWindow = null;
+
 function createWindow() {
-  const mainWindow = new BrowserWindow({
-    width: 960,
-    height: 640,
-    minWidth: 640,
-    minHeight: 480,
+  mainWindow = new BrowserWindow({
+    width: 1280,
+    height: 800,
+    minWidth: 960,
+    minHeight: 640,
     show: false,
+    frame: false,
+    backgroundColor: '#7B7FF7',
+    titleBarStyle: 'hidden',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -21,13 +27,24 @@ function createWindow() {
   mainWindow.loadFile(path.join(__dirname, '../src/index.html'));
 
   mainWindow.once('ready-to-show', () => {
-    mainWindow.show();
+    mainWindow?.show();
   });
 
   if (isDev) {
     mainWindow.webContents.openDevTools({ mode: 'detach' });
   }
 }
+
+ipcMain.on('window:minimize', () => mainWindow?.minimize());
+ipcMain.on('window:maximize', () => {
+  if (!mainWindow) return;
+  if (mainWindow.isMaximized()) {
+    mainWindow.unmaximize();
+  } else {
+    mainWindow.maximize();
+  }
+});
+ipcMain.on('window:close', () => mainWindow?.close());
 
 app.whenReady().then(() => {
   createWindow();
