@@ -5,7 +5,7 @@ import { destroyWatchPlayer } from './watch-player.js';
 
 const DEFAULT_AVATAR = 'assets/mfuns_logo.png';
 
-/** @typedef {'home' | 'feed' | 'mine' | 'settings' | 'watch' | 'article' | 'space'} PageId */
+/** @typedef {'home' | 'feed' | 'mine' | 'settings' | 'watch' | 'article' | 'space' | 'follow-list'} PageId */
 
 /** @type {PageId} */
 let currentPage = 'home';
@@ -116,8 +116,8 @@ export function minePageHtml() {
             <div class="mine-profile__stats">
               <div><strong id="mine-stat-videos">-</strong><span>视频</span></div>
               <div><strong id="mine-stat-feeds">-</strong><span>动态</span></div>
-              <div><strong id="mine-stat-follows">-</strong><span>关注</span></div>
-              <div><strong id="mine-stat-fans">-</strong><span>粉丝</span></div>
+              <button type="button" class="mine-profile__stat-btn" id="mine-open-follows"><strong id="mine-stat-follows">-</strong><span>关注</span></button>
+              <button type="button" class="mine-profile__stat-btn" id="mine-open-fans"><strong id="mine-stat-fans">-</strong><span>粉丝</span></button>
             </div>
             <button type="button" class="mine-profile__space" id="btn-open-my-space">空间 &gt;</button>
           </div>
@@ -269,6 +269,25 @@ export function articlePageHtml() {
     </div>`;
 }
 
+export function followListPageHtml() {
+  return `
+    <div class="page-view page-view--follow-list" data-page="follow-list" hidden>
+      <div class="follow-list" id="follow-list-root">
+        <header class="follow-list__bar app-no-drag">
+          <button type="button" class="follow-list__back" id="follow-list-back">
+            ${materialIcon('arrow_back', 'follow-list__back-icon')}
+            <span>返回</span>
+          </button>
+          <h1 class="follow-list__bar-title" id="follow-list-title">关注</h1>
+        </header>
+        <div class="follow-list__scroll">
+          <p class="follow-list__loading" id="follow-list-loading" hidden>${materialIcon('progress_activity', 'follow-list__spin')}加载中…</p>
+          <div class="follow-list__grid" id="follow-list-grid"></div>
+        </div>
+      </div>
+    </div>`;
+}
+
 export function spacePageHtml() {
   return `
     <div class="page-view page-view--space" data-page="space" hidden>
@@ -359,13 +378,20 @@ export function setPage(pageId) {
   main?.classList.toggle('content--watch', pageId === 'watch');
   main?.classList.toggle('content--article', pageId === 'article');
   main?.classList.toggle('content--space', pageId === 'space');
+  main?.classList.toggle('content--follow-list', pageId === 'follow-list');
 
   const homeTabs = document.getElementById('topbar-tabs-home');
   homeTabs?.toggleAttribute('hidden', pageId !== 'home');
 
   document
     .querySelector('.btn-refresh')
-    ?.toggleAttribute('hidden', pageId === 'watch' || pageId === 'article' || pageId === 'space');
+    ?.toggleAttribute(
+      'hidden',
+      pageId === 'watch' ||
+        pageId === 'article' ||
+        pageId === 'space' ||
+        pageId === 'follow-list',
+    );
 
   syncPagesAuthState();
 

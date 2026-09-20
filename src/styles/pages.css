@@ -1,6 +1,7 @@
 .content.content--feed,
 .content.content--mine,
-.content.content--settings {
+.content.content--settings,
+.content.content--follow-list {
   padding: 0;
   background: var(--page-canvas);
 }
@@ -429,6 +430,21 @@ html[data-theme='light'] .content.content--mine {
   margin-top: 4px;
   font-size: 12px;
   color: var(--text-secondary);
+}
+
+.mine-profile__stat-btn {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+  color: inherit;
+}
+
+.mine-profile__stat-btn:hover strong,
+.mine-profile__stat-btn:hover span {
+  color: var(--accent);
 }
 
 .mine-profile__space {

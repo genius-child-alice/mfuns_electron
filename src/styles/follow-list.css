@@ -1,0 +1,205 @@
+.content.content--follow-list {
+  padding: 0;
+  background: var(--page-canvas);
+}
+
+.page-view--follow-list:not([hidden]) {
+  min-height: calc(100vh - var(--topbar-height));
+}
+
+.follow-list {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - var(--topbar-height));
+  background: var(--page-canvas);
+}
+
+.follow-list__bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+}
+
+.follow-list__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px 6px 4px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.follow-list__back:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.follow-list__back-icon {
+  font-size: 20px;
+}
+
+.follow-list__bar-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.follow-list__scroll {
+  flex: 1;
+  overflow: auto;
+  padding: 8px 20px 32px;
+}
+
+.follow-list__loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.follow-list__spin {
+  animation: follow-list-spin 0.9s linear infinite;
+}
+
+@keyframes follow-list-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.follow-list__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px 32px;
+  padding: 8px 0 24px;
+}
+
+@media (max-width: 720px) {
+  .follow-list__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.follow-list__empty {
+  grid-column: 1 / -1;
+  margin: 32px 0;
+  text-align: center;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.follow-list__card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.follow-list__card-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.follow-list__card-main:hover .follow-list__name {
+  color: var(--accent);
+}
+
+.follow-list__avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: var(--bg-hover);
+}
+
+.follow-list__avatar--ph {
+  display: block;
+}
+
+.follow-list__card-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.follow-list__name {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.follow-list__bio {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.follow-list__card-foot {
+  padding-left: 60px;
+}
+
+.follow-list__chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  max-width: 200px;
+  height: 30px;
+  padding: 0 12px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--bg-hover);
+  font-size: 12px;
+  color: var(--text-secondary);
+  box-sizing: border-box;
+}
+
+.follow-list__chip--mutual {
+  color: var(--text-primary);
+}
+
+.follow-list__chip--action {
+  cursor: pointer;
+}
+
+.follow-list__chip--action:hover {
+  background: var(--border-subtle);
+  color: var(--accent);
+}
+
+.follow-list__chip-icon {
+  font-size: 16px;
+}
+
+.follow-list--loading .follow-list__grid {
+  opacity: 0.55;
+  pointer-events: none;
+}

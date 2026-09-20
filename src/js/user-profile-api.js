@@ -438,10 +438,16 @@ export async function fetchFollowingFeeds(startId, viewerUserId) {
  * @param {number} [lastId]
  * @returns {Promise<UserProfile[]>}
  */
-export async function fetchFollowList(userId, lastId = -1) {
+/**
+ * @param {'follow' | 'fans'} type
+ * @param {number} userId
+ * @param {number} [lastId]
+ * @returns {Promise<UserProfile[]>}
+ */
+export async function fetchFollowListPage(userId, type, lastId = -1) {
   const data = await apiGet('/v1/follow/list', {
     user_id: userId,
-    type: 'follow',
+    type,
     last_id: lastId,
   });
   return toRawList(data)
@@ -451,14 +457,23 @@ export async function fetchFollowList(userId, lastId = -1) {
 
 /**
  * @param {number} userId
+ * @param {number} [lastId]
+ */
+export async function fetchFollowList(userId, lastId = -1) {
+  return fetchFollowListPage(userId, 'follow', lastId);
+}
+
+/**
+ * @param {number} userId
+ * @param {'follow' | 'fans'} type
  * @returns {Promise<UserProfile[]>}
  */
-export async function fetchAllFollowing(userId) {
+export async function fetchAllRelationList(userId, type) {
   /** @type {UserProfile[]} */
   const all = [];
   let lastId = -1;
   for (let page = 0; page < 40; page += 1) {
-    const batch = await fetchFollowList(userId, lastId);
+    const batch = await fetchFollowListPage(userId, type, lastId);
     if (!batch.length) break;
     all.push(...batch);
     const nextLast = batch[batch.length - 1].id;
@@ -467,4 +482,12 @@ export async function fetchAllFollowing(userId) {
     if (batch.length < 20) break;
   }
   return all;
+}
+
+/**
+ * @param {number} userId
+ * @returns {Promise<UserProfile[]>}
+ */
+export async function fetchAllFollowing(userId) {
+  return fetchAllRelationList(userId, 'follow');
 }

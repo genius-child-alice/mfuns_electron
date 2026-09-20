@@ -159,14 +159,14 @@ function renderProfileHeader(profile) {
       </div>
       <div class="user-space__head-right">
         <div class="user-space__stats">
-          <div class="user-space__stat">
+          <button type="button" class="user-space__stat user-space__stat--btn" data-user-relation-list="follow">
             <strong>${formatCount(profile.follows)}</strong>
             <span>关注</span>
-          </div>
-          <div class="user-space__stat">
+          </button>
+          <button type="button" class="user-space__stat user-space__stat--btn" data-user-relation-list="fans">
             <strong>${formatCount(profile.fans)}</strong>
             <span>粉丝</span>
-          </div>
+          </button>
           <div class="user-space__stat">
             <strong>${formatCount(profile.totalLikes)}</strong>
             <span>获赞</span>
@@ -190,6 +190,16 @@ function renderProfileHeader(profile) {
   document.getElementById('user-space-message-btn')?.addEventListener('click', () => {
     if (!requireLogin()) return;
     alert('私信功能开发中');
+  });
+
+  el.querySelectorAll('[data-user-relation-list]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const mode = btn.getAttribute('data-user-relation-list');
+      if (mode !== 'follow' && mode !== 'fans') return;
+      void import('./follow-list.js').then((mod) =>
+        mod.openFollowList(profile.id, mode, { ownerName: profile.name }),
+      );
+    });
   });
 }
 

@@ -223,6 +223,19 @@
   color: var(--text-secondary);
 }
 
+.user-space__stat--btn {
+  border: none;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+  color: inherit;
+}
+
+.user-space__stat--btn:hover strong,
+.user-space__stat--btn:hover span {
+  color: var(--accent);
+}
+
 .user-space__head-actions {
   display: flex;
   align-items: center;

@@ -26,6 +26,7 @@ import {
   watchPageHtml,
   articlePageHtml,
   spacePageHtml,
+  followListPageHtml,
   setPage,
   syncPagesAuthState,
 } from './pages.js';
@@ -38,6 +39,7 @@ import { bindArticleDetail } from './article-detail.js';
 import { bindFavoritePicker } from './favorite-ui.js';
 import { bindRewardDialog } from './reward-ui.js';
 import { bindUserSpace } from './user-space.js';
+import { bindFollowList } from './follow-list.js';
 import { bindMinePage, refreshMinePage } from './mine-page.js';
 
 /** @type {() => void} */
@@ -160,6 +162,7 @@ function renderShell() {
           ${watchPageHtml()}
           ${articlePageHtml()}
           ${spacePageHtml()}
+          ${followListPageHtml()}
           <button type="button" class="btn-refresh app-no-drag" aria-label="刷新">
             ${materialIcon('refresh')}
           </button>
@@ -662,6 +665,7 @@ function bootApp() {
   bindFavoritePicker();
   bindRewardDialog();
   bindUserSpace();
+  bindFollowList();
   bindMinePage();
 }
 

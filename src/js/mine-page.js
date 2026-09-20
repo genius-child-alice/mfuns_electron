@@ -792,6 +792,38 @@ export function onMinePageEnter() {
 }
 
 export function bindMinePage() {
+  document.getElementById('mine-open-follows')?.addEventListener('click', () => {
+    const session = loadSession();
+    const userId = session?.user?.id ?? session?.user?.user_id;
+    const id = typeof userId === 'number' ? userId : Number.parseInt(`${userId ?? ''}`, 10);
+    if (!Number.isFinite(id) || id <= 0) return;
+    const name =
+      typeof session?.user?.name === 'string'
+        ? session.user.name
+        : typeof session?.user?.username === 'string'
+          ? session.user.username
+          : '';
+    void import('./follow-list.js').then((mod) =>
+      mod.openFollowList(id, 'follow', { ownerName: name }),
+    );
+  });
+
+  document.getElementById('mine-open-fans')?.addEventListener('click', () => {
+    const session = loadSession();
+    const userId = session?.user?.id ?? session?.user?.user_id;
+    const id = typeof userId === 'number' ? userId : Number.parseInt(`${userId ?? ''}`, 10);
+    if (!Number.isFinite(id) || id <= 0) return;
+    const name =
+      typeof session?.user?.name === 'string'
+        ? session.user.name
+        : typeof session?.user?.username === 'string'
+          ? session.user.username
+          : '';
+    void import('./follow-list.js').then((mod) =>
+      mod.openFollowList(id, 'fans', { ownerName: name }),
+    );
+  });
+
   document.querySelectorAll('[data-mine-tab]').forEach((tab) => {
     tab.addEventListener('click', () => {
       const id = tab.getAttribute('data-mine-tab');
