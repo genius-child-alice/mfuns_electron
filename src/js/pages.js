@@ -84,9 +84,10 @@ export function minePageHtml() {
             </button>
             <div class="mine-profile__info">
               <button type="button" class="mine-profile__login" data-action="open-login">点击登录</button>
-              <p class="mine-profile__coins">喵币：-　硬币：-</p>
+              <p class="mine-profile__coins">喵币：-</p>
             </div>
             <div class="mine-profile__stats">
+              <div><strong>-</strong><span>视频</span></div>
               <div><strong>-</strong><span>动态</span></div>
               <div><strong>-</strong><span>关注</span></div>
               <div><strong>-</strong><span>粉丝</span></div>
@@ -99,12 +100,13 @@ export function minePageHtml() {
             </div>
             <div class="mine-profile__info">
               <p class="mine-profile__name" id="mine-display-name">MFuns 用户</p>
-              <p class="mine-profile__coins">喵币：-　硬币：-</p>
+              <p class="mine-profile__coins">喵币：<span id="mine-neko-coin">-</span></p>
             </div>
             <div class="mine-profile__stats">
-              <div><strong>-</strong><span>动态</span></div>
-              <div><strong>-</strong><span>关注</span></div>
-              <div><strong>-</strong><span>粉丝</span></div>
+              <div><strong id="mine-stat-videos">-</strong><span>视频</span></div>
+              <div><strong id="mine-stat-feeds">-</strong><span>动态</span></div>
+              <div><strong id="mine-stat-follows">-</strong><span>关注</span></div>
+              <div><strong id="mine-stat-fans">-</strong><span>粉丝</span></div>
             </div>
             <button type="button" class="mine-profile__space" id="btn-open-my-space">空间 &gt;</button>
           </div>

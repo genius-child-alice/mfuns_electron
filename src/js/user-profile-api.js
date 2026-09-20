@@ -124,6 +124,129 @@ export async function fetchUserProfile(userId) {
   };
 }
 
+/** @typedef {{
+ *   nekoCoin: number,
+ *   videoCount: number,
+ *   feedCount: number,
+ *   follows: number,
+ *   fans: number,
+ * }} MineDashboardStats */
+
+/**
+ * @param {unknown} data
+ */
+function extractListTotal(data) {
+  const root = asMap(data);
+  return (
+    asInt(root.total ?? root.total_count ?? root.num ?? root.count ?? root.video_count) ?? null
+  );
+}
+
+/**
+ * @param {Record<string, unknown>} source
+ * @param {Record<string, unknown>} info
+ */
+function pickProfileContentCounts(source, info) {
+  const videoCount =
+    asInt(
+      source.video_count ??
+        source.video_num ??
+        source.videos_count ??
+        source.pass_video_count ??
+        info.video_count ??
+        info.video_num,
+    ) ?? null;
+  const feedCount =
+    asInt(
+      source.feed_count ??
+        source.feeds_count ??
+        source.feed_num ??
+        source.feeds_num ??
+        source.dynamic_count ??
+        info.feed_count ??
+        info.feeds_count,
+    ) ?? null;
+  const nekoCoin = asInt(source.neko_coin ?? info.neko_coin) ?? null;
+  return { videoCount, feedCount, nekoCoin };
+}
+
+/**
+ * @param {unknown} data
+ */
+function userFromInfoPayload(data) {
+  const root = asMap(data);
+  const nested = root.user ?? root.user_info;
+  if (nested && typeof nested === 'object') return asMap(nested);
+  return root;
+}
+
+/**
+ * @param {number} userId
+ */
+async function fetchVideoCount(userId) {
+  const data = await apiGet('/v1/video/user_list', {
+    user_id: userId,
+    vid: 0,
+    type: 'pass',
+  });
+  const total = extractListTotal(data);
+  if (total != null) return total;
+  return parsePreviewList(data).length;
+}
+
+/**
+ * @param {number} userId
+ */
+async function fetchFeedCount(userId) {
+  const data = await apiGet('/v1/feeds/list', {
+    user_id: userId,
+    start_id: -1,
+    html: 1,
+  });
+  const total = extractListTotal(data);
+  if (total != null) return total;
+  return parseTimelineFeedList(data).length;
+}
+
+/**
+ * @param {number} userId
+ * @returns {Promise<MineDashboardStats>}
+ */
+export async function fetchMineDashboard(userId) {
+  const [profileData, countData, infoData] = await Promise.all([
+    apiGet('/v1/user/get_user', { id: userId }),
+    apiGet('/v1/follow/count', { user_id: userId }).catch(() => null),
+    apiGet('/v1/user/info').catch(() => null),
+  ]);
+
+  const profile = parseUserProfile(profileData);
+  const counts = asMap(countData);
+  const root = asMap(profileData);
+  const source = asMap(root.user).id != null ? asMap(root.user) : root;
+  const info = asMap(source.info);
+  const parsed = pickProfileContentCounts(source, info);
+
+  const infoUser = infoData ? userFromInfoPayload(infoData) : null;
+  let nekoCoin = asInt(infoUser?.neko_coin) ?? parsed.nekoCoin ?? 0;
+
+  let videoCount = parsed.videoCount;
+  let feedCount = parsed.feedCount;
+  if (videoCount == null) {
+    videoCount = await fetchVideoCount(userId).catch(() => 0);
+  }
+  if (feedCount == null) {
+    feedCount = await fetchFeedCount(userId).catch(() => 0);
+  }
+
+  return {
+    nekoCoin,
+    videoCount,
+    feedCount,
+    follows: asInt(counts.follow) ?? profile.follows,
+    fans: asInt(counts.fans) ?? profile.fans,
+  };
+}
+
 /**
  * @param {number} userId
  * @param {number} [cursor]

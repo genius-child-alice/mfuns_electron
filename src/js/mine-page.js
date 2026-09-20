@@ -1,9 +1,11 @@
 import { materialIcon } from './icons.js';
+import { loadSession } from './auth.js';
 import { mediaSrcForCover } from './content-api.js';
 import { fetchHistoryPage } from './history-api.js';
 import { isLoggedIn } from './login-ui.js';
 import { getCurrentPage } from './pages.js';
 import { openVideoDetail } from './video-detail.js';
+import { fetchMineDashboard } from './user-profile-api.js';
 
 /** @typedef {import('./history-api.js').HistoryEntry} HistoryEntry */
 /** @typedef {'history' | 'offline' | 'favorite' | 'watchlater'} MineTabId */
@@ -23,6 +25,66 @@ let allHistoryItems = [];
 let searchQuery = '';
 
 const SCROLL_PREFETCH_MIN_PX = 480;
+
+let profileLoading = false;
+
+/**
+ * @param {number} n
+ */
+function formatCount(n) {
+  if (!Number.isFinite(n) || n < 0) return '0';
+  if (n >= 10000) return `${(n / 10000).toFixed(1)}万`;
+  return String(Math.trunc(n));
+}
+
+/**
+ * @param {Record<string, unknown> | null | undefined} user
+ */
+function sessionUserId(user) {
+  if (!user) return null;
+  const id = user.id ?? user.user_id;
+  if (typeof id === 'number' && Number.isFinite(id)) return Math.trunc(id);
+  const parsed = Number.parseInt(`${id ?? ''}`, 10);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+/**
+ * @param {import('./user-profile-api.js').MineDashboardStats} stats
+ */
+function applyMineDashboard(stats) {
+  const coinEl = document.getElementById('mine-neko-coin');
+  const videosEl = document.getElementById('mine-stat-videos');
+  const feedsEl = document.getElementById('mine-stat-feeds');
+  const followsEl = document.getElementById('mine-stat-follows');
+  const fansEl = document.getElementById('mine-stat-fans');
+  if (coinEl) coinEl.textContent = formatCount(stats.nekoCoin);
+  if (videosEl) videosEl.textContent = formatCount(stats.videoCount);
+  if (feedsEl) feedsEl.textContent = formatCount(stats.feedCount);
+  if (followsEl) followsEl.textContent = formatCount(stats.follows);
+  if (fansEl) fansEl.textContent = formatCount(stats.fans);
+}
+
+async function loadMineDashboard() {
+  if (!isLoggedIn() || profileLoading) return;
+  const userId = sessionUserId(loadSession()?.user);
+  if (userId == null || userId <= 0) return;
+
+  profileLoading = true;
+  try {
+    const stats = await fetchMineDashboard(userId);
+    applyMineDashboard(stats);
+  } catch {
+    applyMineDashboard({
+      nekoCoin: 0,
+      videoCount: 0,
+      feedCount: 0,
+      follows: 0,
+      fans: 0,
+    });
+  } finally {
+    profileLoading = false;
+  }
+}
 
 /**
  * @param {string} text
@@ -367,6 +429,7 @@ export function refreshMinePage() {
     resetHistoryState();
     return;
   }
+  void loadMineDashboard();
   if (getCurrentPage() === 'mine' && activeTab === 'history') {
     void loadHistoryFirstPage();
   }
@@ -374,6 +437,7 @@ export function refreshMinePage() {
 
 export function onMinePageEnter() {
   if (!isLoggedIn()) return;
+  void loadMineDashboard();
   if (activeTab === 'history') {
     if (allHistoryItems.length === 0) void loadHistoryFirstPage();
     else renderHistoryView();
