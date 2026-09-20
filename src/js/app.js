@@ -32,6 +32,7 @@ import { registerOpenLoginHandler, requireLogin } from './login-ui.js';
 import { bindHomeFeed } from './home-feed.js';
 import { bindVideoDetail } from './video-detail.js';
 import { bindUserSpace } from './user-space.js';
+import { bindMinePage, refreshMinePage } from './mine-page.js';
 
 /** @type {() => void} */
 let syncSettingsForm = () => {};
@@ -230,13 +231,6 @@ function bindNavigation() {
     });
   });
 
-  document.querySelectorAll('.mine-tabs__item').forEach((tab) => {
-    tab.addEventListener('click', () => {
-      document.querySelectorAll('.mine-tabs__item').forEach((t) => t.classList.remove('is-active'));
-      tab.classList.add('is-active');
-    });
-  });
-
   bindOpenLoginTriggers();
 
   document.querySelector('.topbar__logo-link')?.addEventListener('click', (e) => {
@@ -345,6 +339,7 @@ function syncLoginUi() {
   }
 
   syncPagesAuthState();
+  refreshMinePage();
 }
 
 function bindLogin() {
@@ -534,5 +529,6 @@ bindLogin();
 bindHomeFeed();
 bindVideoDetail();
 bindUserSpace();
+bindMinePage();
 
 runSplash();

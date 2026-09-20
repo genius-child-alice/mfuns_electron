@@ -112,19 +112,19 @@ export function minePageHtml() {
 
         <div class="mine-page__toolbar">
           <nav class="mine-tabs" aria-label="个人内容">
-            <button type="button" class="mine-tabs__item is-active">历史记录</button>
-            <button type="button" class="mine-tabs__item">离线缓存</button>
-            <button type="button" class="mine-tabs__item">我的收藏</button>
-            <button type="button" class="mine-tabs__item">稍后再看</button>
+            <button type="button" class="mine-tabs__item is-active" data-mine-tab="history">历史记录</button>
+            <button type="button" class="mine-tabs__item" data-mine-tab="offline">离线缓存</button>
+            <button type="button" class="mine-tabs__item" data-mine-tab="favorite">我的收藏</button>
+            <button type="button" class="mine-tabs__item" data-mine-tab="watchlater">稍后再看</button>
           </nav>
           <label class="mine-search">
             ${materialIcon('search', 'mine-search__icon')}
-            <input type="search" placeholder="搜索你的历史记录" aria-label="搜索历史记录" />
+            <input type="search" id="mine-history-search" placeholder="搜索你的历史记录" aria-label="搜索历史记录" />
           </label>
         </div>
 
         <div class="mine-page__body" data-auth-only hidden>
-          <p class="page-placeholder">登录后的历史与收藏将显示在这里</p>
+          <div class="mine-history" id="mine-history-root"></div>
         </div>
         ${guestCenterBlock('你还未登录', '登录注册解锁更多精彩内容')}
       </div>
@@ -310,6 +310,10 @@ export function setPage(pageId) {
     ?.toggleAttribute('hidden', pageId === 'watch' || pageId === 'space');
 
   syncPagesAuthState();
+
+  if (pageId === 'mine') {
+    void import('./mine-page.js').then((mod) => mod.onMinePageEnter());
+  }
 }
 
 export function syncPagesAuthState() {
