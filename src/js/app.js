@@ -26,6 +26,7 @@ import {
   syncPagesAuthState,
 } from './pages.js';
 import { registerOpenLoginHandler, requireLogin } from './login-ui.js';
+import { bindHomeFeed } from './home-feed.js';
 
 /** @type {() => void} */
 let syncSettingsForm = () => {};
@@ -59,36 +60,6 @@ function goToSettingsPage() {
 
 function navIcon(name) {
   return materialIcon(name, 'material-symbols-outlined--nav');
-}
-
-function placeholderCards(count = 12) {
-  return Array.from({ length: count }, (_, i) => {
-    const hue = (i * 37) % 360;
-    const views = `${(1.2 + i * 0.31).toFixed(1)}万`;
-    const comments = 40 + i * 17;
-    const mins = 3 + (i % 25);
-    const secs = String((i * 7) % 60).padStart(2, '0');
-    return `
-      <article class="video-card">
-        <div class="video-card__cover-wrap">
-          <div class="video-card__cover" style="--ph: ${hue}"></div>
-          <div class="video-card__stats">
-            <div class="video-card__stats-left">
-              <span class="video-card__stat">${materialIcon('play_arrow', 'video-card__stat-icon')}${views}</span>
-              <span class="video-card__stat">${materialIcon('chat_bubble', 'video-card__stat-icon')}${comments}</span>
-            </div>
-            <span class="video-card__duration">${mins}:${secs}</span>
-          </div>
-        </div>
-        <div class="video-card__meta">
-          <h3 class="video-card__title">内容占位标题 ${i + 1} · 更接近 B 站卡片双行标题展示</h3>
-          <p class="video-card__sub">
-            <span>MFuns 用户</span>
-            <time>9-${(i % 28) + 1}</time>
-          </p>
-        </div>
-      </article>`;
-  }).join('');
 }
 
 function bindWindowControls() {
@@ -171,7 +142,7 @@ function renderShell() {
         </header>
 
         <main class="content content--home" id="main-content">
-          ${homePageHtml(placeholderCards())}
+          ${homePageHtml()}
           ${feedPageHtml()}
           ${minePageHtml()}
           ${settingsPageHtml()}
@@ -549,5 +520,6 @@ bindWindowControls();
 bindNavigation();
 bindSettings();
 bindLogin();
+bindHomeFeed();
 
 runSplash();

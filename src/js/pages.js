@@ -42,13 +42,11 @@ function guestCenterBlock(title, subtitle) {
     </div>`;
 }
 
-/**
- * @param {string} cardsHtml
- */
-export function homePageHtml(cardsHtml) {
+export function homePageHtml() {
   return `
     <div class="page-view page-view--home" data-page="home">
-      <div class="content-grid">${cardsHtml}</div>
+      <p class="home-feed__status" id="home-feed-status" hidden role="status"></p>
+      <div class="content-grid" id="home-feed-grid"></div>
     </div>`;
 }
 
