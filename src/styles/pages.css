@@ -699,6 +699,82 @@ html[data-theme='light'] .content.content--mine {
   white-space: nowrap;
 }
 
+.mine-watchlater__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.mine-watchlater__meta,
+.mine-watchlater__hint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.mine-watchlater__hint {
+  margin-top: 8px;
+  text-align: center;
+}
+
+.mine-watchlater__clear {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 8px;
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font: inherit;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.mine-watchlater__clear:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.mine-watchlater__clear-icon {
+  font-size: 18px;
+}
+
+.mine-watchlater-card {
+  position: relative;
+}
+
+.mine-watchlater-card__remove {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 55%);
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.mine-watchlater-card:hover .mine-watchlater-card__remove,
+.mine-watchlater-card__remove:focus-visible {
+  opacity: 1;
+}
+
+.mine-watchlater-card__remove .material-symbols-outlined {
+  font-size: 18px;
+}
+
 @media (max-width: 900px) {
   .mine-profile {
     grid-template-columns: auto 1fr;

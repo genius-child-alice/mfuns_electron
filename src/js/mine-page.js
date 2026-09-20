@@ -13,6 +13,11 @@ import {
 } from './favorite-api.js';
 import { favoriteFolderCreateButtonHtml, openCreateFavoriteFolderDialog } from './favorite-ui.js';
 import { renderVideoCard } from './home-feed.js';
+import {
+  clearWatchLater,
+  listWatchLater,
+  removeVideoFromWatchLater,
+} from './watch-later-store.js';
 
 /** @typedef {import('./history-api.js').HistoryEntry} HistoryEntry */
 /** @typedef {'history' | 'offline' | 'favorite' | 'watchlater'} MineTabId */
@@ -344,6 +349,85 @@ function resetFavoriteState() {
   favoriteLoading = false;
 }
 
+export function refreshWatchLaterView() {
+  renderWatchLaterView();
+}
+
+/** 当前在「我的 → 稍后再看」时刷新列表 */
+export function refreshWatchLaterIfActive() {
+  if (getCurrentPage() === 'mine' && activeTab === 'watchlater') {
+    renderWatchLaterView();
+  }
+}
+
+function renderWatchLaterView() {
+  const root = getRootEl();
+  if (!root) return;
+  const userId = resolveMineUserId(null);
+  const items = userId != null ? listWatchLater(userId) : [];
+
+  if (items.length === 0) {
+    root.innerHTML = `
+      <div class="mine-watchlater">
+        <p class="mine-history__empty">暂无稍后再看视频</p>
+      </div>`;
+    return;
+  }
+
+  root.innerHTML = `
+    <div class="mine-watchlater">
+      <header class="mine-watchlater__head">
+        <p class="mine-watchlater__meta">共 ${items.length} 个视频 · 保存在本设备</p>
+        <button type="button" class="mine-watchlater__clear" id="mine-watchlater-clear">
+          ${materialIcon('delete_outline', 'mine-watchlater__clear-icon')}
+          清空
+        </button>
+      </header>
+      <div class="content-grid mine-watchlater__grid">
+        ${items
+          .map(
+            (item) => `
+          <div class="mine-watchlater-card">
+            ${renderVideoCard(item)}
+            <button type="button" class="mine-watchlater-card__remove" data-watchlater-remove="${escapeHtml(item.id)}" aria-label="移出稍后再看" title="移出稍后再看">
+              ${materialIcon('close')}
+            </button>
+          </div>`,
+          )
+          .join('')}
+      </div>
+    </div>`;
+
+  root.querySelectorAll('.mine-watchlater-card .video-card').forEach((card) => {
+    card.addEventListener('click', (event) => {
+      const target = /** @type {HTMLElement} */ (event.target);
+      if (target.closest('.mine-watchlater-card__remove')) return;
+      const preview = previewFromCard(card);
+      if (!preview || preview.type !== 1) return;
+      void openContentDetail(preview);
+    });
+  });
+
+  root.querySelectorAll('[data-watchlater-remove]').forEach((btn) => {
+    btn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const id = btn.getAttribute('data-watchlater-remove');
+      const uid = resolveMineUserId(null);
+      if (!id || uid == null) return;
+      removeVideoFromWatchLater(uid, id);
+      renderWatchLaterView();
+    });
+  });
+
+  document.getElementById('mine-watchlater-clear')?.addEventListener('click', () => {
+    if (!confirm('确定清空稍后再看列表？')) return;
+    const uid = resolveMineUserId(null);
+    if (uid == null) return;
+    clearWatchLater(uid);
+    renderWatchLaterView();
+  });
+}
+
 /**
  * @param {import('./favorite-api.js').FavoriteFolder[]} folders
  */
@@ -624,11 +708,14 @@ function showTabPanel(tab) {
     return;
   }
 
-  const messages = {
-    offline: '离线缓存功能开发中',
-    watchlater: '稍后再看功能开发中',
-  };
-  renderPanelPlaceholder(messages[tab]);
+  if (tab === 'watchlater') {
+    refreshWatchLaterView();
+    return;
+  }
+
+  if (tab === 'offline') {
+    renderPanelPlaceholder('离线缓存功能开发中');
+  }
 }
 
 function shouldPrefetchMore(container) {
@@ -668,6 +755,9 @@ export function refreshMinePage() {
     resetFavoriteState();
     void loadFavoriteFolders();
   }
+  if (getCurrentPage() === 'mine' && activeTab === 'watchlater') {
+    refreshWatchLaterView();
+  }
 }
 
 export function onMinePageEnter() {
@@ -687,6 +777,9 @@ export function onMinePageEnter() {
       renderFavoriteFoldersView(favoriteFolders);
     }
   }
+  if (activeTab === 'watchlater') {
+    refreshWatchLaterView();
+  }
 }
 
 export function bindMinePage() {
@@ -705,6 +798,10 @@ export function bindMinePage() {
 
   document.getElementById('main-content')?.addEventListener('scroll', onMainScroll, {
     passive: true,
+  });
+
+  window.addEventListener('mfuns:watch-later-changed', () => {
+    refreshWatchLaterIfActive();
   });
 
   syncTabUi();

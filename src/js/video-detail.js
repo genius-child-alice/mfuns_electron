@@ -18,8 +18,9 @@ import {
   setResourceLike,
 } from './video-api.js';
 import { fetchUserProfile } from './user-profile-api.js';
-import { fetchFavoriteStatus } from './favorite-api.js';
+import { fetchFavoriteStatus, resolveMineUserId } from './favorite-api.js';
 import { toggleResourceFavorite } from './favorite-ui.js';
+import { isVideoInWatchLater, toggleVideoWatchLater } from './watch-later-store.js';
 
 /** @typedef {import('./content-api.js').ContentPreview} ContentPreview */
 /** @typedef {import('./video-api.js').VideoDetail} VideoDetail */
@@ -45,6 +46,7 @@ let descExpanded = false;
 let favorited = false;
 /** @type {number | null} */
 let favoriteListId = null;
+let watchLater = false;
 
 /** @type {ContentPreview[]} */
 let relatedItems = [];
@@ -214,9 +216,9 @@ function renderIntroToolbar() {
         <span class="watch-interact-bar__icon">${materialIcon('star')}</span>
         <span class="watch-interact-bar__label">收藏</span>
       </button>
-      <button type="button" class="watch-interact-bar__item watch-interact-bar__item--disabled" id="watch-cache-btn" disabled title="暂未开放">
-        <span class="watch-interact-bar__icon">${materialIcon('download')}</span>
-        <span class="watch-interact-bar__label">缓存</span>
+      <button type="button" class="watch-interact-bar__item ${watchLater ? 'is-active' : ''}" id="watch-later-btn" title="稍后再看">
+        <span class="watch-interact-bar__icon">${materialIcon('schedule')}</span>
+        <span class="watch-interact-bar__label">${watchLater ? '已添加' : '稍后再看'}</span>
       </button>
       <button type="button" class="watch-interact-bar__item" id="watch-share-btn">
         <span class="watch-interact-bar__icon">${materialIcon('share')}</span>
@@ -395,6 +397,14 @@ function bindSidePanelEvents() {
     });
   });
 
+  document.getElementById('watch-later-btn')?.addEventListener('click', () => {
+    if (!currentDetail || !requireLogin()) return;
+    const userId = resolveMineUserId(null);
+    if (userId == null) return;
+    watchLater = toggleVideoWatchLater(userId, currentDetail.preview);
+    renderSidePanel();
+  });
+
   document.getElementById('watch-fav-btn')?.addEventListener('click', () => {
     if (!currentDetail) return;
     void toggleResourceFavorite({
@@ -520,13 +530,18 @@ function setLoading(loading) {
  */
 export async function openVideoDetail(preview) {
   if (preview.type !== 1) return;
-  returnPage = getCurrentPage();
+  const currentPage = getCurrentPage();
+  if (currentPage !== 'watch') {
+    returnPage = currentPage;
+  }
   setPage('watch');
   activePartIndex = 0;
   activeTab = 'intro';
   descExpanded = false;
   favorited = false;
   favoriteListId = null;
+  const userId = resolveMineUserId(null);
+  watchLater = userId != null && isVideoInWatchLater(userId, preview.id);
   authorFans = 0;
   authorTotalLikes = 0;
   setLoading(true);
@@ -591,6 +606,8 @@ export async function openVideoDetail(preview) {
     following = followStatus;
     favorited = favoriteStatus.favorited;
     favoriteListId = favoriteStatus.listId;
+    const uid = resolveMineUserId(null);
+    watchLater = uid != null && isVideoInWatchLater(uid, detail.preview.id);
     if (authorProfile) {
       authorFans = authorProfile.fans;
       authorTotalLikes = authorProfile.totalLikes;
@@ -617,6 +634,7 @@ export async function openVideoDetail(preview) {
 export function closeVideoDetail() {
   destroyWatchPlayer();
   setPage(returnPage);
+  void import('./mine-page.js').then((mod) => mod.refreshWatchLaterIfActive());
 }
 
 export function bindVideoDetail() {
