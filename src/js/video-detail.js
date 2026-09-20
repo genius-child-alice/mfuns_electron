@@ -14,6 +14,7 @@ import {
   fetchRelatedVideos,
   fetchVideoDetail,
   fetchVideoPlayParts,
+  formatVideoCopyrightLabel,
   setFollow,
   setResourceLike,
 } from './video-api.js';
@@ -243,6 +244,7 @@ function renderSidePanel() {
   const publishIso = detail.publishedAt ?? preview.createdAt;
   const dateLabel = formatDateTime(publishIso);
   const danmakuCount = detail.danmakuCount ?? 0;
+  const copyrightLabel = formatVideoCopyrightLabel(detail.copyright);
 
   side.innerHTML = `
     <div class="watch-tabs" role="tablist">
@@ -310,6 +312,11 @@ function renderSidePanel() {
           ${
             dateLabel
               ? `<span class="watch-video-meta__time">${materialIcon('schedule', 'watch-meta-icon')}<time datetime="${escapeHtml(publishIso ?? '')}">${escapeHtml(dateLabel)}</time></span>`
+              : ''
+          }
+          ${
+            copyrightLabel
+              ? `<span class="watch-video-meta__copyright">${escapeHtml(copyrightLabel)}</span>`
               : ''
           }
         </div>

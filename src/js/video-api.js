@@ -23,6 +23,7 @@ import {
  *   likes: number,
  *   danmakuCount: number,
  *   publishedAt: string | null,
+ *   copyright: number | null,
  * }} VideoDetail */
 
 /** @typedef {{
@@ -122,6 +123,24 @@ function parseTags(value) {
 }
 
 /**
+ * @param {number | null | undefined} copyright
+ * @returns {string | null}
+ */
+export function formatVideoCopyrightLabel(copyright) {
+  if (copyright == null) return null;
+  switch (copyright) {
+    case 2:
+      return '原创';
+    case 1:
+      return '转载';
+    case 0:
+      return '其他';
+    default:
+      return null;
+  }
+}
+
+/**
  * @param {ContentPreview} seed
  * @param {unknown} data
  * @returns {VideoDetail}
@@ -185,6 +204,7 @@ function parseVideoDetail(seed, data) {
     danmakuCount:
       asInt(resource.danmaku_count ?? root.danmaku_count ?? resource.bullet_count) ?? 0,
     publishedAt: publishedAt ?? null,
+    copyright: asInt(resource.copyright ?? root.copyright),
   };
 }
 

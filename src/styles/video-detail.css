@@ -776,6 +776,12 @@ html[data-theme='dark'] .watch-side-scroll::-webkit-scrollbar-thumb {
   font-variant-numeric: tabular-nums;
 }
 
+.watch-video-meta__copyright {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-tertiary);
+}
+
 /* —— 互动条（点赞/投币/收藏/缓存/分享）—— */
 .watch-interact-bar {
   display: flex;
