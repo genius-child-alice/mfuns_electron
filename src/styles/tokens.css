@@ -24,8 +24,19 @@ body {
   --accent: rgb(var(--accent-r), var(--accent-g), var(--accent-b));
   --accent-soft: rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.14);
 
-  --sidebar-width: 56px;
-  --topbar-height: 46px;
+  --sidebar-width: 68px;
+  --sidebar-inset-x: 4px;
+  /* 侧栏图标占位（布局不变）；视觉尺寸 = 占位 × --sidebar-icon-scale */
+  --sidebar-icon-slot: 36px;
+  --sidebar-icon-slot-compact: 32px;
+  --sidebar-icon-scale: 2;
+  --topbar-height: calc(46px * 1.5);
+  --search-height: 36px;
+  --logo-height: 38px;
+  --logo-width: calc(96px * var(--logo-height) / 28px);
+  --logo-margin-x: 42px;
+  /* 顶栏搜索框上下留白；侧栏按钮纵向间距与之对齐 */
+  --shell-inset-y: calc((var(--topbar-height) - var(--search-height)) / 2);
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 12px;

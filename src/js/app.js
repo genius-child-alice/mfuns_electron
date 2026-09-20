@@ -104,13 +104,8 @@ function renderShell() {
       <div class="main-column">
         <header class="topbar app-no-drag">
           <div class="topbar__brand app-drag">
-            <button type="button" class="topbar__back app-no-drag" aria-label="后退">
-              ${materialIcon('arrow_back_ios_new', 'material-symbols-outlined--nav')}
-            </button>
             <a class="topbar__logo-link app-no-drag" href="#" aria-label="MFuns 首页">
-              <span class="topbar__logo-wrap">
-                <img class="topbar__logo" src="assets/mfuns_logo.png" alt="MFuns" />
-              </span>
+              <span class="topbar__logo-mark" aria-hidden="true"></span>
             </a>
             <nav class="topbar__tabs app-no-drag" aria-label="内容分类">
               ${TOP_TABS.map(
