@@ -146,8 +146,13 @@ function renderComments(comments) {
 }
 
 function formatDateTime(iso) {
-  if (!iso) return '';
-  const d = new Date(iso);
+  if (iso == null || iso === '') return '';
+  let d;
+  if (typeof iso === 'number' && Number.isFinite(iso)) {
+    d = new Date(iso < 1e12 ? iso * 1000 : iso);
+  } else {
+    d = new Date(`${iso}`);
+  }
   if (Number.isNaN(d.getTime())) return '';
   const pad = (n) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
@@ -295,7 +300,11 @@ function renderSidePanel() {
         <div class="watch-video-meta">
           <span>${materialIcon('play_arrow', 'watch-meta-icon')}${formatCount(preview.views)}</span>
           <span>${materialIcon('subtitles', 'watch-meta-icon')}${formatCount(danmakuCount)}</span>
-          ${dateLabel ? `<span class="watch-video-meta__time">${materialIcon('schedule', 'watch-meta-icon')}<time datetime="${escapeHtml(publishIso ?? '')}">${escapeHtml(dateLabel)}</time></span>` : ''}
+          ${
+            dateLabel
+              ? `<span class="watch-video-meta__time">${materialIcon('schedule', 'watch-meta-icon')}<time datetime="${escapeHtml(publishIso ?? '')}">${escapeHtml(dateLabel)}</time></span>`
+              : ''
+          }
         </div>
 
         ${renderIntroToolbar()}

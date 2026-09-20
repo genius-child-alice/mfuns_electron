@@ -55,6 +55,27 @@ function asInt(value) {
 }
 
 /**
+ * @param {...unknown} candidates
+ * @returns {string | null}
+ */
+function parsePublishTime(...candidates) {
+  for (const value of candidates) {
+    if (value == null || value === '') continue;
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed) return trimmed;
+      continue;
+    }
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      const ms = value < 1e12 ? value * 1000 : value;
+      const d = new Date(ms);
+      if (!Number.isNaN(d.getTime())) return d.toISOString();
+    }
+  }
+  return null;
+}
+
+/**
  * @param {unknown} root
  * @param {unknown} resource
  */
@@ -130,11 +151,18 @@ function parseVideoDetail(seed, data) {
   const likes = asInt(like.count) ?? asInt(resource.like_count ?? root.like_count) ?? 0;
 
   const rawDescription = `${resource.content ?? resource.summary ?? root.content ?? ''}`;
-  const publishedAt =
-    (typeof resource.created_at === 'string' && resource.created_at) ||
-    (typeof resource.publish_time === 'string' && resource.publish_time) ||
-    (typeof root.created_at === 'string' && root.created_at) ||
-    preview.createdAt;
+  const publishedAt = parsePublishTime(
+    resource.created_at,
+    resource.publish_time,
+    resource.published_at,
+    resource.pub_time,
+    resource.time,
+    root.created_at,
+    root.publish_time,
+    root.published_at,
+    root.time,
+    preview.createdAt,
+  );
 
   return {
     preview: {

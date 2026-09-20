@@ -1,5 +1,6 @@
 import { fetchDanmakuList, sendDanmaku } from './danmaku-api.js';
 import { DanmakuRenderer } from './danmaku-renderer.js';
+import { materialIcon } from './icons.js';
 import { requireLogin } from './login-ui.js';
 
 /**
@@ -35,6 +36,18 @@ export class WatchDanmaku {
     this.video = null;
 
     this.bindEvents();
+    this.syncToggleIcon(Boolean(this.renderer?.enabled));
+  }
+
+  /**
+   * @param {boolean} on
+   */
+  syncToggleIcon(on) {
+    if (!this.toggleBtn) return;
+    this.toggleBtn.innerHTML = materialIcon(
+      on ? 'subtitles' : 'subtitles_off',
+      'watch-danmaku-bar__toggle-icon',
+    );
   }
 
   bindEvents() {
@@ -44,6 +57,7 @@ export class WatchDanmaku {
       this.renderer?.setEnabled(next);
       if (next && this.video) this.renderer?.seek(this.video.currentTime);
       this.toggleBtn?.classList.toggle('is-on', next);
+      this.syncToggleIcon(next);
     });
 
     this.sendBtn?.addEventListener('click', (e) => {

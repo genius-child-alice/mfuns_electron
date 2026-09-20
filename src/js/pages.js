@@ -177,7 +177,7 @@ export function watchPageHtml() {
                     <div class="watch-player__controls-center">
                       <div class="watch-danmaku-bar">
                         <button type="button" class="watch-danmaku-bar__toggle is-on" id="watch-danmaku-toggle" aria-label="弹幕开关" title="弹幕">
-                          弹
+                          ${materialIcon('subtitles', 'watch-danmaku-bar__toggle-icon')}
                         </button>
                         <input type="text" class="watch-danmaku-bar__input" id="watch-danmaku-input" maxlength="100" placeholder="发个友善的弹幕见证当下" autocomplete="off" />
                         <button type="button" class="watch-danmaku-bar__send" id="watch-danmaku-send">发送</button>
