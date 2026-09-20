@@ -95,6 +95,9 @@ html[data-theme='dark'] {
   --window-close-hover: #e81123;
   --window-close-fg-hover: #ffffff;
   --accent-soft: rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.28);
+  --scrollbar-thumb: #949494;
+  --scrollbar-thumb-hover: #b0b0b0;
+  --scrollbar-track: transparent;
 }
 
 button,
