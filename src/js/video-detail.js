@@ -1,5 +1,6 @@
 import { materialIcon } from './icons.js';
-import { mediaPlaybackSrc, mediaSrcForCover } from './content-api.js';
+import { mediaSrcForCover } from './content-api.js';
+import { destroyWatchPlayer, getWatchPlayer } from './watch-player.js';
 import { mountRichContent } from './rich-content.js';
 import { loadSession } from './auth.js';
 import { getCurrentPage, setPage } from './pages.js';
@@ -12,7 +13,6 @@ import {
   fetchRelatedVideos,
   fetchVideoDetail,
   fetchVideoPlayParts,
-  pickDefaultQuality,
   setFollow,
   setResourceLike,
 } from './video-api.js';
@@ -64,27 +64,6 @@ function escapeHtml(text) {
 
 function getRoot() {
   return document.getElementById('watch-page-root');
-}
-
-function pausePlayer() {
-  const video = /** @type {HTMLVideoElement | null} */ (document.getElementById('watch-player'));
-  video?.pause();
-}
-
-/**
- * @param {VideoPart[]} parts
- * @param {number} partIndex
- */
-function applyPlayback(parts, partIndex) {
-  const video = /** @type {HTMLVideoElement | null} */ (document.getElementById('watch-player'));
-  if (!video) return;
-  const quality = pickDefaultQuality(parts, partIndex);
-  if (!quality) return;
-  const src = mediaPlaybackSrc(quality.url) ?? quality.url;
-  if (video.src !== src) {
-    video.src = src;
-    video.load();
-  }
 }
 
 /**
@@ -313,7 +292,7 @@ function bindSidePanelEvents() {
       const index = Number(btn.getAttribute('data-part-index'));
       if (!Number.isFinite(index)) return;
       activePartIndex = index;
-      applyPlayback(currentParts, activePartIndex);
+      getWatchPlayer()?.loadPart(index, { autoPlay: true });
       document.querySelectorAll('[data-part-index]').forEach((el) => {
         el.classList.toggle('is-active', Number(el.getAttribute('data-part-index')) === index);
       });
@@ -371,11 +350,7 @@ export async function openVideoDetail(preview) {
   activeTab = 'intro';
   setLoading(true);
 
-  const player = /** @type {HTMLVideoElement | null} */ (document.getElementById('watch-player'));
-  if (player) {
-    player.removeAttribute('src');
-    player.load();
-  }
+  getWatchPlayer()?.destroy();
 
   try {
     const [detail, parts, related] = await Promise.all([
@@ -386,13 +361,28 @@ export async function openVideoDetail(preview) {
     currentDetail = detail;
     currentParts = parts;
 
-    if (player && detail.preview.cover) {
-      const poster = mediaSrcForCover(detail.preview.cover);
-      if (poster) player.poster = poster;
-    }
-
+    const poster = detail.preview.cover ? mediaSrcForCover(detail.preview.cover) : null;
     if (parts.length > 0) {
-      applyPlayback(parts, 0);
+      getWatchPlayer()?.load({
+        parts,
+        partIndex: 0,
+        poster: poster ?? undefined,
+        onPartChange: () => {
+          const wp = getWatchPlayer();
+          if (!wp) return;
+          activePartIndex = wp.partIndex;
+          document.querySelectorAll('[data-part-index]').forEach((el) => {
+            el.classList.toggle(
+              'is-active',
+              Number(el.getAttribute('data-part-index')) === activePartIndex,
+            );
+          });
+          const countEl = document.querySelector('.watch-playlist__count');
+          if (countEl && currentParts.length > 0) {
+            countEl.textContent = `${activePartIndex + 1} / ${currentParts.length}`;
+          }
+        },
+      });
     }
 
     const session = loadSession();
@@ -429,7 +419,7 @@ export async function openVideoDetail(preview) {
 }
 
 export function closeVideoDetail() {
-  pausePlayer();
+  destroyWatchPlayer();
   setPage(returnPage);
 }
 

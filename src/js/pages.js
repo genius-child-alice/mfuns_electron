@@ -1,6 +1,7 @@
 import { materialIcon } from './icons.js';
 import { loadSession, userDisplayName } from './auth.js';
 import { userAvatarMediaSrc } from './content-api.js';
+import { destroyWatchPlayer } from './watch-player.js';
 
 const DEFAULT_AVATAR = 'assets/mfuns_logo.png';
 
@@ -142,8 +143,32 @@ export function watchPageHtml() {
         </header>
         <div class="watch-layout">
           <div class="watch-main">
-            <div class="watch-player-wrap">
-              <video id="watch-player" class="watch-player" controls playsinline></video>
+            <div class="watch-player-wrap app-no-drag" id="watch-player-root">
+              <video id="watch-player" class="watch-player" playsinline></video>
+              <div class="watch-player__overlay" id="watch-player-overlay">
+                <div class="watch-player__center">
+                  <button type="button" class="watch-player__big-play" id="watch-player-big-play" aria-label="播放">
+                    ${materialIcon('play_arrow', 'watch-player__big-play-icon')}
+                  </button>
+                </div>
+                <p class="watch-player__loading" id="watch-player-loading" hidden>正在缓冲…</p>
+                <p class="watch-player__error" id="watch-player-error" hidden></p>
+                <div class="watch-player__bar">
+                  <button type="button" class="watch-player__btn" id="watch-player-play" aria-label="播放/暂停">
+                    ${materialIcon('play_arrow')}
+                  </button>
+                  <span class="watch-player__time" id="watch-player-time">00:00 / 00:00</span>
+                  <input type="range" class="watch-player__progress" id="watch-player-progress" min="0" max="1000" value="0" aria-label="进度" />
+                  <div class="watch-player__quality-wrap">
+                    <button type="button" class="watch-player__quality-btn" id="watch-player-quality-btn">清晰度</button>
+                    <div class="watch-player__quality-menu" id="watch-player-quality-menu" hidden></div>
+                  </div>
+                  <input type="range" class="watch-player__volume" id="watch-player-volume" min="0" max="100" value="70" aria-label="音量" />
+                  <button type="button" class="watch-player__btn" id="watch-player-fullscreen" aria-label="全屏">
+                    ${materialIcon('fullscreen')}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
           <aside class="watch-side" id="watch-side-panel" aria-label="视频信息"></aside>
@@ -188,6 +213,9 @@ export function getCurrentPage() {
 
 /** @param {PageId} pageId */
 export function setPage(pageId) {
+  if (currentPage === 'watch' && pageId !== 'watch') {
+    destroyWatchPlayer();
+  }
   currentPage = pageId;
 
   document.querySelectorAll('.page-view').forEach((el) => {

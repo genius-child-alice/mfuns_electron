@@ -327,10 +327,49 @@ export async function createComment(areaId, text) {
 }
 
 /**
+ * @param {VideoQuality} quality
+ */
+export function qualityDisplayLabel(quality) {
+  const label = `${quality.label ?? ''}`.trim();
+  const name = `${quality.name ?? ''}`.trim();
+  return label || name || '默认清晰度';
+}
+
+/**
+ * @param {VideoQuality} quality
+ */
+export function qualityPixels(quality) {
+  const label = qualityDisplayLabel(quality).toLowerCase();
+  const match = label.match(/(\d{3,4})/);
+  if (match) return Number.parseInt(match[1], 10);
+  if (label.includes('4k')) return 2160;
+  if (label.includes('2k')) return 1440;
+  if (label.includes('hd')) return 720;
+  if (label.includes('sd')) return 480;
+  return 0;
+}
+
+/**
+ * @param {VideoQuality[]} qualities
+ */
+export function sortQualitiesDesc(qualities) {
+  return [...qualities].sort((a, b) => qualityPixels(b) - qualityPixels(a));
+}
+
+/**
  * @param {VideoPart[]} parts
+ * @param {number} partIndex
+ */
+export function getQualitiesForPart(parts, partIndex) {
+  return parts[partIndex]?.qualities ?? [];
+}
+
+/**
+ * @param {VideoPart[]} parts
+ * @param {number} [partIndex]
  */
 export function pickDefaultQuality(parts, partIndex = 0) {
-  const part = parts[partIndex];
-  if (!part || part.qualities.length === 0) return null;
-  return part.qualities[part.qualities.length - 1];
+  const qualities = getQualitiesForPart(parts, partIndex);
+  if (qualities.length === 0) return null;
+  return sortQualitiesDesc(qualities)[0];
 }
