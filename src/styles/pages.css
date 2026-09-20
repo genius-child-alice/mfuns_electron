@@ -473,23 +473,6 @@ html[data-theme='light'] .content.content--mine {
   font-size: 18px;
 }
 
-.mine-history__grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18px 14px;
-}
-
-@media (max-width: 1100px) {
-  .mine-history__grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 640px) {
-  .mine-history__grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
 .mine-history-card {
   cursor: pointer;
 }

@@ -189,7 +189,7 @@ function renderHistorySections(items) {
             : ''
         }
       </header>
-      <div class="content-grid mine-history__grid">
+      <div class="content-grid">
         ${group.items.map((entry) => renderHistoryCard(entry)).join('')}
       </div>
     </section>`,
