@@ -30,7 +30,9 @@
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  padding: 8px 16px;
+  min-height: 48px;
+  padding: 0 16px;
+  box-sizing: border-box;
   border-bottom: 1px solid var(--border-subtle);
   background: var(--bg-pane);
 }
@@ -65,7 +67,8 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  background: #000;
+  background: var(--bg-pane);
+  min-height: 0;
 }
 
 .watch-player-wrap {
@@ -258,14 +261,20 @@
 .watch-tabs {
   flex-shrink: 0;
   display: flex;
+  align-items: stretch;
   gap: 24px;
+  min-height: 48px;
   padding: 0 16px;
+  box-sizing: border-box;
   border-bottom: 1px solid var(--border-subtle);
 }
 
 .watch-tabs__btn {
   position: relative;
-  padding: 14px 0 12px;
+  display: flex;
+  align-items: center;
+  padding: 0;
+  min-height: 48px;
   font-size: 15px;
   color: var(--text-secondary);
 }
@@ -657,6 +666,7 @@ html[data-theme='dark'] .watch-side-scroll::-webkit-scrollbar-thumb {
 
   .watch-main {
     flex: none;
+    width: 100%;
   }
 
   .watch-side {

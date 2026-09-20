@@ -135,14 +135,14 @@ export function watchPageHtml() {
   return `
     <div class="page-view page-view--watch" data-page="watch" hidden>
       <div class="watch-page" id="watch-page-root">
-        <header class="watch-toolbar app-no-drag">
-          <button type="button" class="watch-back" id="watch-back-btn">
-            ${materialIcon('arrow_back', 'watch-back-icon')}
-            <span>返回</span>
-          </button>
-        </header>
         <div class="watch-layout">
           <div class="watch-main">
+            <header class="watch-toolbar app-no-drag">
+              <button type="button" class="watch-back" id="watch-back-btn">
+                ${materialIcon('arrow_back', 'watch-back-icon')}
+                <span>返回</span>
+              </button>
+            </header>
             <div class="watch-player-wrap app-no-drag" id="watch-player-root">
               <video id="watch-player" class="watch-player" playsinline></video>
               <div class="watch-player__overlay" id="watch-player-overlay">
