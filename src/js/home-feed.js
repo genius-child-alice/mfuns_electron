@@ -6,7 +6,9 @@ import { fetchHotList, fetchRecommendList, mediaSrcForCover } from './content-ap
 const PAGE_SIZE = 20;
 const RECOMMEND_SIZE_STEP = PAGE_SIZE;
 const MAX_RECOMMEND_SIZE = 200;
-const SCROLL_LOAD_THRESHOLD = 160;
+/** 距底部不足该距离时预加载（与视口高度取较大值，避免必须滚到底才请求） */
+const SCROLL_PREFETCH_MIN_PX = 560;
+const SCROLL_PREFETCH_VIEWPORT_RATIO = 1.5;
 
 /** @type {HomeTabId} */
 let activeHomeTab = 'recommend';
@@ -178,6 +180,31 @@ function isHomePageVisible() {
 }
 
 /**
+ * @param {number} clientHeight
+ */
+function getScrollPrefetchLead(clientHeight) {
+  return Math.max(SCROLL_PREFETCH_MIN_PX, clientHeight * SCROLL_PREFETCH_VIEWPORT_RATIO);
+}
+
+/**
+ * @param {HTMLElement} main
+ */
+function shouldPrefetchMore(main) {
+  const { scrollTop, clientHeight, scrollHeight } = main;
+  const distanceToEnd = scrollHeight - (scrollTop + clientHeight);
+  return distanceToEnd <= getScrollPrefetchLead(clientHeight);
+}
+
+function schedulePrefetchCheck() {
+  requestAnimationFrame(() => {
+    if (!isHomePageVisible() || !hasMore || loading) return;
+    const main = document.getElementById('main-content');
+    if (!main || !shouldPrefetchMore(main)) return;
+    void loadMoreHomeFeed().then(() => schedulePrefetchCheck());
+  });
+}
+
+/**
  * @param {HomeTabId} [tabId]
  */
 export async function loadHomeFeed(tabId = activeHomeTab) {
@@ -223,6 +250,7 @@ export async function loadHomeFeed(tabId = activeHomeTab) {
     hasMore = false;
   } finally {
     loading = false;
+    schedulePrefetchCheck();
   }
 }
 
@@ -273,17 +301,15 @@ export async function loadMoreHomeFeed() {
   } finally {
     loading = false;
     removeLoadMoreIndicator();
+    schedulePrefetchCheck();
   }
 }
 
 function onMainContentScroll() {
   if (!isHomePageVisible() || !hasMore || loading) return;
   const main = document.getElementById('main-content');
-  if (!main) return;
-  const { scrollTop, clientHeight, scrollHeight } = main;
-  if (scrollTop + clientHeight >= scrollHeight - SCROLL_LOAD_THRESHOLD) {
-    loadMoreHomeFeed();
-  }
+  if (!main || !shouldPrefetchMore(main)) return;
+  void loadMoreHomeFeed();
 }
 
 export function getActiveHomeTab() {
