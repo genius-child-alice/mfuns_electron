@@ -3,7 +3,7 @@ import { loadSession } from './auth.js';
 import { mediaSrcForCover } from './content-api.js';
 import { getCurrentPage, setPage } from './pages.js';
 import { fetchAllRelationList } from './user-profile-api.js';
-import { fetchFollowStatus, setFollow } from './video-api.js';
+import { fetchFollowStatus } from './video-api.js';
 import { openUserSpace } from './user-space.js';
 
 /** @typedef {import('./user-profile-api.js').UserProfile} UserProfile */
@@ -57,16 +57,8 @@ function sessionUserId(user) {
  * @param {number | null} viewerId
  */
 async function enrichRelationFlags(list, viewerId) {
-  if (viewerId == null) {
+  if (listMode !== 'fans' || viewerId == null || viewerId !== ownerUserId) {
     return list.map((user) => ({ ...user, viewerFollows: false, mutual: false }));
-  }
-
-  if (listMode === 'follow' && viewerId === ownerUserId) {
-    return list.map((user) => ({
-      ...user,
-      viewerFollows: user.id !== viewerId,
-      mutual: false,
-    }));
   }
 
   const chunkSize = 6;
@@ -79,9 +71,6 @@ async function enrichRelationFlags(list, viewerId) {
       chunk.map(async (user) => {
         if (user.id === viewerId) {
           return { viewerFollows: false, mutual: false };
-        }
-        if (listMode === 'follow' && viewerId === ownerUserId) {
-          return { viewerFollows: true, mutual: false };
         }
         try {
           const viewerFollows = await fetchFollowStatus(user.id);
@@ -103,32 +92,16 @@ async function enrichRelationFlags(list, viewerId) {
  * @param {RelationUser} user
  */
 function relationChipHtml(user) {
+  if (listMode !== 'fans') return '';
+
   const session = loadSession();
   const viewerId = sessionUserId(session?.user);
-  if (viewerId == null) return '';
-
-  if (user.id === viewerId) {
+  if (viewerId == null || viewerId !== ownerUserId || user.id === viewerId) {
     return '';
   }
 
-  if (listMode === 'follow' && viewerId === ownerUserId) {
-    return `<span class="follow-list__chip">${materialIcon('check', 'follow-list__chip-icon')}已关注</span>`;
-  }
-
-  if (user.viewerFollows && listMode === 'fans' && viewerId === ownerUserId) {
-    return `<span class="follow-list__chip follow-list__chip--mutual">${materialIcon('done_all', 'follow-list__chip-icon')}已互粉</span>`;
-  }
-
   if (user.viewerFollows) {
-    return `<span class="follow-list__chip">${materialIcon('check', 'follow-list__chip-icon')}已关注</span>`;
-  }
-
-  if (viewerId === ownerUserId && listMode === 'fans') {
-    return `<button type="button" class="follow-list__chip follow-list__chip--action" data-follow-user="${user.id}">${materialIcon('add', 'follow-list__chip-icon')}关注</button>`;
-  }
-
-  if (viewerId !== ownerUserId) {
-    return `<button type="button" class="follow-list__chip follow-list__chip--action" data-follow-user="${user.id}">${materialIcon('add', 'follow-list__chip-icon')}关注</button>`;
+    return `<span class="follow-list__chip follow-list__chip--mutual">${materialIcon('done_all', 'follow-list__chip-icon')}已互粉</span>`;
   }
 
   return '';
@@ -154,6 +127,7 @@ function renderList() {
     .map((user) => {
       const avatarSrc = mediaSrcForCover(user.avatar);
       const bio = user.bio === '暂无简介' ? '这个人很神秘，什么也没写。' : user.bio;
+      const relation = relationChipHtml(user);
       return `
         <article class="follow-list__card">
           <button type="button" class="follow-list__card-main" data-open-user="${user.id}">
@@ -167,7 +141,7 @@ function renderList() {
               <p class="follow-list__bio">${escapeHtml(bio)}</p>
             </div>
           </button>
-          <div class="follow-list__card-foot">${relationChipHtml(user)}</div>
+          ${relation ? `<div class="follow-list__card-foot">${relation}</div>` : ''}
         </article>`;
     })
     .join('');
@@ -221,22 +195,6 @@ export function closeFollowList() {
   setPage(returnPage);
 }
 
-async function onFollowUser(userId) {
-  const { requireLogin } = await import('./login-ui.js');
-  if (!requireLogin()) return;
-  try {
-    await setFollow(userId, true);
-    const entry = users.find((u) => u.id === userId);
-    if (entry) {
-      entry.viewerFollows = true;
-      entry.mutual = true;
-    }
-    renderList();
-  } catch (err) {
-    alert(err instanceof Error ? err.message : '关注失败');
-  }
-}
-
 function onListClick(event) {
   const target = /** @type {HTMLElement} */ (event.target);
   const openBtn = target.closest('[data-open-user]');
@@ -245,15 +203,6 @@ function onListClick(event) {
     if (Number.isFinite(uid) && uid > 0) {
       openUserSpace(uid);
     }
-    return;
-  }
-
-  const followBtn = target.closest('[data-follow-user]');
-  if (followBtn instanceof HTMLElement) {
-    event.preventDefault();
-    event.stopPropagation();
-    const uid = Number.parseInt(followBtn.getAttribute('data-follow-user') ?? '', 10);
-    if (Number.isFinite(uid) && uid > 0) void onFollowUser(uid);
   }
 }
 

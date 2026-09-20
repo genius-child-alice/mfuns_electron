@@ -186,15 +186,6 @@
   color: var(--text-primary);
 }
 
-.follow-list__chip--action {
-  cursor: pointer;
-}
-
-.follow-list__chip--action:hover {
-  background: var(--border-subtle);
-  color: var(--accent);
-}
-
 .follow-list__chip-icon {
   font-size: 16px;
 }
