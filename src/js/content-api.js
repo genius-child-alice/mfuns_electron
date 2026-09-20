@@ -21,7 +21,7 @@ async function parseApiJson(res) {
  * @param {string} path
  * @param {Record<string, string | number>} query
  */
-async function apiGet(path, query = {}) {
+export async function apiGet(path, query = {}) {
   const url = new URL(`${API_BASE}${path}`);
   Object.entries(query).forEach(([key, value]) => {
     url.searchParams.set(key, String(value));
@@ -33,6 +33,27 @@ async function apiGet(path, query = {}) {
   if (token) headers.Authorization = token;
 
   const res = await fetch(url.toString(), { headers });
+  return parseApiJson(res);
+}
+
+/**
+ * @param {string} path
+ * @param {Record<string, unknown>} body
+ */
+export async function apiPostJson(path, body = {}) {
+  /** @type {Record<string, string>} */
+  const headers = {
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+  };
+  const token = loadSession()?.token;
+  if (token) headers.Authorization = token;
+
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+  });
   return parseApiJson(res);
 }
 

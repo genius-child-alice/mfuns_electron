@@ -23,11 +23,13 @@ import {
   homePageHtml,
   minePageHtml,
   settingsPageHtml,
+  watchPageHtml,
   setPage,
   syncPagesAuthState,
 } from './pages.js';
 import { registerOpenLoginHandler, requireLogin } from './login-ui.js';
 import { bindHomeFeed } from './home-feed.js';
+import { bindVideoDetail } from './video-detail.js';
 
 /** @type {() => void} */
 let syncSettingsForm = () => {};
@@ -147,6 +149,7 @@ function renderShell() {
           ${feedPageHtml()}
           ${minePageHtml()}
           ${settingsPageHtml()}
+          ${watchPageHtml()}
           <button type="button" class="btn-refresh app-no-drag" aria-label="刷新">
             ${materialIcon('refresh')}
           </button>
@@ -526,5 +529,6 @@ bindNavigation();
 bindSettings();
 bindLogin();
 bindHomeFeed();
+bindVideoDetail();
 
 runSplash();

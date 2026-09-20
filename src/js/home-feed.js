@@ -1,5 +1,6 @@
 import { materialIcon } from './icons.js';
 import { fetchHotList, fetchRecommendList, mediaSrcForCover } from './content-api.js';
+import { openVideoDetail } from './video-detail.js';
 
 /** @typedef {'recommend' | 'hot' | 'article' | 'video'} HomeTabId */
 
@@ -332,6 +333,27 @@ export function bindHomeFeed() {
 
   document.getElementById('main-content')?.addEventListener('scroll', onMainContentScroll, {
     passive: true,
+  });
+
+  document.getElementById('home-feed-grid')?.addEventListener('click', (event) => {
+    const target = /** @type {HTMLElement} */ (event.target);
+    const card = target.closest('.video-card');
+    if (!card) return;
+    const id = card.getAttribute('data-content-id');
+    const type = Number(card.getAttribute('data-content-type'));
+    if (!id || type !== 1) return;
+    const titleEl = card.querySelector('.video-card__title');
+    const authorEl = card.querySelector('.video-card__sub span');
+    void openVideoDetail({
+      id,
+      title: titleEl?.textContent?.trim() ?? '',
+      cover: null,
+      author: authorEl?.textContent?.trim() ?? '',
+      type: 1,
+      views: 0,
+      comments: 0,
+      createdAt: null,
+    });
   });
 
   loadHomeFeed('recommend');

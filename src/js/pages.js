@@ -3,7 +3,7 @@ import { loadSession, userAvatarUrl, userDisplayName } from './auth.js';
 
 const DEFAULT_AVATAR = 'assets/mfuns_logo.png';
 
-/** @typedef {'home' | 'feed' | 'mine' | 'settings'} PageId */
+/** @typedef {'home' | 'feed' | 'mine' | 'settings' | 'watch'} PageId */
 
 /** @type {PageId} */
 let currentPage = 'home';
@@ -129,6 +129,28 @@ export function minePageHtml() {
     </div>`;
 }
 
+export function watchPageHtml() {
+  return `
+    <div class="page-view page-view--watch" data-page="watch" hidden>
+      <div class="watch-page" id="watch-page-root">
+        <header class="watch-toolbar app-no-drag">
+          <button type="button" class="watch-back" id="watch-back-btn">
+            ${materialIcon('arrow_back', 'watch-back-icon')}
+            <span>返回</span>
+          </button>
+        </header>
+        <div class="watch-layout">
+          <div class="watch-main">
+            <div class="watch-player-wrap">
+              <video id="watch-player" class="watch-player" controls playsinline></video>
+            </div>
+          </div>
+          <aside class="watch-side" id="watch-side-panel" aria-label="视频信息"></aside>
+        </div>
+      </div>
+    </div>`;
+}
+
 export function settingsPageHtml() {
   return `
     <div class="page-view page-view--settings" data-page="settings" hidden>
@@ -185,9 +207,12 @@ export function setPage(pageId) {
   main?.classList.toggle('content--feed', pageId === 'feed');
   main?.classList.toggle('content--mine', pageId === 'mine');
   main?.classList.toggle('content--settings', pageId === 'settings');
+  main?.classList.toggle('content--watch', pageId === 'watch');
 
   const homeTabs = document.getElementById('topbar-tabs-home');
   homeTabs?.toggleAttribute('hidden', pageId !== 'home');
+
+  document.querySelector('.btn-refresh')?.toggleAttribute('hidden', pageId === 'watch');
 
   syncPagesAuthState();
 }
