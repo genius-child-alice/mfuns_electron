@@ -228,7 +228,9 @@ function renderSidePanel() {
       ? `${formatCount(authorFans)}粉丝 · ${formatCount(authorTotalLikes)}获赞`
       : 'MFuns 创作者';
   const hasDesc = Boolean(detail.rawDescription);
-  const dateLabel = formatDateTime(preview.createdAt);
+  const publishIso = detail.publishedAt ?? preview.createdAt;
+  const dateLabel = formatDateTime(publishIso);
+  const danmakuCount = detail.danmakuCount ?? 0;
 
   side.innerHTML = `
     <div class="watch-tabs" role="tablist">
@@ -292,8 +294,8 @@ function renderSidePanel() {
 
         <div class="watch-video-meta">
           <span>${materialIcon('play_arrow', 'watch-meta-icon')}${formatCount(preview.views)}</span>
-          <span>${materialIcon('chat_bubble', 'watch-meta-icon')}${formatCount(preview.comments)}</span>
-          ${dateLabel ? `<span>${materialIcon('schedule', 'watch-meta-icon')}${escapeHtml(dateLabel)}</span>` : ''}
+          <span>${materialIcon('subtitles', 'watch-meta-icon')}${formatCount(danmakuCount)}</span>
+          ${dateLabel ? `<span class="watch-video-meta__time">${materialIcon('schedule', 'watch-meta-icon')}<time datetime="${escapeHtml(publishIso ?? '')}">${escapeHtml(dateLabel)}</time></span>` : ''}
         </div>
 
         ${renderIntroToolbar()}
@@ -515,6 +517,7 @@ export async function openVideoDetail(preview) {
       getWatchPlayer()?.load({
         parts,
         partIndex: 0,
+        videoId: detail.preview.id,
         poster: poster ?? undefined,
         onPartChange: () => {
           const wp = getWatchPlayer();
@@ -577,4 +580,20 @@ export function closeVideoDetail() {
 
 export function bindVideoDetail() {
   document.getElementById('watch-back-btn')?.addEventListener('click', closeVideoDetail);
+
+  window.addEventListener('mfuns:danmaku-sent', () => {
+    if (!currentDetail) return;
+    currentDetail.danmakuCount += 1;
+    renderSidePanel();
+  });
+
+  window.addEventListener('mfuns:danmaku-loaded', (event) => {
+    const detail = /** @type {CustomEvent<{ count?: number }>} */ (event).detail;
+    const count = detail?.count;
+    if (!currentDetail || typeof count !== 'number') return;
+    if (currentDetail.danmakuCount < count) {
+      currentDetail.danmakuCount = count;
+      renderSidePanel();
+    }
+  });
 }

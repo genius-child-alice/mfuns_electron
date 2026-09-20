@@ -1,6 +1,7 @@
 import Hls from '../../node_modules/hls.js/dist/hls.mjs';
 import { materialIcon } from './icons.js';
 import { mediaPlaybackSrc } from './content-api.js';
+import { createWatchDanmaku } from './watch-danmaku.js';
 import {
   getQualitiesForPart,
   pickDefaultQuality,
@@ -87,6 +88,10 @@ export class WatchPlayer {
     this.controlsTimer = 0;
     this.progressDragging = false;
     this.playbackRate = 1;
+    this.videoId = '';
+    /** @type {import('./watch-danmaku.js').WatchDanmaku | null} */
+    this.danmaku = createWatchDanmaku(root);
+    this.danmaku.attachVideo(this.video);
 
     this.bindEvents();
   }
@@ -268,6 +273,7 @@ export class WatchPlayer {
       this.progressBuffer.style.width = `${Math.min(1, bufferedEnd / duration) * 100}%`;
     }
     this.updateTimeLabel(ratio, currentTime, duration);
+    this.danmaku?.tick(currentTime, !this.video.paused);
   }
 
   /**
@@ -334,6 +340,10 @@ export class WatchPlayer {
     this.nextBtn?.setAttribute('hidden', '');
     this.setError('');
     this.setLoading(false);
+    this.videoId = '';
+    this.danmaku?.destroy();
+    this.danmaku = createWatchDanmaku(this.root);
+    this.danmaku.attachVideo(this.video);
   }
 
   detachHls() {
@@ -449,13 +459,21 @@ export class WatchPlayer {
     this.onPartChange?.();
     this.syncPartControls();
     void this.loadQuality(quality, { autoPlay: options.autoPlay ?? false });
+    void this.reloadDanmaku();
+  }
+
+  reloadDanmaku() {
+    if (!this.videoId) return;
+    const part = this.parts[this.partIndex]?.part ?? this.partIndex + 1;
+    void this.danmaku?.setContext({ videoId: this.videoId, part });
   }
 
   /**
-   * @param {{ parts: VideoPart[], partIndex?: number, poster?: string | null, autoPlay?: boolean, onPartChange?: () => void }} config
+   * @param {{ parts: VideoPart[], partIndex?: number, poster?: string | null, autoPlay?: boolean, onPartChange?: () => void, videoId?: string }} config
    */
   load(config) {
     this.parts = config.parts;
+    this.videoId = config.videoId ? `${config.videoId}` : '';
     this.onPartChange = config.onPartChange ?? null;
     if (config.poster) this.video.poster = config.poster;
     this.video.volume = Number(this.volume?.value ?? 70) / 100;

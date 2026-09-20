@@ -21,6 +21,8 @@ import {
  *   authorId: number | null,
  *   authorAvatar: string | null,
  *   likes: number,
+ *   danmakuCount: number,
+ *   publishedAt: string | null,
  * }} VideoDetail */
 
 /** @typedef {{
@@ -128,12 +130,18 @@ function parseVideoDetail(seed, data) {
   const likes = asInt(like.count) ?? asInt(resource.like_count ?? root.like_count) ?? 0;
 
   const rawDescription = `${resource.content ?? resource.summary ?? root.content ?? ''}`;
+  const publishedAt =
+    (typeof resource.created_at === 'string' && resource.created_at) ||
+    (typeof resource.publish_time === 'string' && resource.publish_time) ||
+    (typeof root.created_at === 'string' && root.created_at) ||
+    preview.createdAt;
 
   return {
     preview: {
       ...preview,
       comments: detailCommentCount(root, resource),
       views: asInt(root.view_count ?? resource.view_count) ?? preview.views,
+      createdAt: publishedAt ?? preview.createdAt,
     },
     description: commentPlainText(rawDescription),
     rawDescription,
@@ -146,6 +154,9 @@ function parseVideoDetail(seed, data) {
     authorId,
     authorAvatar: resolveCoverUrl(avatarRaw),
     likes,
+    danmakuCount:
+      asInt(resource.danmaku_count ?? root.danmaku_count ?? resource.bullet_count) ?? 0,
+    publishedAt: publishedAt ?? null,
   };
 }
 
