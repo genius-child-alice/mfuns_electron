@@ -94,8 +94,8 @@
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.55) 0%, transparent 45%);
-  transition: opacity 0.2s ease;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.72) 0%, rgba(0, 0, 0, 0.08) 38%, transparent 55%);
+  transition: opacity 0.25s ease;
   pointer-events: none;
 }
 
@@ -107,7 +107,7 @@
   opacity: 0;
 }
 
-.watch-player__overlay--hidden .watch-player__bar,
+.watch-player__overlay--hidden .watch-player__bottom,
 .watch-player__overlay--hidden .watch-player__center {
   pointer-events: none;
 }
@@ -124,113 +124,229 @@
   align-items: center;
   justify-content: center;
   transition: opacity 0.2s ease;
+  pointer-events: none;
 }
 
 .watch-player__big-play {
-  width: 64px;
-  height: 64px;
+  pointer-events: auto;
+  width: 72px;
+  height: 72px;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.55);
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  background: rgba(0, 0, 0, 0.45);
   color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.watch-player__big-play:hover {
+  transform: scale(1.06);
+  background: rgba(0, 0, 0, 0.55);
 }
 
 .watch-player__big-play-icon {
-  font-size: 40px;
+  font-size: 44px;
+  margin-left: 4px;
 }
 
-.watch-player__bar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px 14px;
+.watch-player__bottom {
+  padding-bottom: 6px;
   color: #fff;
 }
 
+.watch-player__progress-wrap {
+  padding: 0 14px 6px;
+}
+
+.watch-player__progress-wrap:hover .watch-player__progress-track {
+  height: 6px;
+}
+
+.watch-player__progress-track {
+  position: relative;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  transition: height 0.15s ease;
+  cursor: pointer;
+}
+
+.watch-player__progress-buffer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 0%;
+  border-radius: inherit;
+  background: rgba(255, 255, 255, 0.28);
+  pointer-events: none;
+}
+
+.watch-player__progress-played {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 0%;
+  border-radius: inherit;
+  background: var(--accent);
+  pointer-events: none;
+}
+
+.watch-player__progress {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.watch-player__controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 10px 4px;
+}
+
+.watch-player__controls-left,
+.watch-player__controls-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.watch-player__controls-center {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+  padding: 0 8px;
+}
+
+.watch-player__danmaku-hint {
+  max-width: 100%;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.08);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .watch-player__btn {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border-radius: var(--radius-sm);
   color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  font-size: 22px;
 }
 
 .watch-player__btn:hover {
   background: rgba(255, 255, 255, 0.12);
 }
 
+.watch-player__text-btn {
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.watch-player__text-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
 .watch-player__time {
   flex-shrink: 0;
   font-size: 12px;
-  min-width: 88px;
+  min-width: 96px;
+  padding-left: 4px;
   font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.92);
 }
 
-.watch-player__progress {
-  flex: 1;
-  min-width: 60px;
-  accent-color: var(--accent);
-}
-
-.watch-player__volume {
-  width: 72px;
-  flex-shrink: 0;
-  accent-color: var(--accent);
-}
-
-.watch-player__quality-wrap {
+.watch-player__menu-wrap {
   position: relative;
   flex-shrink: 0;
 }
 
-.watch-player__quality-btn {
-  padding: 4px 10px;
-  border-radius: var(--radius-sm);
-  font-size: 12px;
-  color: #fff;
-  background: rgba(255, 255, 255, 0.12);
-}
-
-.watch-player__quality-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-.watch-player__quality-menu {
+.watch-player__popup-menu {
   position: absolute;
   right: 0;
-  bottom: calc(100% + 8px);
-  min-width: 120px;
-  max-height: 240px;
+  bottom: calc(100% + 10px);
+  min-width: 88px;
+  max-height: 280px;
   overflow: auto;
   padding: 6px;
-  border-radius: var(--radius-md);
-  background: rgba(28, 28, 28, 0.96);
+  border-radius: 8px;
+  background: rgba(21, 21, 21, 0.96);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+  z-index: 5;
 }
 
-.watch-player__quality-item {
+.watch-player__menu-item {
   display: block;
   width: 100%;
-  padding: 8px 12px;
-  text-align: left;
+  padding: 8px 14px;
+  text-align: center;
   font-size: 13px;
   color: #e3e3e3;
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
+  white-space: nowrap;
 }
 
-.watch-player__quality-item:hover {
+.watch-player__menu-item:hover {
   background: rgba(255, 255, 255, 0.08);
 }
 
-.watch-player__quality-item.is-active {
+.watch-player__menu-item.is-active {
   color: var(--accent);
-  background: rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.18);
+}
+
+.watch-player__volume-popup {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 120px;
+  padding: 12px 0;
+  border-radius: 8px;
+  background: rgba(21, 21, 21, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+  z-index: 5;
+}
+
+.watch-player__volume {
+  width: 88px;
+  height: 4px;
+  margin: 0;
+  transform: rotate(-90deg);
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+@media (max-width: 900px) {
+  .watch-player__controls-center {
+    display: none;
+  }
 }
 
 .watch-player__loading,

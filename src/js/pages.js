@@ -153,20 +153,56 @@ export function watchPageHtml() {
                 </div>
                 <p class="watch-player__loading" id="watch-player-loading" hidden>正在缓冲…</p>
                 <p class="watch-player__error" id="watch-player-error" hidden></p>
-                <div class="watch-player__bar">
-                  <button type="button" class="watch-player__btn" id="watch-player-play" aria-label="播放/暂停">
-                    ${materialIcon('play_arrow')}
-                  </button>
-                  <span class="watch-player__time" id="watch-player-time">00:00 / 00:00</span>
-                  <input type="range" class="watch-player__progress" id="watch-player-progress" min="0" max="1000" value="0" aria-label="进度" />
-                  <div class="watch-player__quality-wrap">
-                    <button type="button" class="watch-player__quality-btn" id="watch-player-quality-btn">清晰度</button>
-                    <div class="watch-player__quality-menu" id="watch-player-quality-menu" hidden></div>
+                <div class="watch-player__bottom">
+                  <div class="watch-player__progress-wrap">
+                    <div class="watch-player__progress-track">
+                      <div class="watch-player__progress-buffer" id="watch-player-buffer"></div>
+                      <div class="watch-player__progress-played" id="watch-player-played"></div>
+                      <input type="range" class="watch-player__progress" id="watch-player-progress" min="0" max="1000" value="0" aria-label="进度" />
+                    </div>
                   </div>
-                  <input type="range" class="watch-player__volume" id="watch-player-volume" min="0" max="100" value="70" aria-label="音量" />
-                  <button type="button" class="watch-player__btn" id="watch-player-fullscreen" aria-label="全屏">
-                    ${materialIcon('fullscreen')}
-                  </button>
+                  <div class="watch-player__controls">
+                    <div class="watch-player__controls-left">
+                      <button type="button" class="watch-player__btn" id="watch-player-play" aria-label="播放/暂停">
+                        ${materialIcon('play_arrow')}
+                      </button>
+                      <button type="button" class="watch-player__btn" id="watch-player-next" aria-label="下一P" hidden>
+                        ${materialIcon('skip_next')}
+                      </button>
+                      <span class="watch-player__time" id="watch-player-time">00:00 / 00:00</span>
+                    </div>
+                    <div class="watch-player__controls-center">
+                      <span class="watch-player__danmaku-hint">弹幕功能暂未开放</span>
+                    </div>
+                    <div class="watch-player__controls-right">
+                      <div class="watch-player__menu-wrap watch-player__quality-wrap">
+                        <button type="button" class="watch-player__text-btn" id="watch-player-quality-btn">清晰度</button>
+                        <div class="watch-player__popup-menu" id="watch-player-quality-menu" hidden></div>
+                      </div>
+                      <div class="watch-player__menu-wrap watch-player__speed-wrap">
+                        <button type="button" class="watch-player__text-btn" id="watch-player-speed-btn">倍速</button>
+                        <div class="watch-player__popup-menu" id="watch-player-speed-menu" hidden>
+                          <button type="button" class="watch-player__menu-item" data-playback-rate="2">2.0x</button>
+                          <button type="button" class="watch-player__menu-item" data-playback-rate="1.5">1.5x</button>
+                          <button type="button" class="watch-player__menu-item" data-playback-rate="1.25">1.25x</button>
+                          <button type="button" class="watch-player__menu-item is-active" data-playback-rate="1">1.0x</button>
+                          <button type="button" class="watch-player__menu-item" data-playback-rate="0.75">0.75x</button>
+                          <button type="button" class="watch-player__menu-item" data-playback-rate="0.5">0.5x</button>
+                        </div>
+                      </div>
+                      <div class="watch-player__menu-wrap watch-player__volume-wrap">
+                        <button type="button" class="watch-player__btn" id="watch-player-volume-btn" aria-label="音量">
+                          ${materialIcon('volume_up')}
+                        </button>
+                        <div class="watch-player__volume-popup" id="watch-player-volume-popup" hidden>
+                          <input type="range" class="watch-player__volume" id="watch-player-volume" min="0" max="100" value="70" aria-label="音量" />
+                        </div>
+                      </div>
+                      <button type="button" class="watch-player__btn" id="watch-player-fullscreen" aria-label="全屏">
+                        ${materialIcon('fullscreen')}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
