@@ -21,11 +21,30 @@ const appIconPath = path.join(__dirname, '../src/assets/favicon.ico');
 const MFUNS_MEDIA_REFERER = 'https://api.mfuns.net/';
 const MFUNS_USER_AGENT =
   'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36';
+/** 点播/CDN 防盗链 UA（与 Flutter ExoPlayer / just_audio 一致） */
+const MFUNS_VOD_USER_AGENT = 'ExoPlayer';
 const MFUNS_MEDIA_URL_FILTER = [
   '*://cdn2.mfuns.net/*',
   '*://resource.mfuns.net/*',
   '*://vod.mfuns.net/*',
+  '*://*.aliyuncs.com/*',
+  '*://*.alicdn.com/*',
 ];
+
+/**
+ * @param {string} urlString
+ */
+function mediaUserAgentForUrl(urlString) {
+  try {
+    const host = new URL(urlString).hostname.toLowerCase();
+    if (host.includes('vod.') || host.endsWith('.aliyuncs.com') || host.endsWith('.alicdn.com')) {
+      return MFUNS_VOD_USER_AGENT;
+    }
+  } catch {
+    /* ignore */
+  }
+  return MFUNS_USER_AGENT;
+}
 
 /**
  * @param {string} urlString
@@ -35,7 +54,10 @@ function isAllowedMfunsMediaUrl(urlString) {
     const parsed = new URL(urlString);
     if (parsed.protocol !== 'https:') return false;
     const host = parsed.hostname.toLowerCase();
-    return host === 'mfuns.net' || host.endsWith('.mfuns.net');
+    if (host === 'mfuns.net' || host.endsWith('.mfuns.net')) return true;
+    if (host.endsWith('.aliyuncs.com')) return true;
+    if (host.endsWith('.alicdn.com')) return true;
+    return false;
   } catch {
     return false;
   }
@@ -48,7 +70,7 @@ function installMfunsMediaReferer() {
       const requestHeaders = {
         ...details.requestHeaders,
         Referer: MFUNS_MEDIA_REFERER,
-        'User-Agent': MFUNS_USER_AGENT,
+        'User-Agent': mediaUserAgentForUrl(details.url),
       };
       callback({ requestHeaders });
     },
@@ -71,14 +93,17 @@ async function installMfunsMediaProtocol() {
       return new Response('Forbidden host', { status: 403 });
     }
 
+    /** @type {Record<string, string>} */
+    const headers = {
+      Referer: MFUNS_MEDIA_REFERER,
+      Accept: '*/*',
+      'User-Agent': mediaUserAgentForUrl(target),
+    };
+    const range = request.headers.get('Range') ?? request.headers.get('range');
+    if (range) headers.Range = range;
+
     try {
-      return await net.fetch(target, {
-        headers: {
-          Referer: MFUNS_MEDIA_REFERER,
-          Accept: 'image/*,*/*;q=0.8',
-          'User-Agent': MFUNS_USER_AGENT,
-        },
-      });
+      return await net.fetch(target, { headers });
     } catch {
       return new Response('Upstream failed', { status: 502 });
     }

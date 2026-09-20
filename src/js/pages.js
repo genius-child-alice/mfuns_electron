@@ -1,5 +1,6 @@
 import { materialIcon } from './icons.js';
-import { loadSession, userAvatarUrl, userDisplayName } from './auth.js';
+import { loadSession, userDisplayName } from './auth.js';
+import { userAvatarMediaSrc } from './content-api.js';
 
 const DEFAULT_AVATAR = 'assets/mfuns_logo.png';
 
@@ -234,7 +235,7 @@ export function syncPagesAuthState() {
     nameEl.textContent = userDisplayName(session?.user);
   }
   if (loggedIn && imgEl) {
-    imgEl.src = userAvatarUrl(session?.user) || DEFAULT_AVATAR;
+    imgEl.src = userAvatarMediaSrc(session?.user) || DEFAULT_AVATAR;
   }
 }
 

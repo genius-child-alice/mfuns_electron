@@ -106,16 +106,49 @@ export function resolveCoverUrl(value) {
 }
 
 /**
- * Electron 内用主进程代拉 CDN（带 Referer），避免 file:// 页面直连被防盗链拦截。
+ * Electron 内用主进程代拉 CDN（带 Referer / UA），避免 file:// 页面直连被防盗链拦截。
  * @param {string | null} resolvedHttpsUrl
  * @returns {string | null}
  */
-export function mediaSrcForCover(resolvedHttpsUrl) {
+export function mediaSrcForUrl(resolvedHttpsUrl) {
   if (!resolvedHttpsUrl) return null;
   if (typeof window !== 'undefined' && window.electronAPI) {
     return `mfuns-media://load/?u=${encodeURIComponent(resolvedHttpsUrl)}`;
   }
   return resolvedHttpsUrl;
+}
+
+/** @deprecated 别名，与 mediaSrcForUrl 相同 */
+export const mediaSrcForCover = mediaSrcForUrl;
+
+/**
+ * 点播地址走同一代理，并支持 Range（HTMLVideoElement 分段加载）。
+ * @param {string | null | undefined} playUrl
+ * @returns {string | null}
+ */
+export function mediaPlaybackSrc(playUrl) {
+  if (!playUrl) return null;
+  const trimmed = `${playUrl}`.trim();
+  if (!trimmed) return null;
+  return mediaSrcForUrl(trimmed.startsWith('http') ? trimmed : resolveCoverUrl(trimmed));
+}
+
+/**
+ * @param {unknown} raw
+ * @returns {string | null}
+ */
+export function resolveAvatarUrl(raw) {
+  return resolveCoverUrl(raw);
+}
+
+/**
+ * @param {Record<string, unknown> | null | undefined} user
+ * @returns {string | null}
+ */
+export function userAvatarMediaSrc(user) {
+  if (!user) return null;
+  const raw = user.avatar ?? user.face ?? user.user_avatar;
+  return mediaSrcForUrl(resolveCoverUrl(raw));
 }
 
 /**

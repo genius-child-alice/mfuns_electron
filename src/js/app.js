@@ -13,9 +13,9 @@ import {
   loginWithPassword,
   loginWithSms,
   sendLoginCode,
-  userAvatarUrl,
   userDisplayName,
 } from './auth.js';
+import { userAvatarMediaSrc } from './content-api.js';
 import { bindLegalLinks, LEGAL_URLS } from './legal.js';
 import {
   bindOpenLoginTriggers,
@@ -336,7 +336,7 @@ function syncLoginUi() {
   }
 
   if (img) {
-    const remote = userAvatarUrl(session?.user);
+    const remote = userAvatarMediaSrc(session?.user);
     img.src = remote || DEFAULT_AVATAR_SRC;
     img.classList.toggle('sidebar__avatar-img--brand', !remote);
   }

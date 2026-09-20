@@ -1,5 +1,5 @@
 import { materialIcon } from './icons.js';
-import { mediaSrcForCover } from './content-api.js';
+import { mediaPlaybackSrc, mediaSrcForCover } from './content-api.js';
 import { loadSession } from './auth.js';
 import { getCurrentPage, setPage } from './pages.js';
 import { requireLogin } from './login-ui.js';
@@ -79,8 +79,9 @@ function applyPlayback(parts, partIndex) {
   if (!video) return;
   const quality = pickDefaultQuality(parts, partIndex);
   if (!quality) return;
-  if (video.src !== quality.url) {
-    video.src = quality.url;
+  const src = mediaPlaybackSrc(quality.url) ?? quality.url;
+  if (video.src !== src) {
+    video.src = src;
     video.load();
   }
 }
