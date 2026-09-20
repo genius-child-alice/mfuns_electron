@@ -18,8 +18,7 @@ const DEFAULT_AVATAR_SRC = 'assets/mfuns_logo.png';
 
 const NAV_ITEMS = [
   { id: 'home', label: '首页', icon: 'home' },
-  { id: 'featured', label: '精选', icon: 'auto_awesome' },
-  { id: 'feed', label: '动态', icon: 'dynamic_feed' },
+  { id: 'feed', label: '动态', icon: 'auto_awesome' },
   { id: 'mine', label: '我的', icon: 'person' },
 ];
 
@@ -141,15 +140,9 @@ function renderShell() {
             </div>
             <div class="topbar__chrome app-no-drag" aria-label="窗口控制">
               <div class="window-controls">
-                <button type="button" id="btn-minimize" class="window-btn window-btn--minimize" aria-label="最小化">
-                  <span class="window-btn__glyph" aria-hidden="true"></span>
-                </button>
-                <button type="button" id="btn-maximize" class="window-btn window-btn--maximize" aria-label="最大化">
-                  <span class="window-btn__glyph" aria-hidden="true"></span>
-                </button>
-                <button type="button" id="btn-close" class="window-btn window-btn--close" aria-label="关闭">
-                  <span class="window-btn__glyph" aria-hidden="true"></span>
-                </button>
+                <button type="button" id="btn-minimize" class="window-btn" aria-label="最小化">${materialIcon('minimize', 'material-symbols-outlined--window')}</button>
+                <button type="button" id="btn-maximize" class="window-btn" aria-label="最大化">${materialIcon('crop_square', 'material-symbols-outlined--window')}</button>
+                <button type="button" id="btn-close" class="window-btn" aria-label="关闭">${materialIcon('close', 'material-symbols-outlined--window')}</button>
               </div>
             </div>
           </div>

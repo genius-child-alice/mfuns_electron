@@ -248,7 +248,7 @@
   flex: 1;
   min-width: 0;
   display: flex;
-  align-items: stretch;
+  align-items: center;
   justify-content: flex-end;
   padding-right: 0;
 }
@@ -268,7 +268,7 @@
   gap: 10px;
   width: 100%;
   height: var(--search-height);
-  border-radius: 999px;
+  border-radius: var(--radius-md);
   padding: 0 14px 0 16px;
   background: var(--search-bg);
   transition:
@@ -305,73 +305,42 @@
 
 .topbar__chrome {
   display: flex;
-  align-items: stretch;
+  align-items: center;
   flex-shrink: 0;
+  align-self: stretch;
   border-left: 1px solid var(--border-subtle);
   margin-left: 4px;
+  padding: 0 10px 0 6px;
 }
 
 .window-controls {
   display: flex;
-  align-items: stretch;
+  align-items: center;
+  gap: 4px;
+  height: 100%;
 }
 
 .window-btn {
-  width: 48px;
-  height: 100%;
+  width: var(--window-btn-size);
+  height: var(--window-btn-size);
+  flex-shrink: 0;
   display: grid;
   place-items: center;
+  border-radius: var(--radius-md);
   color: var(--text-secondary);
-}
-
-.window-btn__glyph {
-  display: block;
-  position: relative;
-  box-sizing: border-box;
-}
-
-.window-btn--minimize .window-btn__glyph {
-  width: 11px;
-  height: 1px;
-  background: currentColor;
-}
-
-.window-btn--maximize .window-btn__glyph {
-  width: 10px;
-  height: 10px;
-  border: 1px solid currentColor;
   background: transparent;
+  transition:
+    background 160ms ease,
+    color 160ms ease;
 }
 
-.window-btn--close .window-btn__glyph {
-  width: 10px;
-  height: 10px;
-}
-
-.window-btn--close .window-btn__glyph::before,
-.window-btn--close .window-btn__glyph::after {
-  content: '';
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 11px;
-  height: 1px;
-  background: currentColor;
-  transform: translate(-50%, -50%) rotate(45deg);
-}
-
-.window-btn--close .window-btn__glyph::after {
-  transform: translate(-50%, -50%) rotate(-45deg);
+.window-btn .material-symbols-outlined--window {
+  line-height: 1;
 }
 
 .window-btn:hover {
-  background: var(--window-btn-hover);
+  background: var(--window-btn-hover-bg);
   color: var(--text-primary);
-}
-
-.window-btn--close:hover {
-  background: var(--window-close-hover);
-  color: var(--window-close-fg-hover);
 }
 
 /* —— 内容区 —— */

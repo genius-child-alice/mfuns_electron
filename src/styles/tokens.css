@@ -42,6 +42,8 @@ body {
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 12px;
+  /* 顶栏窗口按钮 hover 方块（边长 = 搜索框高度） */
+  --window-btn-size: var(--search-height);
 }
 
 html[data-theme='light'] {
@@ -57,6 +59,7 @@ html[data-theme='light'] {
   --search-bg: #f1f2f3;
   --card-cover: #e3e5e7;
   --window-btn-hover: rgba(0, 0, 0, 0.06);
+  --window-btn-hover-bg: var(--search-bg);
   --window-close-hover: #e81123;
   --window-close-fg-hover: #fff;
 }
@@ -74,6 +77,7 @@ html[data-theme='dark'] {
   --search-bg: #232527;
   --card-cover: #2f3134;
   --window-btn-hover: rgba(255, 255, 255, 0.08);
+  --window-btn-hover-bg: var(--search-bg);
   --window-close-hover: #e81123;
   --window-close-fg-hover: #fff;
   --accent-soft: rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.22);
