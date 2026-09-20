@@ -22,7 +22,12 @@ import {
   fetchFavoriteItemsPage,
   resolveMineUserId,
 } from './favorite-api.js';
-import { favoriteFolderCreateButtonHtml, openCreateFavoriteFolderDialog } from './favorite-ui.js';
+import {
+  bindFavoriteFolderListActions,
+  favoriteFolderCreateButtonHtml,
+  favoriteFolderRowHtml,
+  removeItemFromFavoriteFolder,
+} from './favorite-ui.js';
 
 const FEED_DOM_PREFIX = 'user-space-feed';
 
@@ -62,6 +67,8 @@ let activeFavoriteFolderId = null;
 let activeFavoriteFolderName = '';
 /** @type {number | null} */
 let favoriteNextLastId = null;
+/** @type {import('./content-api.js').ContentPreview[]} */
+let favoriteItems = [];
 
 /**
  * @param {number} n
@@ -242,6 +249,40 @@ function resetFavoriteListState() {
   activeFavoriteFolderId = null;
   activeFavoriteFolderName = '';
   favoriteNextLastId = null;
+  favoriteItems = [];
+}
+
+/**
+ * @param {import('./content-api.js').ContentPreview} item
+ */
+function renderFavoriteItemCardHtml(item) {
+  return `
+    <div class="mine-favorite-item-card">
+      ${renderVideoCard(item)}
+      <button type="button" class="mine-favorite-item-card__remove" data-favorite-item-remove="${escapeHtml(item.id)}" data-favorite-item-type="${item.type}" aria-label="移出收藏夹" title="移出收藏夹">
+        ${materialIcon('bookmark_remove')}
+      </button>
+    </div>`;
+}
+
+function mountFavoriteFolderListActions() {
+  const body = document.getElementById('user-space-body');
+  if (!body || activeFavoriteFolderId != null) return;
+  bindFavoriteFolderListActions(body, {
+    folders: favoriteFolders,
+    openAttr: 'data-space-favorite-folder',
+    onOpen: (folder) => {
+      activeFavoriteFolderId = folder.id;
+      activeFavoriteFolderName = folder.name;
+      favoriteNextLastId = null;
+      favoriteItems = [];
+      hasMore = true;
+      void loadFirstPage();
+    },
+    onRefresh: () => {
+      void loadFirstPage();
+    },
+  });
 }
 
 function isSelfSpace() {
@@ -261,21 +302,8 @@ function renderFavoriteFoldersHtml(folders) {
     <div class="mine-favorite-folders user-space__favorite-folders">
       ${toolbar}
       ${folders
-        .map(
-          (folder) => `
-        <button type="button" class="mine-favorite-folder" data-space-favorite-folder="${folder.id}">
-          <span class="mine-favorite-folder__icon">${materialIcon('folder')}</span>
-          <span class="mine-favorite-folder__main">
-            <span class="mine-favorite-folder__name">${escapeHtml(folder.name)}</span>
-            ${
-              folder.desc
-                ? `<span class="mine-favorite-folder__desc">${escapeHtml(folder.desc)}</span>`
-                : ''
-            }
-          </span>
-          <span class="mine-favorite-folder__count">${formatCount(folder.count)}</span>
-          ${materialIcon('chevron_right', 'mine-favorite-folder__chevron')}
-        </button>`,
+        .map((folder) =>
+          favoriteFolderRowHtml(folder, { openAttr: 'data-space-favorite-folder', openValue: folder.id }),
         )
         .join('')}
     </div>`;
@@ -295,11 +323,11 @@ function renderFavoriteItemsHtml(items) {
         </button>
         <h2 class="mine-favorite-items__title">${escapeHtml(title)}</h2>
       </header>
-      <div class="content-grid user-space__grid" id="user-space-favorite-grid">
+      <div class="content-grid user-space__grid mine-favorite-items__grid" id="user-space-favorite-grid">
         ${
           items.length === 0
             ? '<p class="user-space__empty mine-favorite-items__empty">该收藏夹暂无内容</p>'
-            : items.map((item) => renderVideoCard(item)).join('')
+            : items.map((item) => renderFavoriteItemCardHtml(item)).join('')
         }
       </div>
     </div>`;
@@ -377,14 +405,16 @@ async function loadFavoriteFirstPage() {
   if (activeFavoriteFolderId == null) {
     favoriteFolders = await fetchFavoriteFolderList(userId);
     setBodyHtml(renderFavoriteFoldersHtml(favoriteFolders));
+    mountFavoriteFolderListActions();
     hasMore = false;
     return;
   }
 
   const page = await fetchFavoriteItemsPage(activeFavoriteFolderId);
+  favoriteItems = page.items;
   favoriteNextLastId = page.nextLastId;
   hasMore = page.hasMore && page.items.length > 0;
-  setBodyHtml(renderFavoriteItemsHtml(page.items));
+  setBodyHtml(renderFavoriteItemsHtml(favoriteItems));
 }
 
 async function loadFavoriteItemsMore() {
@@ -395,11 +425,12 @@ async function loadFavoriteItemsMore() {
     hasMore = false;
     return;
   }
+  favoriteItems = favoriteItems.concat(page.items);
   const grid = document.getElementById('user-space-favorite-grid');
   if (grid) {
     grid.insertAdjacentHTML(
       'beforeend',
-      page.items.map((item) => renderVideoCard(item)).join(''),
+      page.items.map((item) => renderFavoriteItemCardHtml(item)).join(''),
     );
   }
   favoriteNextLastId = page.nextLastId;
@@ -588,25 +619,23 @@ function onBodyClick(event) {
     return;
   }
 
-  if (target.closest('[data-create-favorite-folder]') && isSelfSpace() && activeTab === 'favorite') {
-    openCreateFavoriteFolderDialog({
-      onCreated: () => {
-        void loadFirstPage();
-      },
+  const removeBtn = target.closest('[data-favorite-item-remove]');
+  if (
+    removeBtn instanceof HTMLButtonElement &&
+    activeTab === 'favorite' &&
+    activeFavoriteFolderId != null &&
+    isSelfSpace()
+  ) {
+    const preview = previewFromCard(
+      /** @type {HTMLElement} */ (
+        removeBtn.closest('.mine-favorite-item-card')?.querySelector('.video-card') ?? removeBtn
+      ),
+      { author: currentProfile?.name ?? '' },
+    );
+    if (!preview) return;
+    void removeItemFromFavoriteFolder(activeFavoriteFolderId, preview, () => {
+      void loadFirstPage();
     });
-    return;
-  }
-
-  const favoriteFolderBtn = target.closest('[data-space-favorite-folder]');
-  if (favoriteFolderBtn instanceof HTMLButtonElement) {
-    const id = Number(favoriteFolderBtn.getAttribute('data-space-favorite-folder'));
-    const folder = favoriteFolders.find((entry) => entry.id === id);
-    if (!folder) return;
-    activeFavoriteFolderId = id;
-    activeFavoriteFolderName = folder.name;
-    favoriteNextLastId = null;
-    hasMore = true;
-    void loadFirstPage();
     return;
   }
 
@@ -645,4 +674,13 @@ export function bindUserSpace() {
 
   getScrollEl()?.addEventListener('scroll', onSpaceScroll, { passive: true });
   document.getElementById('user-space-body')?.addEventListener('click', onBodyClick);
+
+  window.addEventListener('mfuns:favorite-changed', () => {
+    if (getCurrentPage() !== 'space' || activeTab !== 'favorite' || !isSelfSpace()) return;
+    if (activeFavoriteFolderId != null) {
+      void loadFirstPage();
+    } else {
+      void loadFavoriteFirstPage().then(() => mountFavoriteFolderListActions());
+    }
+  });
 }

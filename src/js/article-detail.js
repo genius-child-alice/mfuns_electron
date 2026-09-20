@@ -15,7 +15,7 @@ import {
   setResourceLike,
 } from './video-api.js';
 import { fetchUserProfile } from './user-profile-api.js';
-import { fetchFavoriteStatus } from './favorite-api.js';
+import { resolveFavoriteStatus, resolveMineUserId } from './favorite-api.js';
 import { toggleResourceFavorite } from './favorite-ui.js';
 
 /** @typedef {import('./content-api.js').ContentPreview} ContentPreview */
@@ -137,7 +137,7 @@ function renderInteractBar() {
       </button>
       <button type="button" class="watch-interact-bar__item ${favorited ? 'is-active' : ''}" id="article-fav-btn">
         <span class="watch-interact-bar__icon">${materialIcon('star')}</span>
-        <span class="watch-interact-bar__label">收藏</span>
+        <span class="watch-interact-bar__label">${favorited ? '已收藏' : '收藏'}</span>
       </button>
       <button type="button" class="watch-interact-bar__item" id="article-share-btn">
         <span class="watch-interact-bar__icon">${materialIcon('share')}</span>
@@ -364,11 +364,12 @@ export async function openArticleDetail(preview) {
         : Promise.resolve(false);
     const favoritePromise =
       session?.token
-        ? fetchFavoriteStatus(detail.preview.id, 0).catch(() => ({
+        ? resolveFavoriteStatus(resolveMineUserId(null), detail.preview.id, 0).catch(() => ({
             favorited: false,
             listId: null,
+            folderIds: new Set(),
           }))
-        : Promise.resolve({ favorited: false, listId: null });
+        : Promise.resolve({ favorited: false, listId: null, folderIds: new Set() });
     const authorProfilePromise =
       detail.authorId != null
         ? fetchUserProfile(detail.authorId).catch(() => null)

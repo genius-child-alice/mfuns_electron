@@ -258,7 +258,10 @@ function renderShell() {
     <dialog class="favorite-picker app-no-drag" id="favorite-picker-dialog" aria-labelledby="favorite-picker-title">
       <div class="favorite-picker__card">
         <header class="favorite-picker__head">
-          <h2 class="favorite-picker__title" id="favorite-picker-title">选择收藏夹</h2>
+          <div class="favorite-picker__head-main">
+            <h2 class="favorite-picker__title" id="favorite-picker-title">收藏到收藏夹</h2>
+            <p class="favorite-picker__hint" id="favorite-picker-hint">点击加入或移出；同一内容可存在于多个收藏夹</p>
+          </div>
           <button type="button" class="favorite-picker__close" id="favorite-picker-close" aria-label="关闭">${materialIcon('close')}</button>
         </header>
         <div class="favorite-picker__body" id="favorite-picker-list"></div>
@@ -271,24 +274,24 @@ function renderShell() {
       </div>
     </dialog>
 
-    <dialog class="favorite-folder-create app-no-drag" id="favorite-folder-create-dialog" aria-labelledby="favorite-folder-create-title">
+    <dialog class="favorite-folder-create app-no-drag" id="favorite-folder-form-dialog" aria-labelledby="favorite-folder-form-title">
       <div class="favorite-folder-create__card">
         <header class="favorite-folder-create__head">
-          <h2 class="favorite-folder-create__title" id="favorite-folder-create-title">新建收藏夹</h2>
-          <button type="button" class="favorite-folder-create__close" id="favorite-folder-create-close" aria-label="关闭">${materialIcon('close')}</button>
+          <h2 class="favorite-folder-create__title" id="favorite-folder-form-title">新建收藏夹</h2>
+          <button type="button" class="favorite-folder-create__close" id="favorite-folder-form-close" aria-label="关闭">${materialIcon('close')}</button>
         </header>
-        <form class="favorite-folder-create__form" id="favorite-folder-create-form">
+        <form class="favorite-folder-create__form" id="favorite-folder-form">
           <label class="favorite-folder-create__field">
             <span class="favorite-folder-create__label">名称</span>
-            <input class="favorite-folder-create__input" id="favorite-folder-create-name" name="name" maxlength="50" required placeholder="给收藏夹起个名字" />
+            <input class="favorite-folder-create__input" id="favorite-folder-form-name" name="name" maxlength="50" required placeholder="给收藏夹起个名字" />
           </label>
           <label class="favorite-folder-create__field">
             <span class="favorite-folder-create__label">简介（可选）</span>
-            <textarea class="favorite-folder-create__textarea" id="favorite-folder-create-desc" name="desc" maxlength="200" rows="3" placeholder="简单介绍一下这个收藏夹"></textarea>
+            <textarea class="favorite-folder-create__textarea" id="favorite-folder-form-desc" name="desc" maxlength="200" rows="3" placeholder="简单介绍一下这个收藏夹"></textarea>
           </label>
           <div class="favorite-folder-create__actions">
-            <button type="button" class="favorite-folder-create__cancel" id="favorite-folder-create-cancel">取消</button>
-            <button type="submit" class="btn-accent favorite-folder-create__submit">创建</button>
+            <button type="button" class="favorite-folder-create__cancel" id="favorite-folder-form-cancel">取消</button>
+            <button type="submit" class="btn-accent favorite-folder-create__submit" id="favorite-folder-form-submit">创建</button>
           </div>
         </form>
       </div>

@@ -11,7 +11,12 @@ import {
   fetchFavoriteItemsPage,
   resolveMineUserId,
 } from './favorite-api.js';
-import { favoriteFolderCreateButtonHtml, openCreateFavoriteFolderDialog } from './favorite-ui.js';
+import {
+  bindFavoriteFolderListActions,
+  favoriteFolderCreateButtonHtml,
+  favoriteFolderRowHtml,
+  removeItemFromFavoriteFolder,
+} from './favorite-ui.js';
 import { renderVideoCard } from './home-feed.js';
 import {
   clearWatchLater,
@@ -428,65 +433,46 @@ function renderWatchLaterView() {
   });
 }
 
-/**
- * @param {import('./favorite-api.js').FavoriteFolder[]} folders
- */
-function bindFavoriteFolderCreateButton(root) {
-  root.querySelector('[data-create-favorite-folder]')?.addEventListener('click', () => {
-    openCreateFavoriteFolderDialog({
-      onCreated: () => {
-        void loadFavoriteFolders();
-      },
-    });
-  });
-}
-
 function renderFavoriteFoldersView(folders) {
   const root = getRootEl();
   if (!root) return;
   const toolbar = `<div class="mine-favorite-folders__toolbar">${favoriteFolderCreateButtonHtml('mine-favorite-folders__create')}</div>`;
   if (folders.length === 0) {
     root.innerHTML = `${toolbar}<p class="mine-history__empty">暂无收藏夹</p>`;
-    bindFavoriteFolderCreateButton(root);
+    bindFavoriteFolderListActions(root, {
+      folders,
+      openAttr: 'data-favorite-folder-id',
+      onOpen: () => {},
+      onRefresh: () => {
+        void loadFavoriteFolders();
+      },
+    });
     return;
   }
   root.innerHTML = `
     <div class="mine-favorite-folders">
       ${toolbar}
       ${folders
-        .map(
-          (folder) => `
-        <button type="button" class="mine-favorite-folder" data-favorite-folder-id="${folder.id}">
-          <span class="mine-favorite-folder__icon">${materialIcon('folder')}</span>
-          <span class="mine-favorite-folder__main">
-            <span class="mine-favorite-folder__name">${escapeHtml(folder.name)}</span>
-            ${
-              folder.desc
-                ? `<span class="mine-favorite-folder__desc">${escapeHtml(folder.desc)}</span>`
-                : ''
-            }
-          </span>
-          <span class="mine-favorite-folder__count">${formatCount(folder.count)}</span>
-          ${materialIcon('chevron_right', 'mine-favorite-folder__chevron')}
-        </button>`,
+        .map((folder) =>
+          favoriteFolderRowHtml(folder, { openAttr: 'data-favorite-folder-id', openValue: folder.id }),
         )
         .join('')}
     </div>`;
 
-  bindFavoriteFolderCreateButton(root);
-
-  root.querySelectorAll('[data-favorite-folder-id]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const id = Number(btn.getAttribute('data-favorite-folder-id'));
-      const folder = folders.find((entry) => entry.id === id);
-      if (!folder) return;
-      activeFavoriteFolderId = id;
+  bindFavoriteFolderListActions(root, {
+    folders,
+    openAttr: 'data-favorite-folder-id',
+    onOpen: (folder) => {
+      activeFavoriteFolderId = folder.id;
       activeFavoriteFolderName = folder.name;
       favoriteItems = [];
       favoriteNextLastId = null;
       favoriteItemsHasMore = true;
       void loadFavoriteItemsFirstPage();
-    });
+    },
+    onRefresh: () => {
+      void loadFavoriteFolders();
+    },
   });
 }
 
@@ -503,11 +489,21 @@ function renderFavoriteItemsView() {
         </button>
         <h2 class="mine-favorite-items__title">${escapeHtml(title)}</h2>
       </header>
-      <div class="content-grid" id="mine-favorite-grid">
+      <div class="content-grid mine-favorite-items__grid" id="mine-favorite-grid">
         ${
           favoriteItems.length === 0
             ? '<p class="mine-history__empty mine-favorite-items__empty">该收藏夹暂无内容</p>'
-            : favoriteItems.map((item) => renderVideoCard(item)).join('')
+            : favoriteItems
+                .map(
+                  (item) => `
+            <div class="mine-favorite-item-card">
+              ${renderVideoCard(item)}
+              <button type="button" class="mine-favorite-item-card__remove" data-favorite-item-remove="${escapeHtml(item.id)}" data-favorite-item-type="${item.type}" aria-label="移出收藏夹" title="移出收藏夹">
+                ${materialIcon('bookmark_remove')}
+              </button>
+            </div>`,
+                )
+                .join('')
         }
       </div>
     </div>`;
@@ -524,6 +520,19 @@ function renderFavoriteItemsView() {
   const grid = document.getElementById('mine-favorite-grid');
   grid?.addEventListener('click', (event) => {
     const target = /** @type {HTMLElement} */ (event.target);
+    const removeBtn = target.closest('[data-favorite-item-remove]');
+    if (removeBtn instanceof HTMLButtonElement && activeFavoriteFolderId != null) {
+      const preview = previewFromCard(
+        /** @type {HTMLElement} */ (removeBtn.closest('.mine-favorite-item-card')?.querySelector('.video-card') ?? removeBtn),
+      );
+      if (!preview) return;
+      void removeItemFromFavoriteFolder(activeFavoriteFolderId, preview, () => {
+        favoriteItems = favoriteItems.filter((entry) => String(entry.id) !== String(preview.id));
+        renderFavoriteItemsView();
+        void loadFavoriteFolders();
+      });
+      return;
+    }
     const card = target.closest('.video-card');
     if (!card) return;
     const preview = previewFromCard(card);
@@ -802,6 +811,15 @@ export function bindMinePage() {
 
   window.addEventListener('mfuns:watch-later-changed', () => {
     refreshWatchLaterIfActive();
+  });
+
+  window.addEventListener('mfuns:favorite-changed', () => {
+    if (getCurrentPage() !== 'mine' || activeTab !== 'favorite') return;
+    if (activeFavoriteFolderId != null) {
+      void loadFavoriteItemsFirstPage();
+    } else {
+      void loadFavoriteFolders();
+    }
   });
 
   syncTabUi();

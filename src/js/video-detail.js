@@ -19,7 +19,7 @@ import {
   setResourceLike,
 } from './video-api.js';
 import { fetchUserProfile } from './user-profile-api.js';
-import { fetchFavoriteStatus, resolveMineUserId } from './favorite-api.js';
+import { resolveFavoriteStatus, resolveMineUserId } from './favorite-api.js';
 import { toggleResourceFavorite } from './favorite-ui.js';
 import { isVideoInWatchLater, toggleVideoWatchLater } from './watch-later-store.js';
 
@@ -215,7 +215,7 @@ function renderIntroToolbar() {
       </button>
       <button type="button" class="watch-interact-bar__item ${favorited ? 'is-active' : ''}" id="watch-fav-btn">
         <span class="watch-interact-bar__icon">${materialIcon('star')}</span>
-        <span class="watch-interact-bar__label">收藏</span>
+        <span class="watch-interact-bar__label">${favorited ? '已收藏' : '收藏'}</span>
       </button>
       <button type="button" class="watch-interact-bar__item ${watchLater ? 'is-active' : ''}" id="watch-later-btn" title="稍后再看">
         <span class="watch-interact-bar__icon">${materialIcon('schedule')}</span>
@@ -592,11 +592,12 @@ export async function openVideoDetail(preview) {
         : Promise.resolve(false);
     const favoritePromise =
       session?.token
-        ? fetchFavoriteStatus(detail.preview.id, 1).catch(() => ({
+        ? resolveFavoriteStatus(resolveMineUserId(null), detail.preview.id, 1).catch(() => ({
             favorited: false,
             listId: null,
+            folderIds: new Set(),
           }))
-        : Promise.resolve({ favorited: false, listId: null });
+        : Promise.resolve({ favorited: false, listId: null, folderIds: new Set() });
     const authorProfilePromise =
       detail.authorId != null
         ? fetchUserProfile(detail.authorId).catch(() => null)

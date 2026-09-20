@@ -212,10 +212,103 @@ export function parseCreatedFavoriteFolder(data, fallback) {
 }
 
 /**
+ * @param {number} listId
  * @param {string} name
  * @param {string} [desc]
- * @returns {Promise<FavoriteFolder>}
  */
+export async function updateFavoriteFolder(listId, name, desc = '') {
+  const trimmedName = name.trim();
+  const trimmedDesc = desc.trim();
+  if (!trimmedName) {
+    throw new Error('请填写收藏夹名称');
+  }
+  if (!Number.isFinite(listId) || listId <= 0) {
+    throw new Error('无效的收藏夹');
+  }
+  await apiPostJson('/v1/favorite/update_favorite_list', {
+    list_id: listId,
+    favorite_id: listId,
+    name: trimmedName,
+    desc: trimmedDesc,
+  });
+  return { id: listId, name: trimmedName, desc: trimmedDesc, count: 0 };
+}
+
+/**
+ * @param {number} listId
+ */
+export async function deleteFavoriteFolder(listId) {
+  if (!Number.isFinite(listId) || listId <= 0) {
+    throw new Error('无效的收藏夹');
+  }
+  await apiPostJson('/v1/favorite/delete_favorite_list', {
+    list_id: listId,
+    favorite_id: listId,
+  });
+}
+
+/**
+ * @param {number | null | undefined} userId
+ * @param {string | number} resourceId
+ * @param {number} resourceType
+ * @returns {Promise<Set<number>>}
+ */
+export async function findFavoriteFoldersForResource(userId, resourceId, resourceType) {
+  const uid = resolveMineUserId(userId);
+  /** @type {Set<number>} */
+  const hits = new Set();
+  if (uid == null) return hits;
+
+  const targetId = String(resourceId);
+  const folders = await fetchFavoriteFolderList(uid);
+  const candidates = folders.filter((folder) => folder.count > 0);
+  const chunkSize = 4;
+
+  for (let i = 0; i < candidates.length; i += chunkSize) {
+    const chunk = candidates.slice(i, i + chunkSize);
+    await Promise.all(
+      chunk.map(async (folder) => {
+        let lastId = null;
+        for (let pageIndex = 0; pageIndex < 40; pageIndex += 1) {
+          const page = await fetchFavoriteItemsPage(folder.id, lastId);
+          const found = page.items.some(
+            (item) => String(item.id) === targetId && item.type === resourceType,
+          );
+          if (found) {
+            hits.add(folder.id);
+            return;
+          }
+          if (!page.hasMore || page.items.length === 0 || page.nextLastId == null) break;
+          lastId = page.nextLastId;
+        }
+      }),
+    );
+  }
+
+  return hits;
+}
+
+/**
+ * @param {number | null | undefined} userId
+ * @param {string | number} resourceId
+ * @param {number} resourceType
+ */
+export async function resolveFavoriteStatus(userId, resourceId, resourceType) {
+  const [apiStatus, folderIds] = await Promise.all([
+    fetchFavoriteStatus(resourceId, resourceType).catch(() => ({
+      favorited: false,
+      listId: null,
+    })),
+    findFavoriteFoldersForResource(userId, resourceId, resourceType).catch(() => new Set()),
+  ]);
+  const favorited = apiStatus.favorited || folderIds.size > 0;
+  let listId = apiStatus.listId;
+  if (listId == null && folderIds.size > 0) {
+    listId = folderIds.values().next().value ?? null;
+  }
+  return { favorited, listId, folderIds };
+}
+
 export async function createFavoriteFolder(name, desc = '') {
   const trimmedName = name.trim();
   const trimmedDesc = desc.trim();

@@ -3,10 +3,13 @@ import { requireLogin } from './login-ui.js';
 import {
   addFavorite,
   createFavoriteFolder,
+  deleteFavoriteFolder,
   fetchFavoriteFolderList,
-  fetchFavoriteStatus,
+  findFavoriteFoldersForResource,
   removeFavorite,
+  resolveFavoriteStatus,
   resolveMineUserId,
+  updateFavoriteFolder,
 } from './favorite-api.js';
 
 /** @typedef {import('./favorite-api.js').FavoriteFolder} FavoriteFolder */
@@ -22,10 +25,23 @@ function escapeHtml(text) {
     .replace(/"/g, '&quot;');
 }
 
-/** @type {{ resourceId: string, resourceType: number, onComplete: ((listId: number) => void) | null }} */
+/** @type {{ resourceId: string, resourceType: number, onChange: ((next: { favorited: boolean, listId: number | null }) => void) | null }} */
 let pickerContext = {
   resourceId: '',
   resourceType: 0,
+  onChange: null,
+};
+
+/** @type {FavoriteFolder[]} */
+let pickerFolders = [];
+
+/** @type {Set<number>} */
+let pickerMemberIds = new Set();
+
+/** @type {{ mode: 'create' | 'edit', listId: number | null, onComplete: (() => void) | null }} */
+let folderFormContext = {
+  mode: 'create',
+  listId: null,
   onComplete: null,
 };
 
@@ -41,14 +57,59 @@ function getTitleEl() {
   return document.getElementById('favorite-picker-title');
 }
 
+function getHintEl() {
+  return document.getElementById('favorite-picker-hint');
+}
+
 function setPickerLoading(loading) {
   const dialog = getDialog();
   dialog?.classList.toggle('favorite-picker--loading', loading);
 }
 
+function notifyFavoriteChanged() {
+  window.dispatchEvent(new CustomEvent('mfuns:favorite-changed'));
+}
+
 /**
- * @param {FavoriteFolder[]} folders
+ * @param {number} n
  */
+function formatCount(n) {
+  if (!Number.isFinite(n) || n < 0) return '0';
+  if (n >= 10000) return `${(n / 10000).toFixed(1)}万`;
+  return String(Math.trunc(n));
+}
+
+/**
+ * @param {FavoriteFolder} folder
+ * @param {{ openAttr: string, openValue: number }} options
+ */
+export function favoriteFolderRowHtml(folder, options) {
+  return `
+    <div class="mine-favorite-folder-wrap">
+      <button type="button" class="mine-favorite-folder" ${options.openAttr}="${options.openValue}">
+        <span class="mine-favorite-folder__icon">${materialIcon('folder')}</span>
+        <span class="mine-favorite-folder__main">
+          <span class="mine-favorite-folder__name">${escapeHtml(folder.name)}</span>
+          ${
+            folder.desc
+              ? `<span class="mine-favorite-folder__desc">${escapeHtml(folder.desc)}</span>`
+              : ''
+          }
+        </span>
+        <span class="mine-favorite-folder__count">${formatCount(folder.count)}</span>
+        ${materialIcon('chevron_right', 'mine-favorite-folder__chevron')}
+      </button>
+      <div class="mine-favorite-folder__actions">
+        <button type="button" class="mine-favorite-folder__action" data-favorite-folder-edit="${folder.id}" aria-label="编辑收藏夹" title="编辑">
+          ${materialIcon('edit')}
+        </button>
+        <button type="button" class="mine-favorite-folder__action mine-favorite-folder__action--danger" data-favorite-folder-delete="${folder.id}" aria-label="删除收藏夹" title="删除">
+          ${materialIcon('delete_outline')}
+        </button>
+      </div>
+    </div>`;
+}
+
 /**
  * @param {string} [extraClass]
  */
@@ -60,7 +121,11 @@ export function favoriteFolderCreateButtonHtml(extraClass = '') {
   </button>`;
 }
 
-function renderPickerList(folders) {
+/**
+ * @param {FavoriteFolder[]} folders
+ * @param {Set<number>} memberIds
+ */
+function renderPickerList(folders, memberIds) {
   const list = getListEl();
   if (!list) return;
   if (folders.length === 0) {
@@ -68,10 +133,11 @@ function renderPickerList(folders) {
     return;
   }
   list.innerHTML = folders
-    .map(
-      (folder) => `
-      <button type="button" class="favorite-picker__item" data-favorite-list-id="${folder.id}">
-        <span class="favorite-picker__item-icon">${materialIcon('folder')}</span>
+    .map((folder) => {
+      const active = memberIds.has(folder.id);
+      return `
+      <button type="button" class="favorite-picker__item ${active ? 'is-active' : ''}" data-favorite-list-id="${folder.id}">
+        <span class="favorite-picker__item-icon">${materialIcon(active ? 'folder_special' : 'folder')}</span>
         <span class="favorite-picker__item-main">
           <span class="favorite-picker__item-name">${escapeHtml(folder.name)}</span>
           ${
@@ -81,29 +147,48 @@ function renderPickerList(folders) {
           }
         </span>
         <span class="favorite-picker__item-count">${folder.count}</span>
-      </button>`,
-    )
+        ${active ? materialIcon('check', 'favorite-picker__item-check') : ''}
+      </button>`;
+    })
     .join('');
 
   list.querySelectorAll('[data-favorite-list-id]').forEach((btn) => {
     btn.addEventListener('click', () => {
-      void pickFolder(Number(btn.getAttribute('data-favorite-list-id')));
+      void togglePickerFolder(Number(btn.getAttribute('data-favorite-list-id')));
     });
   });
+}
+
+async function syncPickerChangeState() {
+  const userId = resolveMineUserId(null);
+  if (userId == null || !pickerContext.resourceId) return;
+  const status = await resolveFavoriteStatus(userId, pickerContext.resourceId, pickerContext.resourceType);
+  pickerMemberIds = status.folderIds;
+  pickerContext.onChange?.({
+    favorited: status.favorited,
+    listId: status.listId,
+  });
+  notifyFavoriteChanged();
 }
 
 /**
  * @param {number} listId
  */
-async function pickFolder(listId) {
+async function togglePickerFolder(listId) {
   if (!Number.isFinite(listId) || listId <= 0 || !pickerContext.resourceId) return;
   setPickerLoading(true);
   try {
-    await addFavorite(listId, pickerContext.resourceId, pickerContext.resourceType);
-    pickerContext.onComplete?.(listId);
-    getDialog()?.close();
+    if (pickerMemberIds.has(listId)) {
+      await removeFavorite(listId, pickerContext.resourceId, pickerContext.resourceType);
+      pickerMemberIds.delete(listId);
+    } else {
+      await addFavorite(listId, pickerContext.resourceId, pickerContext.resourceType);
+      pickerMemberIds.add(listId);
+    }
+    renderPickerList(pickerFolders, pickerMemberIds);
+    await syncPickerChangeState();
   } catch (err) {
-    alert(err instanceof Error ? err.message : '收藏失败');
+    alert(err instanceof Error ? err.message : '操作失败');
   } finally {
     setPickerLoading(false);
   }
@@ -112,13 +197,20 @@ async function pickFolder(listId) {
 async function loadPickerFolders() {
   const userId = resolveMineUserId(null);
   if (userId == null) {
-    renderPickerList([]);
+    pickerFolders = [];
+    pickerMemberIds = new Set();
+    renderPickerList([], pickerMemberIds);
     return;
   }
   setPickerLoading(true);
   try {
-    const folders = await fetchFavoriteFolderList(userId);
-    renderPickerList(folders);
+    const [folders, memberIds] = await Promise.all([
+      fetchFavoriteFolderList(userId),
+      findFavoriteFoldersForResource(userId, pickerContext.resourceId, pickerContext.resourceType),
+    ]);
+    pickerFolders = folders;
+    pickerMemberIds = memberIds;
+    renderPickerList(pickerFolders, pickerMemberIds);
   } catch (err) {
     const list = getListEl();
     if (list) {
@@ -130,22 +222,30 @@ async function loadPickerFolders() {
 }
 
 /**
- * @param {{ resourceId: string | number, resourceType: number, onComplete?: (listId: number) => void }} options
+ * @param {{ resourceId: string | number, resourceType: number, onChange?: (next: { favorited: boolean, listId: number | null }) => void }} options
  */
-export function openFavoritePicker(options) {
+export function openFavoriteManager(options) {
   if (!requireLogin()) return;
   pickerContext = {
     resourceId: String(options.resourceId),
     resourceType: options.resourceType,
-    onComplete: options.onComplete ?? null,
+    onChange: options.onChange ?? null,
   };
   if (getTitleEl()) {
-    getTitleEl().textContent = '选择收藏夹';
+    getTitleEl().textContent = '收藏到收藏夹';
+  }
+  if (getHintEl()) {
+    getHintEl().textContent = '点击加入或移出；同一内容可存在于多个收藏夹';
   }
   const dialog = getDialog();
   if (!dialog) return;
   dialog.showModal();
   void loadPickerFolders();
+}
+
+/** @deprecated 使用 openFavoriteManager */
+export function openFavoritePicker(options) {
+  openFavoriteManager(options);
 }
 
 /**
@@ -157,83 +257,92 @@ export function openFavoritePicker(options) {
  *   onChange: (next: { favorited: boolean, listId: number | null }) => void,
  * }} options
  */
-export async function toggleResourceFavorite(options) {
+export function toggleResourceFavorite(options) {
   if (!requireLogin()) return;
-  const resourceId = String(options.resourceId);
-  const { resourceType, favorited, listId, onChange } = options;
-
-  if (favorited) {
-    let targetListId = listId;
-    if (targetListId == null) {
-      const status = await fetchFavoriteStatus(resourceId, resourceType).catch(() => ({
-        favorited: true,
-        listId: null,
-      }));
-      targetListId = status.listId;
-    }
-    if (targetListId == null) {
-      alert('无法确定收藏夹，请在「我的收藏」中管理');
-      return;
-    }
-    try {
-      await removeFavorite(targetListId, resourceId, resourceType);
-      onChange({ favorited: false, listId: null });
-    } catch (err) {
-      alert(err instanceof Error ? err.message : '取消收藏失败');
-    }
-    return;
-  }
-
-  openFavoritePicker({
-    resourceId,
-    resourceType,
-    onComplete: (pickedListId) => {
-      onChange({ favorited: true, listId: pickedListId });
-    },
+  openFavoriteManager({
+    resourceId: options.resourceId,
+    resourceType: options.resourceType,
+    onChange: options.onChange,
   });
 }
 
-/** @type {((folder: FavoriteFolder) => void) | null} */
-let createFolderOnComplete = null;
-
-function getCreateDialog() {
+function getFolderFormDialog() {
   return /** @type {HTMLDialogElement | null} */ (
-    document.getElementById('favorite-folder-create-dialog')
+    document.getElementById('favorite-folder-form-dialog')
   );
 }
 
-function setCreateDialogLoading(loading) {
-  getCreateDialog()?.classList.toggle('favorite-folder-create--loading', loading);
+function setFolderFormLoading(loading) {
+  getFolderFormDialog()?.classList.toggle('favorite-folder-create--loading', loading);
 }
 
 /**
  * @param {{ onCreated?: (folder: FavoriteFolder) => void }} [options]
  */
 export function openCreateFavoriteFolderDialog(options = {}) {
+  openFavoriteFolderFormDialog({
+    mode: 'create',
+    onComplete: () => options.onCreated?.(),
+  });
+}
+
+/**
+ * @param {{ folder: FavoriteFolder, onComplete?: () => void }} options
+ */
+export function openEditFavoriteFolderDialog(options) {
+  openFavoriteFolderFormDialog({
+    mode: 'edit',
+    folder: options.folder,
+    onComplete: options.onComplete ?? null,
+  });
+}
+
+/**
+ * @param {{ mode: 'create' | 'edit', folder?: FavoriteFolder, onComplete?: (() => void) | null }} options
+ */
+export function openFavoriteFolderFormDialog(options) {
   if (!requireLogin()) return;
-  createFolderOnComplete = options.onCreated ?? null;
-  const dialog = getCreateDialog();
-  const form = document.getElementById('favorite-folder-create-form');
+  folderFormContext = {
+    mode: options.mode,
+    listId: options.folder?.id ?? null,
+    onComplete: options.onComplete ?? null,
+  };
+
+  const dialog = getFolderFormDialog();
+  const form = document.getElementById('favorite-folder-form');
+  const titleEl = document.getElementById('favorite-folder-form-title');
+  const submitEl = document.getElementById('favorite-folder-form-submit');
   const nameInput = /** @type {HTMLInputElement | null} */ (
-    document.getElementById('favorite-folder-create-name')
+    document.getElementById('favorite-folder-form-name')
   );
   const descInput = /** @type {HTMLTextAreaElement | null} */ (
-    document.getElementById('favorite-folder-create-desc')
+    document.getElementById('favorite-folder-form-desc')
   );
-  if (!dialog || !form || !nameInput) return;
-  form.reset();
-  if (descInput) descInput.value = '';
+  if (!dialog || !form || !nameInput || !titleEl || !submitEl) return;
+
+  if (options.mode === 'edit' && options.folder) {
+    titleEl.textContent = '编辑收藏夹';
+    submitEl.textContent = '保存';
+    nameInput.value = options.folder.name;
+    if (descInput) descInput.value = options.folder.desc ?? '';
+  } else {
+    titleEl.textContent = '新建收藏夹';
+    submitEl.textContent = '创建';
+    form.reset();
+    if (descInput) descInput.value = '';
+  }
+
   dialog.showModal();
   window.requestAnimationFrame(() => nameInput.focus());
 }
 
-async function submitCreateFavoriteFolder(event) {
+async function submitFavoriteFolderForm(event) {
   event.preventDefault();
   const nameInput = /** @type {HTMLInputElement | null} */ (
-    document.getElementById('favorite-folder-create-name')
+    document.getElementById('favorite-folder-form-name')
   );
   const descInput = /** @type {HTMLTextAreaElement | null} */ (
-    document.getElementById('favorite-folder-create-desc')
+    document.getElementById('favorite-folder-form-desc')
   );
   if (!nameInput) return;
   const name = nameInput.value.trim();
@@ -242,17 +351,106 @@ async function submitCreateFavoriteFolder(event) {
     nameInput.focus();
     return;
   }
-  setCreateDialogLoading(true);
+  const desc = descInput?.value ?? '';
+  setFolderFormLoading(true);
   try {
-    const folder = await createFavoriteFolder(name, descInput?.value ?? '');
-    createFolderOnComplete?.(folder);
-    createFolderOnComplete = null;
-    getCreateDialog()?.close();
+    if (folderFormContext.mode === 'edit' && folderFormContext.listId != null) {
+      await updateFavoriteFolder(folderFormContext.listId, name, desc);
+    } else {
+      await createFavoriteFolder(name, desc);
+    }
+    folderFormContext.onComplete?.();
+    folderFormContext.onComplete = null;
+    getFolderFormDialog()?.close();
+    notifyFavoriteChanged();
   } catch (err) {
-    alert(err instanceof Error ? err.message : '创建失败');
+    alert(err instanceof Error ? err.message : '保存失败');
   } finally {
-    setCreateDialogLoading(false);
+    setFolderFormLoading(false);
   }
+}
+
+/**
+ * @param {FavoriteFolder} folder
+ * @param {() => void} [onComplete]
+ */
+export async function confirmDeleteFavoriteFolder(folder, onComplete) {
+  if (!requireLogin()) return;
+  const message =
+    folder.count > 0
+      ? `确定删除收藏夹「${folder.name}」？夹内的 ${folder.count} 个收藏将一并移除。`
+      : `确定删除收藏夹「${folder.name}」？`;
+  if (!confirm(message)) return;
+  try {
+    await deleteFavoriteFolder(folder.id);
+    onComplete?.();
+    notifyFavoriteChanged();
+  } catch (err) {
+    alert(err instanceof Error ? err.message : '删除失败');
+  }
+}
+
+/**
+ * @param {number} listId
+ * @param {import('./content-api.js').ContentPreview} item
+ * @param {() => void} [onComplete]
+ */
+export async function removeItemFromFavoriteFolder(listId, item, onComplete) {
+  if (!requireLogin()) return;
+  if (!confirm(`从收藏夹移出「${item.title}」？`)) return;
+  try {
+    await removeFavorite(listId, item.id, item.type);
+    onComplete?.();
+    notifyFavoriteChanged();
+  } catch (err) {
+    alert(err instanceof Error ? err.message : '移出失败');
+  }
+}
+
+/**
+ * @param {HTMLElement} root
+ * @param {{
+ *   folders: FavoriteFolder[],
+ *   openAttr: string,
+ *   onOpen: (folder: FavoriteFolder) => void,
+ *   onRefresh: () => void,
+ * }} options
+ */
+export function bindFavoriteFolderListActions(root, options) {
+  root.querySelectorAll('[data-create-favorite-folder]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      openCreateFavoriteFolderDialog({ onCreated: options.onRefresh });
+    });
+  });
+
+  root.querySelectorAll(`[${options.openAttr}]`).forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = Number(btn.getAttribute(options.openAttr));
+      const folder = options.folders.find((entry) => entry.id === id);
+      if (!folder) return;
+      options.onOpen(folder);
+    });
+  });
+
+  root.querySelectorAll('[data-favorite-folder-edit]').forEach((btn) => {
+    btn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const id = Number(btn.getAttribute('data-favorite-folder-edit'));
+      const folder = options.folders.find((entry) => entry.id === id);
+      if (!folder) return;
+      openEditFavoriteFolderDialog({ folder, onComplete: options.onRefresh });
+    });
+  });
+
+  root.querySelectorAll('[data-favorite-folder-delete]').forEach((btn) => {
+    btn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const id = Number(btn.getAttribute('data-favorite-folder-delete'));
+      const folder = options.folders.find((entry) => entry.id === id);
+      if (!folder) return;
+      void confirmDeleteFavoriteFolder(folder, options.onRefresh);
+    });
+  });
 }
 
 export function bindFavoritePicker() {
@@ -261,36 +459,33 @@ export function bindFavoritePicker() {
   dialog?.addEventListener('click', (event) => {
     if (event.target === dialog) dialog.close();
   });
+  dialog?.addEventListener('close', () => {
+    void syncPickerChangeState();
+  });
 
   document.getElementById('favorite-picker-create')?.addEventListener('click', () => {
     openCreateFavoriteFolderDialog({
-      onCreated: (folder) => {
-        void loadPickerFolders().then(() => {
-          if (pickerContext.resourceId && folder.id > 0) {
-            void pickFolder(folder.id);
-          }
-        });
+      onCreated: () => {
+        void loadPickerFolders();
       },
     });
   });
 
-  const createDialog = getCreateDialog();
+  const formDialog = getFolderFormDialog();
   document
-    .getElementById('favorite-folder-create-cancel')
-    ?.addEventListener('click', () => createDialog?.close());
-  document.getElementById('favorite-folder-create-close')?.addEventListener('click', () =>
-    createDialog?.close(),
+    .getElementById('favorite-folder-form-cancel')
+    ?.addEventListener('click', () => formDialog?.close());
+  document.getElementById('favorite-folder-form-close')?.addEventListener('click', () =>
+    formDialog?.close(),
   );
-  createDialog?.addEventListener('click', (event) => {
-    if (event.target === createDialog) createDialog.close();
+  formDialog?.addEventListener('click', (event) => {
+    if (event.target === formDialog) formDialog.close();
   });
-  createDialog?.addEventListener('close', () => {
-    createFolderOnComplete = null;
-    setCreateDialogLoading(false);
+  formDialog?.addEventListener('close', () => {
+    folderFormContext.onComplete = null;
+    setFolderFormLoading(false);
   });
-  document
-    .getElementById('favorite-folder-create-form')
-    ?.addEventListener('submit', (event) => {
-      void submitCreateFavoriteFolder(event);
-    });
+  document.getElementById('favorite-folder-form')?.addEventListener('submit', (event) => {
+    void submitFavoriteFolderForm(event);
+  });
 }
