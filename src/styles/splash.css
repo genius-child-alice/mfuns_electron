@@ -27,7 +27,7 @@
   object-fit: contain;
   opacity: 0;
   filter: brightness(0.45) drop-shadow(0 8px 24px rgba(0, 0, 0, 0.12));
-  animation: splash-logo-reveal 2.2s ease-out forwards;
+  animation: splash-logo-reveal 2s ease-out forwards;
 }
 
 @keyframes splash-logo-reveal {

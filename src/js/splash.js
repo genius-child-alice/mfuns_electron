@@ -1,4 +1,4 @@
-const SPLASH_MIN_MS = 3000;
+const SPLASH_MIN_MS = 2000;
 const SPLASH_FADE_MS = 520;
 
 export function runSplash(onDone) {
