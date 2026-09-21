@@ -17,6 +17,7 @@ import { fetchUserProfile } from './user-profile-api.js';
 import { resolveFavoriteStatus, resolveMineUserId } from './favorite-api.js';
 import { toggleResourceFavorite } from './favorite-ui.js';
 import { openRewardDialog } from './reward-ui.js';
+import { coinInteractLabel, favoriteInteractLabel } from './interact-bar-labels.js';
 import {
   bindCommentSection,
   createCommentReplyStore,
@@ -45,6 +46,8 @@ let authorTotalLikes = 0;
 let favorited = false;
 /** @type {number | null} */
 let favoriteListId = null;
+let rewardCount = 0;
+let favoriteCount = 0;
 
 /** @type {import('./video-api.js').CommunityComment[]} */
 let commentItems = [];
@@ -129,11 +132,11 @@ function renderInteractBar() {
       </button>
       <button type="button" class="watch-interact-bar__item" id="article-coin-btn" title="投币支持">
         <span class="watch-interact-bar__icon">${materialIcon('paid')}</span>
-        <span class="watch-interact-bar__label">投币</span>
+        <span class="watch-interact-bar__label">${coinInteractLabel(rewardCount)}</span>
       </button>
       <button type="button" class="watch-interact-bar__item ${favorited ? 'is-active' : ''}" id="article-fav-btn">
         <span class="watch-interact-bar__icon">${materialIcon('star')}</span>
-        <span class="watch-interact-bar__label">${favorited ? '已收藏' : '收藏'}</span>
+        <span class="watch-interact-bar__label">${favoriteInteractLabel(favoriteCount, favorited)}</span>
       </button>
       <button type="button" class="watch-interact-bar__item" id="article-share-btn">
         <span class="watch-interact-bar__icon">${materialIcon('share')}</span>
@@ -263,8 +266,13 @@ function bindPageEvents() {
       favorited,
       listId: favoriteListId,
       onChange: (next) => {
+        const wasFavorited = favorited;
         favorited = next.favorited;
         favoriteListId = next.listId;
+        if (next.favorited && !wasFavorited) favoriteCount += 1;
+        else if (!next.favorited && wasFavorited) {
+          favoriteCount = Math.max(0, favoriteCount - 1);
+        }
         renderPage();
       },
     });
@@ -275,6 +283,10 @@ function bindPageEvents() {
     openRewardDialog({
       resourceId: currentDetail.preview.id,
       resourceType: 0,
+      onSuccess: (count) => {
+        rewardCount += count;
+        renderPage();
+      },
     });
   });
 
@@ -346,6 +358,8 @@ export async function openArticleDetail(preview) {
   document.getElementById('article-scroll')?.scrollTo(0, 0);
   favorited = false;
   favoriteListId = null;
+  rewardCount = 0;
+  favoriteCount = 0;
   disliked = false;
   dislikeCount = 0;
   commentReplyStore.clear();
@@ -363,6 +377,8 @@ export async function openArticleDetail(preview) {
   try {
     const detail = await fetchArticleDetail(preview);
     currentDetail = detail;
+    rewardCount = detail.rewardCount;
+    favoriteCount = detail.favoriteCount;
 
     const session = loadSession();
     const likePromise = fetchReactionStatus(Number(detail.preview.id), 0).catch(() => ({

@@ -14,6 +14,8 @@ import {
  *   authorId: number | null,
  *   authorAvatar: string | null,
  *   likes: number,
+ *   rewardCount: number,
+ *   favoriteCount: number,
  *   publishedAt: string | null,
  * }} ArticleDetail */
 
@@ -144,6 +146,8 @@ function parseArticleDetail(seed, data) {
     authorId,
     authorAvatar: resolveCoverUrl(user.avatar ?? user.face),
     likes,
+    rewardCount: asInt(root.reward_count) ?? 0,
+    favoriteCount: asInt(root.favorite_count) ?? 0,
     publishedAt: publishedAt ?? null,
   };
 }

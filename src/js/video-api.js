@@ -22,6 +22,8 @@ import {
  *   authorId: number | null,
  *   authorAvatar: string | null,
  *   likes: number,
+ *   rewardCount: number,
+ *   favoriteCount: number,
  *   danmakuCount: number,
  *   publishedAt: string | null,
  *   copyright: number | null,
@@ -204,6 +206,8 @@ function parseVideoDetail(seed, data) {
     authorId,
     authorAvatar: resolveCoverUrl(avatarRaw),
     likes,
+    rewardCount: asInt(root.reward_count ?? resource.reward_count) ?? 0,
+    favoriteCount: asInt(root.favorite_count ?? resource.favorite_count) ?? 0,
     danmakuCount:
       asInt(resource.danmaku_count ?? root.danmaku_count ?? resource.bullet_count) ?? 0,
     publishedAt: publishedAt ?? null,

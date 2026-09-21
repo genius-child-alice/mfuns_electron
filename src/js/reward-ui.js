@@ -1,7 +1,7 @@
 import { requireLogin } from './login-ui.js';
 import { rewardResource } from './video-api.js';
 
-/** @type {{ resourceId: number, resourceType: number } | null} */
+/** @type {{ resourceId: number, resourceType: number, onSuccess?: (count: number) => void } | null} */
 let rewardContext = null;
 
 function getDialog() {
@@ -13,14 +13,18 @@ function setDialogLoading(loading) {
 }
 
 /**
- * @param {{ resourceId: number | string, resourceType: 0 | 1 }} options
+ * @param {{ resourceId: number | string, resourceType: 0 | 1, onSuccess?: (count: number) => void }} options
  */
 export function openRewardDialog(options) {
   if (!requireLogin()) return;
   const resourceId = Number(options.resourceId);
   if (!Number.isFinite(resourceId) || resourceId <= 0) return;
 
-  rewardContext = { resourceId, resourceType: options.resourceType };
+  rewardContext = {
+    resourceId,
+    resourceType: options.resourceType,
+    onSuccess: options.onSuccess,
+  };
   const subtitle = document.getElementById('reward-dialog-subtitle');
   if (subtitle) {
     subtitle.textContent =
@@ -33,6 +37,7 @@ async function submitReward(count) {
   if (!rewardContext) return;
   setDialogLoading(true);
   try {
+    const onSuccess = rewardContext.onSuccess;
     const message = await rewardResource(
       rewardContext.resourceId,
       rewardContext.resourceType,
@@ -40,6 +45,7 @@ async function submitReward(count) {
     );
     rewardContext = null;
     getDialog()?.close();
+    onSuccess?.(count);
     alert(message);
   } catch (err) {
     alert(err instanceof Error ? err.message : '投币失败');

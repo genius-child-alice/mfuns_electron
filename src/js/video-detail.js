@@ -21,6 +21,7 @@ import { fetchUserProfile } from './user-profile-api.js';
 import { resolveFavoriteStatus, resolveMineUserId } from './favorite-api.js';
 import { toggleResourceFavorite } from './favorite-ui.js';
 import { openRewardDialog } from './reward-ui.js';
+import { coinInteractLabel, favoriteInteractLabel } from './interact-bar-labels.js';
 import { isVideoInWatchLater, toggleVideoWatchLater } from './watch-later-store.js';
 import {
   bindCommentSection,
@@ -57,6 +58,8 @@ let descExpanded = false;
 let favorited = false;
 /** @type {number | null} */
 let favoriteListId = null;
+let rewardCount = 0;
+let favoriteCount = 0;
 let watchLater = false;
 
 /** @type {ContentPreview[]} */
@@ -203,11 +206,11 @@ function renderIntroToolbar() {
       </button>
       <button type="button" class="watch-interact-bar__item" id="watch-coin-btn" title="投币支持">
         <span class="watch-interact-bar__icon">${materialIcon('paid')}</span>
-        <span class="watch-interact-bar__label">投币</span>
+        <span class="watch-interact-bar__label">${coinInteractLabel(rewardCount)}</span>
       </button>
       <button type="button" class="watch-interact-bar__item ${favorited ? 'is-active' : ''}" id="watch-fav-btn">
         <span class="watch-interact-bar__icon">${materialIcon('star')}</span>
-        <span class="watch-interact-bar__label">${favorited ? '已收藏' : '收藏'}</span>
+        <span class="watch-interact-bar__label">${favoriteInteractLabel(favoriteCount, favorited)}</span>
       </button>
       <button type="button" class="watch-interact-bar__item ${watchLater ? 'is-active' : ''}" id="watch-later-btn" title="稍后再看">
         <span class="watch-interact-bar__icon">${materialIcon('schedule')}</span>
@@ -432,8 +435,13 @@ function bindSidePanelEvents() {
       favorited,
       listId: favoriteListId,
       onChange: (next) => {
+        const wasFavorited = favorited;
         favorited = next.favorited;
         favoriteListId = next.listId;
+        if (next.favorited && !wasFavorited) favoriteCount += 1;
+        else if (!next.favorited && wasFavorited) {
+          favoriteCount = Math.max(0, favoriteCount - 1);
+        }
         renderSidePanel();
       },
     });
@@ -444,6 +452,10 @@ function bindSidePanelEvents() {
     openRewardDialog({
       resourceId: currentDetail.preview.id,
       resourceType: 1,
+      onSuccess: (count) => {
+        rewardCount += count;
+        renderSidePanel();
+      },
     });
   });
 
@@ -551,6 +563,8 @@ export async function openVideoDetail(preview) {
   descExpanded = false;
   favorited = false;
   favoriteListId = null;
+  rewardCount = 0;
+  favoriteCount = 0;
   disliked = false;
   dislikeCount = 0;
   commentReplyStore.clear();
@@ -571,6 +585,8 @@ export async function openVideoDetail(preview) {
     ]);
     currentDetail = detail;
     currentParts = parts;
+    rewardCount = detail.rewardCount;
+    favoriteCount = detail.favoriteCount;
 
     const poster = detail.preview.cover ? mediaSrcForCover(detail.preview.cover) : null;
     if (parts.length > 0) {
