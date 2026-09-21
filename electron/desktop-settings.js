@@ -16,7 +16,7 @@ function settingsFilePath() {
   try {
     return path.join(app.getPath('userData'), 'desktop-settings.json');
   } catch {
-    const appName = 'MFuns';
+    const appName = 'Mfuns';
     if (process.platform === 'win32' && process.env.APPDATA) {
       return path.join(process.env.APPDATA, appName, 'desktop-settings.json');
     }

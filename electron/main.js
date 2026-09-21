@@ -8,7 +8,7 @@ const {
   readDesktopSettingsForStartup,
 } = require('./desktop-settings');
 
-app.setName('MFuns');
+app.setName('Mfuns');
 
 const startupDesktopSettings = readDesktopSettingsForStartup();
 if (startupDesktopSettings.disableGpuAcceleration) {
@@ -207,7 +207,7 @@ function ensureTray() {
     console.error('系统托盘创建失败', err);
     return;
   }
-  tray.setToolTip('MFuns');
+  tray.setToolTip('Mfuns');
   const contextMenu = Menu.buildFromTemplate([
     {
       label: '显示主窗口',
@@ -217,7 +217,7 @@ function ensureTray() {
     },
     { type: 'separator' },
     {
-      label: '退出 MFuns',
+      label: '退出 Mfuns',
       click: () => {
         isQuitting = true;
         app.quit();
@@ -305,7 +305,7 @@ function openInAppBrowser(url, title) {
 
   const query = new URLSearchParams({
     url,
-    title: title || 'MFuns',
+    title: title || 'Mfuns',
   });
 
   browserWindow.loadFile(path.join(__dirname, '../src/in-app-browser.html'), {
@@ -380,7 +380,7 @@ ipcMain.on('window:close-choice', (_event, choice) => {
 
 ipcMain.handle('browser:open', (_event, payload) => {
   const url = typeof payload?.url === 'string' ? payload.url : '';
-  const title = typeof payload?.title === 'string' ? payload.title : 'MFuns';
+  const title = typeof payload?.title === 'string' ? payload.title : 'Mfuns';
   if (!url) return { ok: false };
   openInAppBrowser(url, title);
   return { ok: true };

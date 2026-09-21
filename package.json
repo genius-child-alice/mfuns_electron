@@ -1,7 +1,7 @@
 {
   "name": "mfuns-electron",
   "version": "1.0.0",
-  "description": "MFuns Electron desktop app",
+  "description": "Mfuns Electron desktop app",
   "main": "electron/main.js",
   "scripts": {
     "start": "electron .",
@@ -13,7 +13,7 @@
   },
   "build": {
     "appId": "net.mfuns.desktop",
-    "productName": "MFuns",
+    "productName": "Mfuns",
     "directories": {
       "output": "dist"
     },
