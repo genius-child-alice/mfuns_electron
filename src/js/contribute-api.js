@@ -2,7 +2,7 @@ import { apiGet, apiPostJson, resolveCoverUrl } from './content-api.js';
 
 /** @typedef {{ id: number, resourceId: number | null, title: string, status: number, createdAt: Date | null, cover: string }} SubmissionItem */
 /** @typedef {{ type: string, content: unknown, title: string, meta: Record<string, unknown>, extra: Record<string, unknown> }} SubmissionVideoPart */
-/** @typedef {{ id: number, resourceId: number | null, title: string, content: string, status: number, categoryId: number | null, tags: string[], cover: string, rawContent: string, contentFormat: string, videos: SubmissionVideoPart[], copyright: number | null, draft: boolean, rejectReason: string, publishTime: Date | null }} SubmissionDetail */
+/** @typedef {{ id: number, resourceId: number | null, title: string, content: string, status: number, categoryId: number | null, tags: string[], cover: string, rawContent: string, contentFormat: string, videos: SubmissionVideoPart[], copyright: number | null, draft: boolean, rejectReason: string, publishTime: Date | null, seriesId: number | null }} SubmissionDetail */
 /** @typedef {{ videoId: string, accessKeyId: string, accessKeySecret: string, securityToken: string, endpoint: string, bucket: string, objectKey: string }} VideoUploadAuth */
 /** @typedef {{ items: SubmissionItem[], hasMore: boolean, total: number | null }} SubmissionItemsPage */
 
@@ -279,6 +279,7 @@ function parseSubmissionDetail(data) {
     draft,
     rejectReason,
     publishTime,
+    seriesId: asInt(source.series_id ?? resource.series_id ?? root.series_id),
   };
 }
 
@@ -427,6 +428,7 @@ export async function createArticleSubmission(params) {
     cover = '',
     draft = false,
     publishTime = null,
+    seriesId = null,
   } = params;
   await apiPostJson('/v1/contribute/article/create', {
     cid: categoryId,
@@ -437,6 +439,7 @@ export async function createArticleSubmission(params) {
     draft,
     ...(tags.length ? { tags: tags.join(',') } : {}),
     ...(cover ? { cover } : {}),
+    ...(seriesId != null && seriesId > 0 ? { series_id: seriesId } : {}),
     ...publishTimePayload(publishTime),
   });
 }
@@ -455,6 +458,7 @@ export async function updateArticleSubmission(params) {
     cover = '',
     draft = false,
     publishTime = null,
+    seriesId = null,
   } = params;
   await apiPostJson('/v1/contribute/article/update', {
     contribute_id: contributeId,
@@ -466,6 +470,7 @@ export async function updateArticleSubmission(params) {
     draft,
     ...(tags.length ? { tags: tags.join(',') } : {}),
     ...(cover ? { cover } : {}),
+    ...(seriesId != null && seriesId > 0 ? { series_id: seriesId } : {}),
     ...publishTimePayload(publishTime),
   });
 }
@@ -483,6 +488,7 @@ export async function createVideoSubmission(params) {
     copyright = 0,
     cover = '',
     publishTime = null,
+    seriesId = null,
   } = params;
   await apiPostJson('/v1/contribute/video/create', {
     cid: categoryId,
@@ -492,6 +498,7 @@ export async function createVideoSubmission(params) {
     video: JSON.stringify(videos.map(videoPartToJson)),
     copyright,
     ...(tags.length ? { tags: tags.join(',') } : {}),
+    ...(seriesId != null && seriesId > 0 ? { series_id: seriesId } : {}),
     ...publishTimePayload(publishTime),
   });
 }
@@ -510,6 +517,7 @@ export async function updateVideoSubmission(params) {
     copyright = 0,
     cover = '',
     publishTime = null,
+    seriesId = null,
   } = params;
   await apiPostJson('/v1/contribute/video/update', {
     contribute_id: contributeId,
@@ -520,6 +528,7 @@ export async function updateVideoSubmission(params) {
     copyright,
     ...(tags.length ? { tags: tags.join(',') } : {}),
     ...(cover ? { cover } : {}),
+    ...(seriesId != null && seriesId > 0 ? { series_id: seriesId } : {}),
     ...publishTimePayload(publishTime),
   });
 }

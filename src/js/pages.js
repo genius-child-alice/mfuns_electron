@@ -5,7 +5,7 @@ import { destroyWatchPlayer } from './watch-player.js';
 
 const DEFAULT_AVATAR = 'assets/mfuns_logo.png';
 
-/** @typedef {'home' | 'feed' | 'mine' | 'settings' | 'watch' | 'article' | 'space' | 'follow-list' | 'search' | 'tag' | 'message' | 'contribute' | 'sign'} PageId */
+/** @typedef {'home' | 'feed' | 'mine' | 'settings' | 'watch' | 'article' | 'space' | 'follow-list' | 'search' | 'tag' | 'message' | 'contribute' | 'sign' | 'series'} PageId */
 
 /** @type {PageId} */
 let currentPage = 'home';
@@ -69,6 +69,24 @@ export function signPageHtml() {
         </header>
         <div class="sign-page__body" id="sign-page-body">
           <p class="sign-page__status">加载签到信息…</p>
+        </div>
+      </div>
+    </div>`;
+}
+
+export function seriesPageHtml() {
+  return `
+    <div class="page-view page-view--series" data-page="series" hidden>
+      <div class="series-page">
+        <header class="series-page__head">
+          <button type="button" class="series-page__back app-no-drag" id="series-page-back">
+            ${materialIcon('arrow_back', 'series-page__back-icon')}
+            <span>返回</span>
+          </button>
+          <h1 class="series-page__title" id="series-page-title">合集</h1>
+        </header>
+        <div class="series-page__body" id="series-page-body">
+          <p class="series-page__empty">加载中…</p>
         </div>
       </div>
     </div>`;
@@ -425,6 +443,12 @@ export function contributePageHtml() {
                     <input type="checkbox" id="contribute-editor-draft" />
                     <label for="contribute-editor-draft">仅存草稿，不直接发布</label>
                   </div>
+                  <div class="contribute-field">
+                    <label for="contribute-editor-series">所属合集</label>
+                    <select id="contribute-editor-series">
+                      <option value="">不加入合集</option>
+                    </select>
+                  </div>
                   <div class="contribute-schedule-row" id="contribute-editor-schedule-row">
                     <input type="checkbox" id="contribute-editor-schedule-enabled" />
                     <label for="contribute-editor-schedule-enabled">定时发布</label>
@@ -540,6 +564,7 @@ export function minePageHtml() {
             <button type="button" class="mine-tabs__item" data-mine-tab="offline">离线缓存</button>
             <button type="button" class="mine-tabs__item" data-mine-tab="favorite">我的收藏</button>
             <button type="button" class="mine-tabs__item" data-mine-tab="watchlater">稍后再看</button>
+            <button type="button" class="mine-tabs__item" data-mine-tab="series">订阅合集</button>
           </nav>
           <label class="mine-search">
             ${materialIcon('search', 'mine-search__icon')}
@@ -733,6 +758,7 @@ export function spacePageHtml() {
             <button type="button" class="user-space__tab" data-space-tab="feed" role="tab">动态</button>
             <button type="button" class="user-space__tab" data-space-tab="article" role="tab">文章</button>
             <button type="button" class="user-space__tab" data-space-tab="favorite" role="tab">收藏</button>
+            <button type="button" class="user-space__tab" data-space-tab="series" role="tab">合集</button>
           </nav>
           <div class="user-space__body" id="user-space-body"></div>
         </div>
@@ -1065,6 +1091,7 @@ export function setPage(pageId) {
   main?.classList.toggle('content--message', pageId === 'message');
   main?.classList.toggle('content--contribute', pageId === 'contribute');
   main?.classList.toggle('content--sign', pageId === 'sign');
+  main?.classList.toggle('content--series', pageId === 'series');
 
   const homeTabs = document.getElementById('topbar-tabs-home');
   homeTabs?.toggleAttribute('hidden', pageId !== 'home');
@@ -1080,7 +1107,8 @@ export function setPage(pageId) {
         pageId === 'tag' ||
         pageId === 'message' ||
         pageId === 'contribute' ||
-        pageId === 'sign',
+        pageId === 'sign' ||
+        pageId === 'series',
     );
 
   syncPagesAuthState();
@@ -1102,6 +1130,9 @@ export function setPage(pageId) {
   }
   if (pageId === 'sign') {
     void import('./sign-page.js').then((mod) => mod.onSignPageEnter());
+  }
+  if (pageId === 'series') {
+    void import('./series-page.js').then((mod) => mod.onSeriesPageEnter());
   }
   if (pageId === 'contribute') {
     void import('./contribute-page.js').then((mod) => mod.onContributePageEnter());

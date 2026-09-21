@@ -28,9 +28,11 @@ import {
 } from './watch-later-store.js';
 import { listOfflineCache, removeOfflineEntry } from './offline-cache-store.js';
 import { refreshSignCard } from './sign-ui.js';
+import { fetchSubscribedSeries } from './series-api.js';
+import { bindSeriesFolderList, seriesFolderRowHtml } from './series-ui.js';
 
 /** @typedef {import('./history-api.js').HistoryEntry} HistoryEntry */
-/** @typedef {'history' | 'offline' | 'favorite' | 'watchlater'} MineTabId */
+/** @typedef {'history' | 'offline' | 'favorite' | 'watchlater' | 'series'} MineTabId */
 
 /** @type {MineTabId} */
 let activeTab = 'history';
@@ -62,6 +64,12 @@ let favoriteItems = [];
 let favoriteNextLastId = null;
 let favoriteItemsHasMore = true;
 let favoriteLoading = false;
+
+/** @type {import('./series-api.js').SeriesInfo[]} */
+let subscribedSeries = [];
+let subscribedPage = 1;
+let subscribedHasMore = true;
+let subscribedLoading = false;
 
 /**
  * @param {number} n
@@ -313,6 +321,88 @@ function getSearchInput() {
 function syncSearchVisibility() {
   const searchWrap = document.querySelector('.mine-search');
   searchWrap?.classList.toggle('mine-search--hidden', activeTab !== 'history');
+}
+
+function resetSubscribedSeriesState() {
+  subscribedSeries = [];
+  subscribedPage = 1;
+  subscribedHasMore = true;
+  subscribedLoading = false;
+}
+
+function renderSubscribedSeriesView() {
+  const root = getRootEl();
+  if (!root) return;
+  if (!subscribedSeries.length) {
+    root.innerHTML = '<p class="mine-history__empty">还没有订阅任何合集</p>';
+    return;
+  }
+  root.innerHTML = `
+    <div class="mine-series-subscribed" id="mine-series-subscribed-wrap">
+      <div class="user-space__series-list">
+        ${subscribedSeries.map((item) => seriesFolderRowHtml(item, { manageable: false })).join('')}
+      </div>
+    </div>`;
+  const wrap = document.getElementById('mine-series-subscribed-wrap');
+  if (wrap) {
+    bindSeriesFolderList(wrap, { manageable: false });
+  }
+}
+
+async function loadSubscribedSeriesFirstPage() {
+  if (!isLoggedIn() || subscribedLoading) return;
+  subscribedLoading = true;
+  renderPanelPlaceholder('加载中…');
+  try {
+    const page = await fetchSubscribedSeries(1, 20);
+    subscribedSeries = page.items;
+    subscribedPage = 1;
+    subscribedHasMore = page.hasMore;
+    renderSubscribedSeriesView();
+  } catch (err) {
+    renderPanelPlaceholder(err instanceof Error ? err.message : '加载失败');
+    subscribedHasMore = false;
+  } finally {
+    subscribedLoading = false;
+  }
+}
+
+async function loadSubscribedSeriesMore() {
+  if (!isLoggedIn() || subscribedLoading || !subscribedHasMore) return;
+  subscribedLoading = true;
+  appendSubscribedSeriesLoadingHint();
+  try {
+    const nextPage = subscribedPage + 1;
+    const page = await fetchSubscribedSeries(nextPage, 20);
+    document.getElementById('mine-series-load-more')?.remove();
+    if (!page.items.length) {
+      subscribedHasMore = false;
+      return;
+    }
+    subscribedPage = nextPage;
+    subscribedSeries = subscribedSeries.concat(page.items);
+    subscribedHasMore = page.hasMore;
+    const list = document.querySelector('#mine-series-subscribed-wrap .user-space__series-list');
+    if (list) {
+      list.insertAdjacentHTML(
+        'beforeend',
+        page.items.map((item) => seriesFolderRowHtml(item, { manageable: false })).join(''),
+      );
+    }
+  } catch {
+    document.getElementById('mine-series-load-more')?.remove();
+  } finally {
+    subscribedLoading = false;
+  }
+}
+
+function appendSubscribedSeriesLoadingHint() {
+  const root = getRootEl();
+  if (!root || document.getElementById('mine-series-load-more')) return;
+  root.insertAdjacentHTML(
+    'beforeend',
+    `<p class="mine-history__loading" id="mine-series-load-more">${materialIcon('progress_activity', 'mine-history__spin')}加载更多…</p>`,
+  );
 }
 
 function syncTabUi() {
@@ -790,6 +880,15 @@ function showTabPanel(tab) {
 
   if (tab === 'offline') {
     renderOfflineCacheView();
+    return;
+  }
+
+  if (tab === 'series') {
+    if (subscribedSeries.length === 0 && !subscribedLoading) {
+      void loadSubscribedSeriesFirstPage();
+    } else {
+      renderSubscribedSeriesView();
+    }
   }
 }
 
@@ -909,6 +1008,12 @@ function onMainScroll() {
   if (activeTab === 'favorite' && activeFavoriteFolderId != null) {
     if (!favoriteItemsHasMore || favoriteLoading) return;
     void loadFavoriteItemsMore();
+    return;
+  }
+
+  if (activeTab === 'series') {
+    if (!subscribedHasMore || subscribedLoading) return;
+    void loadSubscribedSeriesMore();
   }
 }
 
@@ -935,6 +1040,10 @@ export function refreshMinePage() {
   }
   if (getCurrentPage() === 'mine' && activeTab === 'offline') {
     renderOfflineCacheView();
+  }
+  if (getCurrentPage() === 'mine' && activeTab === 'series') {
+    resetSubscribedSeriesState();
+    void loadSubscribedSeriesFirstPage();
   }
 }
 
@@ -966,6 +1075,10 @@ export function onMinePageEnter() {
   }
   if (activeTab === 'offline') {
     renderOfflineCacheView();
+  }
+  if (activeTab === 'series') {
+    if (subscribedSeries.length === 0) void loadSubscribedSeriesFirstPage();
+    else renderSubscribedSeriesView();
   }
 }
 
@@ -1005,7 +1118,16 @@ export function bindMinePage() {
   document.querySelectorAll('[data-mine-tab]').forEach((tab) => {
     tab.addEventListener('click', () => {
       const id = tab.getAttribute('data-mine-tab');
-      if (id !== 'history' && id !== 'offline' && id !== 'favorite' && id !== 'watchlater') return;
+      if (
+        id !== 'history' &&
+        id !== 'offline' &&
+        id !== 'favorite' &&
+        id !== 'watchlater' &&
+        id !== 'series'
+      ) {
+        return;
+      }
+      if (id === 'series') resetSubscribedSeriesState();
       showTabPanel(id);
     });
   });

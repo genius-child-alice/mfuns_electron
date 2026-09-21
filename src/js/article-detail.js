@@ -33,6 +33,13 @@ import {
 } from './comment-ui.js';
 import { bindTagButtons, renderTagButtons } from './tag-page.js';
 import { commentComposerTriggerHtml, openCommentComposer } from './comment-composer.js';
+import { fetchSeriesContext } from './series-api.js';
+import {
+  bindCollectionNav,
+  canManageContentSeries,
+  openSeriesPickerDialog,
+  renderCollectionNavHtml,
+} from './series-ui.js';
 
 /** @typedef {import('./content-api.js').ContentPreview} ContentPreview */
 /** @typedef {import('./article-api.js').ArticleDetail} ArticleDetail */
@@ -59,6 +66,9 @@ let watchLater = false;
 
 /** @type {import('./video-api.js').CommunityComment[]} */
 let commentItems = [];
+
+let collectionNavHtml = '';
+let canManageSeries = false;
 
 const commentReplyStore = createCommentReplyStore();
 
@@ -158,7 +168,31 @@ function renderInteractBar() {
         <span class="watch-interact-bar__icon">${materialIcon('edit_note')}</span>
         <span class="watch-interact-bar__label">转动态</span>
       </button>
+      ${
+        canManageSeries
+          ? `<button type="button" class="watch-interact-bar__item" id="article-series-manage-btn" title="加入合集">
+              <span class="watch-interact-bar__icon">${materialIcon('video_library')}</span>
+              <span class="watch-interact-bar__label">合集</span>
+            </button>`
+          : ''
+      }
     </div>`;
+}
+
+async function reloadArticleCollectionNav() {
+  if (!currentDetail) return;
+  collectionNavHtml = '';
+  try {
+    const detail = await fetchArticleDetail(currentDetail.preview);
+    currentDetail = detail;
+    if (detail.seriesId) {
+      const ctx = await fetchSeriesContext(detail.seriesId, Number(detail.preview.id), 0);
+      collectionNavHtml = renderCollectionNavHtml(ctx);
+    }
+  } catch {
+    /* ignore */
+  }
+  renderPage();
 }
 
 function renderPage() {
@@ -218,6 +252,8 @@ function renderPage() {
       </header>
 
       <div class="article-read__content markdown-body" id="article-rich-content"></div>
+
+      ${collectionNavHtml}
 
       ${
         detail.tags.length
@@ -317,6 +353,15 @@ function bindPageEvents() {
     renderPage();
   });
 
+  document.getElementById('article-series-manage-btn')?.addEventListener('click', () => {
+    if (!currentDetail || !requireLogin()) return;
+    void openSeriesPickerDialog({
+      resourceId: Number(currentDetail.preview.id),
+      resourceType: 0,
+      onComplete: () => void reloadArticleCollectionNav(),
+    });
+  });
+
   document.getElementById('article-forward-feed-btn')?.addEventListener('click', () => {
     if (!currentDetail || !requireLogin()) return;
     void import('./feed-forward.js').then(({ openFeedForward }) => {
@@ -380,6 +425,8 @@ export async function openArticleDetail(preview) {
   disliked = false;
   dislikeCount = 0;
   commentReplyStore.clear();
+  collectionNavHtml = '';
+  canManageSeries = false;
   authorFans = 0;
   authorTotalLikes = 0;
   setLoading(true);
@@ -445,6 +492,23 @@ export async function openArticleDetail(preview) {
       comments = await fetchCommentList(detail.commentAreaId, 1).catch(() => []);
     }
     commentItems = comments;
+
+    canManageSeries = await canManageContentSeries(detail.authorId);
+
+    collectionNavHtml = '';
+    if (detail.seriesId) {
+      try {
+        const ctx = await fetchSeriesContext(
+          detail.seriesId,
+          Number(detail.preview.id),
+          0,
+        );
+        collectionNavHtml = renderCollectionNavHtml(ctx);
+      } catch {
+        /* ignore */
+      }
+    }
+
     renderPage();
   } catch (err) {
     if (root) {
@@ -461,7 +525,10 @@ export function closeArticleDetail() {
 
 export function bindArticleDetail() {
   const articleRoot = document.getElementById('article-page-root');
-  if (articleRoot) bindTagButtons(articleRoot);
+  if (articleRoot) {
+    bindTagButtons(articleRoot);
+    bindCollectionNav(articleRoot);
+  }
 
   bindCommentSection(articleRoot, {
     getComments: () => commentItems,

@@ -17,6 +17,8 @@ import {
  *   rewardCount: number,
  *   favoriteCount: number,
  *   publishedAt: string | null,
+ *   seriesId: number | null,
+ *   seriesOrder: number | null,
  * }} ArticleDetail */
 
 /**
@@ -149,6 +151,8 @@ function parseArticleDetail(seed, data) {
     rewardCount: asInt(root.reward_count) ?? 0,
     favoriteCount: asInt(root.favorite_count) ?? 0,
     publishedAt: publishedAt ?? null,
+    seriesId: asInt(resource.series_id ?? root.series_id),
+    seriesOrder: asInt(resource.series_order ?? root.series_order),
   };
 }
 

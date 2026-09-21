@@ -31,6 +31,7 @@ import {
   searchPageHtml,
   tagPageHtml,
   signPageHtml,
+  seriesPageHtml,
   messagePageHtml,
   contributePageHtml,
   setPage,
@@ -58,6 +59,8 @@ import { mergeGuestWatchLaterIntoUser } from './watch-later-store.js';
 import { bindSearchPage } from './search-page.js';
 import { bindTagPage } from './tag-page.js';
 import { bindSignPage } from './sign-page.js';
+import { bindSeriesPage } from './series-page.js';
+import { bindSeriesPickerDialog } from './series-ui.js';
 import { bindImageViewer } from './image-viewer.js';
 import { bindCommentComposer } from './comment-composer.js';
 import { bindDanmakuManagerDialog } from './danmaku-manager-ui.js';
@@ -188,6 +191,7 @@ function renderShell() {
           ${searchPageHtml()}
           ${tagPageHtml()}
           ${signPageHtml()}
+          ${seriesPageHtml()}
           ${messagePageHtml()}
           ${contributePageHtml()}
           <button type="button" class="btn-refresh app-no-drag" aria-label="刷新">
@@ -409,6 +413,39 @@ function renderShell() {
     </dialog>
 
     ${shareDialogHtml()}
+
+    <dialog class="series-picker app-no-drag" id="series-picker-dialog" aria-labelledby="series-picker-title">
+      <div class="series-picker__card">
+        <header class="series-picker__head">
+          <div class="series-picker__head-main">
+            <h2 class="series-picker__title" id="series-picker-title">加入合集</h2>
+            <p class="series-picker__hint">选择要加入的合集</p>
+          </div>
+          <button type="button" class="series-picker__close" id="series-picker-close" aria-label="关闭">${materialIcon('close')}</button>
+        </header>
+        <div class="series-picker__body" id="series-picker-list"></div>
+        <footer class="series-picker__footer">
+          <button type="button" class="series-picker__create" id="series-picker-create">
+            ${materialIcon('add', 'series-picker__create-icon')}
+            <span>新建合集</span>
+          </button>
+        </footer>
+      </div>
+    </dialog>
+
+    <dialog class="series-picker app-no-drag" id="series-content-picker-dialog" aria-labelledby="series-content-picker-title">
+      <div class="series-picker__card">
+        <header class="series-picker__head">
+          <div class="series-picker__head-main">
+            <h2 class="series-picker__title" id="series-content-picker-title">添加内容</h2>
+            <p class="series-picker__hint">从已发布的投稿中选择</p>
+          </div>
+          <button type="button" class="series-picker__close" id="series-content-picker-close" aria-label="关闭">${materialIcon('close')}</button>
+        </header>
+        <div class="series-picker__body series-content-picker__body" id="series-content-picker-list"></div>
+      </div>
+    </dialog>
+
     ${promptDialogHtml()}
 
   `;
@@ -751,6 +788,8 @@ function bootApp() {
   bindSearchPage();
   bindTagPage();
   bindSignPage();
+  bindSeriesPage();
+  bindSeriesPickerDialog();
   bindImageViewer();
   bindCommentComposer();
   bindConfirmDialog();

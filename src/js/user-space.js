@@ -30,12 +30,18 @@ import {
   favoriteFolderRowHtml,
   removeItemFromFavoriteFolder,
 } from './favorite-ui.js';
+import { fetchUserSeriesList } from './series-api.js';
+import {
+  bindSeriesFolderList,
+  seriesCreateButtonHtml,
+  seriesFolderRowHtml,
+} from './series-ui.js';
 
 const FEED_DOM_PREFIX = 'user-space-feed';
 
 /** @typedef {import('./user-profile-api.js').UserProfile} UserProfile */
 /** @typedef {import('./pages.js').PageId} PageId */
-/** @typedef {'feed' | 'article' | 'video' | 'favorite'} SpaceTabId */
+/** @typedef {'feed' | 'article' | 'video' | 'favorite' | 'series'} SpaceTabId */
 
 /** @type {PageId} */
 let returnPage = 'mine';
@@ -71,6 +77,12 @@ let activeFavoriteFolderName = '';
 let favoriteNextLastId = null;
 /** @type {import('./content-api.js').ContentPreview[]} */
 let favoriteItems = [];
+
+/** @type {number} */
+let seriesListPage = 1;
+
+/** @type {import('./series-api.js').SeriesInfo[]} */
+let seriesItems = [];
 
 /**
  * @param {number} n
@@ -260,6 +272,72 @@ function resetListState() {
   listCursor = 0;
   feedStartId = -1;
   hasMore = true;
+  seriesListPage = 1;
+  seriesItems = [];
+}
+
+function renderSeriesListHtml(items, manageable) {
+  const createBtn = manageable ? seriesCreateButtonHtml() : '';
+  const rows = items.map((item) => seriesFolderRowHtml(item, { manageable })).join('');
+  return `<div id="user-space-series-wrap">${createBtn}<div class="user-space__series-list">${rows}</div></div>`;
+}
+
+function mountSeriesListActions() {
+  const wrap = document.getElementById('user-space-series-wrap');
+  if (!wrap) return;
+  bindSeriesFolderList(wrap, {
+    manageable: isSelfSpace(),
+    onChanged: () => {
+      void loadFirstPage();
+    },
+  });
+}
+
+async function loadSeriesFirstPage() {
+  const userId = currentUserId;
+  if (userId == null || userId <= 0) {
+    setBodyHtml('<p class="user-space__empty">用户不存在</p>');
+    hasMore = false;
+    return;
+  }
+
+  const page = await fetchUserSeriesList(userId, 1, 20);
+  seriesListPage = 1;
+  seriesItems = page.items;
+  hasMore = page.hasMore;
+  if (!page.items.length) {
+    const createBtn = isSelfSpace() ? seriesCreateButtonHtml() : '';
+    setBodyHtml(
+      createBtn
+        ? `<div id="user-space-series-wrap">${createBtn}<p class="user-space__empty">${emptyTextForTab('series')}</p></div>`
+        : `<p class="user-space__empty">${emptyTextForTab('series')}</p>`,
+    );
+    if (createBtn) mountSeriesListActions();
+    return;
+  }
+  setBodyHtml(renderSeriesListHtml(page.items, isSelfSpace()));
+  mountSeriesListActions();
+}
+
+async function loadSeriesMore() {
+  if (!currentUserId || !hasMore) return;
+  const nextPage = seriesListPage + 1;
+  const page = await fetchUserSeriesList(currentUserId, nextPage, 20);
+  document.getElementById('user-space-load-more')?.remove();
+  if (!page.items.length) {
+    hasMore = false;
+    return;
+  }
+  seriesListPage = nextPage;
+  seriesItems = seriesItems.concat(page.items);
+  const list = document.querySelector('.user-space__series-list');
+  if (list) {
+    list.insertAdjacentHTML(
+      'beforeend',
+      page.items.map((item) => seriesFolderRowHtml(item, { manageable: isSelfSpace() })).join(''),
+    );
+  }
+  hasMore = page.hasMore;
 }
 
 function resetFavoriteListState() {
@@ -392,6 +470,10 @@ async function loadFirstPage() {
       await loadFavoriteFirstPage();
       return;
     }
+    if (activeTab === 'series') {
+      await loadSeriesFirstPage();
+      return;
+    }
 
     const items = await loadTabPage(true);
     if (items.length === 0) {
@@ -471,6 +553,10 @@ async function loadMore() {
       await loadFavoriteItemsMore();
       return;
     }
+    if (activeTab === 'series') {
+      await loadSeriesMore();
+      return;
+    }
 
     const items = await loadTabPage(false);
     document.getElementById('user-space-load-more')?.remove();
@@ -497,6 +583,7 @@ function emptyTextForTab(tab) {
   if (tab === 'feed') return 'TA 还没有发布动态';
   if (tab === 'article') return 'TA 还没有发布文章';
   if (tab === 'favorite') return isSelfSpace() ? '暂无收藏夹' : '暂无公开收藏夹';
+  if (tab === 'series') return isSelfSpace() ? '还没有创建合集' : 'TA 还没有创建合集';
   return 'TA 还没有发布视频';
 }
 
@@ -684,7 +771,7 @@ export function bindUserSpace() {
   document.querySelectorAll('[data-space-tab]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const tab = btn.getAttribute('data-space-tab');
-      if (tab !== 'feed' && tab !== 'article' && tab !== 'video' && tab !== 'favorite') return;
+      if (tab !== 'feed' && tab !== 'article' && tab !== 'video' && tab !== 'favorite' && tab !== 'series') return;
       if (tab === activeTab) return;
       activeTab = /** @type {SpaceTabId} */ (tab);
       if (tab === 'favorite') {

@@ -42,6 +42,13 @@ import {
 } from './comment-ui.js';
 import { bindTagButtons, renderTagButtons } from './tag-page.js';
 import { commentComposerTriggerHtml, openCommentComposer } from './comment-composer.js';
+import { fetchSeriesContext } from './series-api.js';
+import {
+  bindCollectionNav,
+  canManageContentSeries,
+  openSeriesPickerDialog,
+  renderCollectionNavHtml,
+} from './series-ui.js';
 
 /** @typedef {import('./content-api.js').ContentPreview} ContentPreview */
 /** @typedef {import('./video-api.js').VideoDetail} VideoDetail */
@@ -80,6 +87,9 @@ let relatedItems = [];
 
 /** @type {import('./video-api.js').CommunityComment[]} */
 let commentItems = [];
+
+let collectionNavHtml = '';
+let canManageSeries = false;
 
 const commentReplyStore = createCommentReplyStore();
 
@@ -176,28 +186,28 @@ function formatDateTime(iso) {
  * @param {string} videoTitle
  * @param {number} views
  */
-function renderSeriesPlaylist(parts, activeIndex, videoTitle, views) {
+function renderPartsPlaylist(parts, activeIndex, videoTitle, views) {
   if (parts.length <= 1) return '';
   return `
-    <section class="watch-series">
-      <header class="watch-series__head">
-        <div class="watch-series__head-main">
-          <p class="watch-series__title">分P列表 (${activeIndex + 1}/${parts.length})</p>
-          <p class="watch-series__sub">${formatCount(views)}播放</p>
+    <section class="watch-parts">
+      <header class="watch-parts__head">
+        <div class="watch-parts__head-main">
+          <p class="watch-parts__title">分P列表 (${activeIndex + 1}/${parts.length})</p>
+          <p class="watch-parts__sub">${formatCount(views)}播放</p>
         </div>
       </header>
-      <ol class="watch-series__list">
+      <ol class="watch-parts__list">
         ${parts
           .map(
             (part, index) => `
           <li>
-            <button type="button" class="watch-series__item ${index === activeIndex ? 'is-active' : ''}" data-part-index="${index}">
+            <button type="button" class="watch-parts__item ${index === activeIndex ? 'is-active' : ''}" data-part-index="${index}">
               ${
                 index === activeIndex
-                  ? materialIcon('graphic_eq', 'watch-series__playing')
-                  : '<span class="watch-series__playing watch-series__playing--ph"></span>'
+                  ? materialIcon('graphic_eq', 'watch-parts__playing')
+                  : '<span class="watch-parts__playing watch-parts__playing--ph"></span>'
               }
-              <span class="watch-series__name">${escapeHtml(part.title || videoTitle)}</span>
+              <span class="watch-parts__name">${escapeHtml(part.title || videoTitle)}</span>
             </button>
           </li>`,
           )
@@ -241,7 +251,31 @@ function renderIntroToolbar() {
         <span class="watch-interact-bar__icon">${materialIcon('edit_note')}</span>
         <span class="watch-interact-bar__label">转动态</span>
       </button>
+      ${
+        canManageSeries
+          ? `<button type="button" class="watch-interact-bar__item" id="watch-series-manage-btn" title="加入合集">
+              <span class="watch-interact-bar__icon">${materialIcon('video_library')}</span>
+              <span class="watch-interact-bar__label">合集</span>
+            </button>`
+          : ''
+      }
     </div>`;
+}
+
+async function reloadVideoCollectionNav() {
+  if (!currentDetail) return;
+  collectionNavHtml = '';
+  try {
+    const detail = await fetchVideoDetail(currentDetail.preview);
+    currentDetail = detail;
+    if (detail.seriesId) {
+      const ctx = await fetchSeriesContext(detail.seriesId, Number(detail.preview.id), 1);
+      collectionNavHtml = renderCollectionNavHtml(ctx);
+    }
+  } catch {
+    /* ignore */
+  }
+  renderSidePanel();
 }
 
 function renderSidePanel() {
@@ -355,7 +389,9 @@ function renderSidePanel() {
               : ''
         }
 
-        ${renderSeriesPlaylist(currentParts, activePartIndex, preview.title, preview.views)}
+        ${collectionNavHtml}
+
+        ${renderPartsPlaylist(currentParts, activePartIndex, preview.title, preview.views)}
 
         <section class="watch-related">
           <h2 class="watch-related__heading">相关推荐</h2>
@@ -386,20 +422,20 @@ function hydrateRichMarkdown() {
   });
 }
 
-function updateSeriesActiveState(index) {
-  document.querySelectorAll('.watch-series__item[data-part-index]').forEach((btn) => {
+function updatePartsActiveState(index) {
+  document.querySelectorAll('.watch-parts__item[data-part-index]').forEach((btn) => {
     const partIndex = Number(btn.getAttribute('data-part-index'));
     const isActive = partIndex === index;
     btn.classList.toggle('is-active', isActive);
-    const iconSlot = btn.querySelector('.watch-series__playing, .watch-series__playing--ph');
+    const iconSlot = btn.querySelector('.watch-parts__playing, .watch-parts__playing--ph');
     if (!iconSlot) return;
     if (isActive) {
-      iconSlot.outerHTML = materialIcon('graphic_eq', 'watch-series__playing');
+      iconSlot.outerHTML = materialIcon('graphic_eq', 'watch-parts__playing');
     } else {
-      iconSlot.outerHTML = '<span class="watch-series__playing watch-series__playing--ph"></span>';
+      iconSlot.outerHTML = '<span class="watch-parts__playing watch-parts__playing--ph"></span>';
     }
   });
-  const titleEl = document.querySelector('.watch-series__title');
+  const titleEl = document.querySelector('.watch-parts__title');
   if (titleEl && currentParts.length > 0) {
     titleEl.textContent = `分P列表 (${index + 1}/${currentParts.length})`;
   }
@@ -527,6 +563,15 @@ function bindSidePanelEvents() {
     }
   });
 
+  document.getElementById('watch-series-manage-btn')?.addEventListener('click', () => {
+    if (!currentDetail || !requireLogin()) return;
+    void openSeriesPickerDialog({
+      resourceId: Number(currentDetail.preview.id),
+      resourceType: 1,
+      onComplete: () => void reloadVideoCollectionNav(),
+    });
+  });
+
   document.getElementById('watch-forward-feed-btn')?.addEventListener('click', () => {
     if (!currentDetail || !requireLogin()) return;
     void import('./feed-forward.js').then(({ openFeedForward }) => {
@@ -564,7 +609,7 @@ function bindSidePanelEvents() {
       if (!Number.isFinite(index)) return;
       activePartIndex = index;
       getWatchPlayer()?.loadPart(index, { autoPlay: true });
-      updateSeriesActiveState(index);
+      updatePartsActiveState(index);
     });
   });
 
@@ -605,6 +650,8 @@ export async function openVideoDetail(preview) {
   disliked = false;
   dislikeCount = 0;
   commentReplyStore.clear();
+  collectionNavHtml = '';
+  canManageSeries = false;
   watchLater = isInWatchLater(resolveWatchLaterUserId(), preview.id, 1);
   offlineCached = Boolean(findOfflineEntry(preview.id, 0));
   offlineDownloading = false;
@@ -651,7 +698,7 @@ export async function openVideoDetail(preview) {
           const wp = getWatchPlayer();
           if (!wp) return;
           activePartIndex = wp.partIndex;
-          updateSeriesActiveState(activePartIndex);
+          updatePartsActiveState(activePartIndex);
         },
       });
     }
@@ -706,6 +753,23 @@ export async function openVideoDetail(preview) {
 
     relatedItems = related;
     commentItems = comments;
+
+    canManageSeries = await canManageContentSeries(detail.authorId);
+
+    collectionNavHtml = '';
+    if (detail.seriesId) {
+      try {
+        const ctx = await fetchSeriesContext(
+          detail.seriesId,
+          Number(detail.preview.id),
+          1,
+        );
+        collectionNavHtml = renderCollectionNavHtml(ctx);
+      } catch {
+        /* ignore */
+      }
+    }
+
     renderSidePanel();
   } catch (err) {
     const side = document.getElementById('watch-side-panel');
@@ -726,6 +790,9 @@ export function closeVideoDetail() {
 export function bindVideoDetail() {
   const watchRoot = document.getElementById('watch-page-root');
   if (watchRoot) bindTagButtons(watchRoot);
+
+  const sidePanel = document.getElementById('watch-side-panel');
+  if (sidePanel) bindCollectionNav(sidePanel);
 
   bindCommentSection(watchRoot, {
     getComments: () => commentItems,

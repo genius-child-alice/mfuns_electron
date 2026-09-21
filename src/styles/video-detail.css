@@ -1197,32 +1197,32 @@ html[data-theme='dark'] .watch-side-scroll::-webkit-scrollbar-thumb {
   font-size: 12px;
 }
 
-/* —— 分P合集 —— */
-.watch-series {
+/* —— 分P列表 —— */
+.watch-parts {
   margin-bottom: 18px;
   border-radius: var(--radius-md);
   background: var(--bg-subtle);
   overflow: hidden;
 }
 
-.watch-series__head {
+.watch-parts__head {
   padding: 12px 14px 10px;
 }
 
-.watch-series__title {
+.watch-parts__title {
   margin: 0;
   font-size: 14px;
   font-weight: 600;
   color: var(--text-primary);
 }
 
-.watch-series__sub {
+.watch-parts__sub {
   margin: 4px 0 0;
   font-size: 12px;
   color: var(--text-tertiary);
 }
 
-.watch-series__list {
+.watch-parts__list {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -1230,7 +1230,7 @@ html[data-theme='dark'] .watch-side-scroll::-webkit-scrollbar-thumb {
   overflow: auto;
 }
 
-.watch-series__item {
+.watch-parts__item {
   width: 100%;
   display: flex;
   align-items: center;
@@ -1242,29 +1242,29 @@ html[data-theme='dark'] .watch-side-scroll::-webkit-scrollbar-thumb {
   border-top: 1px solid var(--border-subtle);
 }
 
-.watch-series__item:hover {
+.watch-parts__item:hover {
   background: var(--bg-hover);
 }
 
-.watch-series__item.is-active {
+.watch-parts__item.is-active {
   color: var(--accent);
   background: var(--accent-soft);
 }
 
-.watch-series__playing {
+.watch-parts__playing {
   flex-shrink: 0;
   width: 18px;
   font-size: 18px;
   line-height: 1;
 }
 
-.watch-series__playing--ph {
+.watch-parts__playing--ph {
   display: inline-block;
   width: 18px;
   height: 18px;
 }
 
-.watch-series__name {
+.watch-parts__name {
   flex: 1;
   min-width: 0;
   overflow: hidden;

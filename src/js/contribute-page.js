@@ -43,6 +43,8 @@ import {
   onContributeFeedSectionEnter,
   openFeedComposeView,
 } from './contribute-feed-section.js';
+import { resolveMineUserId } from './favorite-api.js';
+import { addSeriesItem, fetchUserSeriesList } from './series-api.js';
 import {
   bindContributePublishedSection,
   onContributePublishedSectionEnter,
@@ -98,6 +100,8 @@ let editorTags = [];
 let editorVideoParts = [];
 /** @type {number | null} */
 let editorReplacingPartIndex = null;
+/** @type {number | null} */
+let editorSeriesId = null;
 
 /** @type {number | null} */
 let detailContributeId = null;
@@ -358,6 +362,53 @@ function resetEditorState() {
   editorTags = [];
   editorVideoParts = [];
   editorReplacingPartIndex = null;
+  editorSeriesId = null;
+}
+
+async function populateEditorSeriesOptions(selectedId = null) {
+  const select = document.getElementById('contribute-editor-series');
+  if (!select) return;
+  select.innerHTML = '<option value="">不加入合集</option>';
+  if (!requireLogin()) return;
+  const userId = resolveMineUserId(null);
+  if (userId == null || userId <= 0) return;
+  try {
+    const page = await fetchUserSeriesList(userId, 1, 100);
+    select.innerHTML = `<option value="">不加入合集</option>${page.items
+      .map(
+        (series) =>
+          `<option value="${series.id}"${selectedId === series.id ? ' selected' : ''}>${escapeHtml(series.title)}</option>`,
+      )
+      .join('')}`;
+    editorSeriesId = selectedId;
+  } catch {
+    select.innerHTML = '<option value="">不加入合集</option>';
+  }
+}
+
+function readEditorSeriesId() {
+  const select = document.getElementById('contribute-editor-series');
+  const parsed = Number.parseInt(select?.value ?? '', 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+/**
+ * @param {number} contributeId
+ * @param {0 | 1} resourceType
+ * @param {boolean} draft
+ */
+async function syncSeriesAfterSubmission(contributeId, resourceType, draft) {
+  const seriesId = readEditorSeriesId();
+  if (!seriesId || draft) return;
+  try {
+    const detail = await fetchSubmissionDetail(contributeId);
+    const resourceId = detail.resourceId;
+    if (resourceId != null && resourceId > 0) {
+      await addSeriesItem({ seriesId, resourceId, resourceType });
+    }
+  } catch {
+    /* 投稿接口可能已附带 series_id */
+  }
 }
 
 /**
@@ -406,6 +457,7 @@ async function openEditor(type, contributeId = null) {
   renderEditorCoverPreview();
   renderEditorVideoParts();
   renderEditorCategoryOptions();
+  await populateEditorSeriesOptions();
 
   if (contributeId != null) {
     try {
@@ -433,6 +485,7 @@ async function openEditor(type, contributeId = null) {
       renderEditorCoverPreview();
       renderEditorVideoParts();
       renderEditorCategoryOptions();
+      await populateEditorSeriesOptions(detail.seriesId);
       syncScheduleUi();
     } catch (err) {
       notify(err instanceof Error ? err.message : '加载投稿详情失败', 'error');
@@ -782,6 +835,7 @@ async function saveEditor() {
   );
   const publishTime = readEditorPublishTime();
   if (publishTime === undefined) return;
+  const seriesId = readEditorSeriesId();
 
   if (!title) {
     notify('请输入标题', 'warning');
@@ -830,6 +884,7 @@ async function saveEditor() {
           draft,
           copyright,
           publishTime,
+          seriesId,
         });
       } else {
         await updateArticleSubmission({
@@ -842,7 +897,9 @@ async function saveEditor() {
           draft,
           copyright,
           publishTime,
+          seriesId,
         });
+        await syncSeriesAfterSubmission(editorContributeId, 0, draft);
       }
     } else if (editorContributeId == null) {
       await createVideoSubmission({
@@ -854,6 +911,7 @@ async function saveEditor() {
         cover,
         copyright,
         publishTime,
+        seriesId,
       });
     } else {
       await updateVideoSubmission({
@@ -866,7 +924,9 @@ async function saveEditor() {
         cover,
         copyright,
         publishTime,
+        seriesId,
       });
+      await syncSeriesAfterSubmission(editorContributeId, 1, false);
     }
     showView('hub');
     await loadListFirstPage();

@@ -28,6 +28,8 @@ import {
  *   danmakuCount: number,
  *   publishedAt: string | null,
  *   copyright: number | null,
+ *   seriesId: number | null,
+ *   seriesOrder: number | null,
  * }} VideoDetail */
 
 /** @typedef {{
@@ -213,6 +215,8 @@ function parseVideoDetail(seed, data) {
       asInt(resource.danmaku_count ?? root.danmaku_count ?? resource.bullet_count) ?? 0,
     publishedAt: publishedAt ?? null,
     copyright: asInt(resource.copyright ?? root.copyright),
+    seriesId: asInt(resource.series_id ?? root.series_id),
+    seriesOrder: asInt(resource.series_order ?? root.series_order),
   };
 }
 
