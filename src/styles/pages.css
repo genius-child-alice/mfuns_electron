@@ -19,6 +19,7 @@ html[data-theme='light'] .content.content--mine {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  overflow: hidden;
 }
 
 .content.content--home {

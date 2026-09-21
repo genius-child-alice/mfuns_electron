@@ -31,6 +31,9 @@ let loading = false;
 let hasMore = true;
 let asideBound = false;
 
+const SCROLL_PREFETCH_MIN_PX = 480;
+const GLOBAL_FEED_PAGE_SIZE = 20;
+
 /**
  * @param {Record<string, unknown> | null | undefined} user
  */
@@ -135,7 +138,7 @@ async function loadFeedPage(first) {
       items = await fetchUserFeeds(filterUserId, first ? -1 : feedStartId);
     } else if (feedStreamMode === 'global') {
       const page = first ? 1 : globalPage + 1;
-      items = await fetchNewReplyFeeds(page, 20);
+      items = await fetchNewReplyFeeds(page, GLOBAL_FEED_PAGE_SIZE);
       globalPage = page;
       if (first) feedStartId = -1;
     } else {
@@ -172,7 +175,8 @@ async function loadFeedPage(first) {
     }
 
     if (feedStreamMode === 'global') {
-      hasMore = items.length >= 20;
+      // 全站接口常返回少于请求的 size（如 size=20 仍只回 10 条），不能以 >=20 判断结束
+      hasMore = items.length > 0;
     } else if (items.length > 0) {
       const last = items[items.length - 1];
       feedStartId = last.id;
@@ -253,12 +257,22 @@ function onAsideClick(event) {
   selectFeedFilter(id);
 }
 
+/**
+ * @param {HTMLElement | null} container
+ */
+function shouldPrefetchMore(container) {
+  if (!container) return false;
+  const remaining = container.scrollHeight - container.scrollTop - container.clientHeight;
+  const threshold = Math.max(SCROLL_PREFETCH_MIN_PX, container.clientHeight * 0.8);
+  return remaining < threshold;
+}
+
 function onFeedScroll() {
-  const el = getScrollEl();
-  if (!el || loading || !hasMore) return;
-  if (el.scrollTop + el.clientHeight >= el.scrollHeight - 480) {
-    void loadFeedPage(false);
-  }
+  if (getCurrentPage() !== 'feed' || loading || !hasMore) return;
+  const inner = getScrollEl();
+  const main = document.getElementById('main-content');
+  if (!shouldPrefetchMore(inner) && !shouldPrefetchMore(main)) return;
+  void loadFeedPage(false);
 }
 
 export function onFeedPageEnter() {
@@ -278,6 +292,7 @@ export function bindFeedPage() {
 
   document.getElementById('feed-page-aside')?.addEventListener('click', onAsideClick);
   getScrollEl()?.addEventListener('scroll', onFeedScroll, { passive: true });
+  document.getElementById('main-content')?.addEventListener('scroll', onFeedScroll, { passive: true });
 
   bindTimelineFeedClick(document.getElementById('feed-page-list'), {
     onOpenUserSpace: (uid) => openUserSpace(uid),

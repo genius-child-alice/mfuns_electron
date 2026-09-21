@@ -1108,7 +1108,8 @@ export function setPage(pageId) {
         pageId === 'message' ||
         pageId === 'contribute' ||
         pageId === 'sign' ||
-        pageId === 'series',
+        pageId === 'series' ||
+        pageId === 'feed',
     );
 
   syncPagesAuthState();
