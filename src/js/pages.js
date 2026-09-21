@@ -5,7 +5,7 @@ import { destroyWatchPlayer } from './watch-player.js';
 
 const DEFAULT_AVATAR = 'assets/mfuns_logo.png';
 
-/** @typedef {'home' | 'feed' | 'mine' | 'settings' | 'watch' | 'article' | 'space' | 'follow-list' | 'search' | 'tag'} PageId */
+/** @typedef {'home' | 'feed' | 'mine' | 'settings' | 'watch' | 'article' | 'space' | 'follow-list' | 'search' | 'tag' | 'message'} PageId */
 
 /** @type {PageId} */
 let currentPage = 'home';
@@ -116,6 +116,97 @@ export function searchPageHtml() {
             <button type="button" class="search-page__pager-jump-btn" id="search-page-jump-btn">确定</button>
           </div>
         </nav>
+      </div>
+    </div>`;
+}
+
+export function messagePageHtml() {
+  return `
+    <div class="page-view page-view--message" data-page="message" hidden>
+      <div class="message-page">
+        <header class="message-page__header app-no-drag">
+          <h1 class="message-page__title">我的消息</h1>
+          <div class="message-page__tabs" role="tablist" aria-label="消息分类">
+            <button type="button" class="message-page__tab is-active" data-message-tab="dm" role="tab" aria-selected="true">私信</button>
+            <button type="button" class="message-page__tab" data-message-tab="notify" role="tab" aria-selected="false">
+              通知
+              <span class="message-page__tab-badge" id="message-tab-notify-badge" hidden></span>
+            </button>
+          </div>
+        </header>
+        ${guestBanner('登录账号，查看私信与通知')}
+        <div class="message-page__body" data-auth-only hidden>
+          <div class="message-page__panel" data-message-panel="dm">
+            <aside class="message-page__aside" aria-label="会话列表">
+              <div class="message-page__conv-scroll" id="message-conv-scroll">
+                <div id="message-conv-list"></div>
+              </div>
+              <p class="message-page__conv-footer" id="message-conv-footer" hidden></p>
+            </aside>
+            <section class="message-page__thread" aria-label="聊天">
+              <header class="message-thread__head app-no-drag">
+                <span class="message-thread__avatar" id="message-thread-avatar">${materialIcon('forum', 'message-thread__avatar-icon')}</span>
+                <h2 class="message-thread__title" id="message-thread-title">选择会话</h2>
+              </header>
+              <div class="message-page__thread-scroll" id="message-thread-scroll">
+                <div class="message-page__thread-list" id="message-thread-list">
+                  <p class="message-page__empty">选择左侧会话开始聊天</p>
+                </div>
+              </div>
+              <footer class="message-page__composer app-no-drag">
+                <div class="message-composer__row">
+                  <textarea
+                    class="message-composer__input"
+                    id="message-composer-input"
+                    rows="2"
+                    placeholder="说点什么…"
+                  ></textarea>
+                  <div class="message-composer__tools">
+                    <button type="button" class="message-composer__tool" id="message-composer-image" title="图片" aria-label="图片">
+                      ${materialIcon('image')}
+                    </button>
+                    <button type="button" class="message-composer__tool" id="message-composer-sticker" title="表情" aria-label="表情">
+                      ${materialIcon('mood')}
+                    </button>
+                    <button type="button" class="message-composer__send" id="message-composer-send" title="发送" aria-label="发送">
+                      ${materialIcon('send')}
+                    </button>
+                  </div>
+                </div>
+                <div class="message-composer__images" id="message-composer-images"></div>
+                <div class="message-sticker-panel" id="message-sticker-panel" hidden></div>
+                <input type="file" id="message-composer-file" accept="image/*" multiple hidden />
+              </footer>
+            </section>
+          </div>
+          <div class="message-page__panel message-page__panel--notify" data-message-panel="notify" hidden>
+            <aside class="message-notify__aside" aria-label="通知列表">
+              <div class="message-notify__summary" id="message-notify-summary"></div>
+              <div class="message-notify__tabs" role="tablist" aria-label="通知分类">
+                <button type="button" class="message-notify__tab is-active" data-notify-type="1" role="tab" aria-selected="true">
+                  赞<span class="message-notify__tab-badge" hidden></span>
+                </button>
+                <button type="button" class="message-notify__tab" data-notify-type="2" role="tab" aria-selected="false">
+                  评论<span class="message-notify__tab-badge" hidden></span>
+                </button>
+                <button type="button" class="message-notify__tab" data-notify-type="3" role="tab" aria-selected="false">
+                  提及<span class="message-notify__tab-badge" hidden></span>
+                </button>
+                <button type="button" class="message-notify__tab" data-notify-type="4" role="tab" aria-selected="false">
+                  系统<span class="message-notify__tab-badge" hidden></span>
+                </button>
+              </div>
+              <div class="message-notify__scroll" id="message-notify-scroll">
+                <div class="message-notify__list" id="message-notify-list"></div>
+                <p class="message-notify__footer" id="message-notify-footer" hidden></p>
+              </div>
+            </aside>
+            <section class="message-notify__detail" id="message-notify-detail" aria-label="通知详情">
+              <p class="message-page__empty">选择左侧通知查看详情</p>
+            </section>
+          </div>
+        </div>
+        ${guestEmpty('登录后查看私信')}
       </div>
     </div>`;
 }
@@ -432,7 +523,11 @@ export function setPage(pageId) {
 
   document.querySelectorAll('[data-sidebar-tool]').forEach((el) => {
     const tool = el.getAttribute('data-sidebar-tool');
-    el.classList.toggle('is-active', pageId === 'settings' && tool === 'settings');
+    el.classList.toggle(
+      'is-active',
+      (pageId === 'settings' && tool === 'settings') ||
+        (pageId === 'message' && tool === 'message'),
+    );
   });
 
   const main = document.getElementById('main-content');
@@ -446,6 +541,7 @@ export function setPage(pageId) {
   main?.classList.toggle('content--follow-list', pageId === 'follow-list');
   main?.classList.toggle('content--search', pageId === 'search');
   main?.classList.toggle('content--tag', pageId === 'tag');
+  main?.classList.toggle('content--message', pageId === 'message');
 
   const homeTabs = document.getElementById('topbar-tabs-home');
   homeTabs?.toggleAttribute('hidden', pageId !== 'home');
@@ -458,7 +554,8 @@ export function setPage(pageId) {
         pageId === 'article' ||
         pageId === 'space' ||
         pageId === 'follow-list' ||
-        pageId === 'tag',
+        pageId === 'tag' ||
+        pageId === 'message',
     );
 
   syncPagesAuthState();
@@ -474,6 +571,9 @@ export function setPage(pageId) {
   }
   if (pageId === 'feed') {
     void import('./feed-page.js').then((mod) => mod.onFeedPageEnter());
+  }
+  if (pageId === 'message') {
+    void import('./message-page.js').then((mod) => mod.onMessagePageEnter());
   }
 }
 

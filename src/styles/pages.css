@@ -1,7 +1,8 @@
 .content.content--feed,
 .content.content--mine,
 .content.content--settings,
-.content.content--follow-list {
+.content.content--follow-list,
+.content.content--message {
   padding: 0;
   background: var(--page-canvas);
 }

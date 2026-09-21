@@ -29,9 +29,11 @@ import {
   followListPageHtml,
   searchPageHtml,
   tagPageHtml,
+  messagePageHtml,
   setPage,
   syncPagesAuthState,
 } from './pages.js';
+import { bindMessagePage, openMessagePage } from './message-page.js';
 import { registerOpenLoginHandler, requireLogin } from './login-ui.js';
 import { bindHomeFeed } from './home-feed.js';
 import { bindFeedPage } from './feed-page.js';
@@ -125,6 +127,7 @@ function renderShell() {
             >
               ${materialIcon(tool.icon, 'material-symbols-outlined--nav')}
               <span class="sr-only">${tool.label}</span>
+              ${tool.id === 'message' ? '<span class="sidebar__badge" id="sidebar-message-badge" hidden></span>' : ''}
             </button>`,
           ).join('')}
         </div>
@@ -171,6 +174,7 @@ function renderShell() {
           ${followListPageHtml()}
           ${searchPageHtml()}
           ${tagPageHtml()}
+          ${messagePageHtml()}
           <button type="button" class="btn-refresh app-no-drag" aria-label="刷新">
             ${materialIcon('refresh')}
           </button>
@@ -368,7 +372,7 @@ function bindNavigation() {
   });
 
   document.querySelector('[data-sidebar-tool="message"]')?.addEventListener('click', () => {
-    if (!requireLogin()) return;
+    openMessagePage();
   });
 
   document.getElementById('btn-open-settings')?.addEventListener('click', () => {
@@ -658,6 +662,7 @@ function bootApp() {
   bindTagPage();
   bindImageViewer();
   bindCommentComposer();
+  bindMessagePage();
   bindMinePage();
 }
 

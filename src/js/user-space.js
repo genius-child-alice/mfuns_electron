@@ -188,8 +188,9 @@ function renderProfileHeader(profile) {
   });
 
   document.getElementById('user-space-message-btn')?.addEventListener('click', () => {
-    if (!requireLogin()) return;
-    alert('私信功能开发中');
+    void import('./message-page.js').then((mod) =>
+      mod.openMessageThread(profile.id, { name: profile.name, avatar: profile.avatar ?? '' }),
+    );
   });
 
   el.querySelectorAll('[data-user-relation-list]').forEach((btn) => {
