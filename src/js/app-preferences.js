@@ -6,6 +6,8 @@ const STORAGE_KEY = 'mfuns.app.settings';
  *   defaultQuality: PlaybackQualityPref,
  *   danmakuEnabled: boolean,
  *   danmakuOpacity: number,
+ *   danmakuFontScale: number,
+ *   danmakuDisplayArea: number,
  *   autoLaunch: boolean,
  * }} AppSettings */
 
@@ -15,6 +17,8 @@ export function defaultAppSettings() {
     defaultQuality: 'auto',
     danmakuEnabled: true,
     danmakuOpacity: 1,
+    danmakuFontScale: 1,
+    danmakuDisplayArea: 0.75,
     autoLaunch: false,
   };
 }
@@ -36,10 +40,18 @@ function normalizeAppSettings(value) {
   let danmakuOpacity = Number(obj.danmakuOpacity);
   if (!Number.isFinite(danmakuOpacity)) danmakuOpacity = base.danmakuOpacity;
   danmakuOpacity = Math.min(1, Math.max(0.2, danmakuOpacity));
+  let danmakuFontScale = Number(obj.danmakuFontScale);
+  if (!Number.isFinite(danmakuFontScale)) danmakuFontScale = base.danmakuFontScale;
+  danmakuFontScale = Math.min(1.6, Math.max(0.6, danmakuFontScale));
+  let danmakuDisplayArea = Number(obj.danmakuDisplayArea);
+  if (!Number.isFinite(danmakuDisplayArea)) danmakuDisplayArea = base.danmakuDisplayArea;
+  danmakuDisplayArea = Math.min(1, Math.max(0.25, danmakuDisplayArea));
   return {
     defaultQuality,
     danmakuEnabled,
     danmakuOpacity,
+    danmakuFontScale,
+    danmakuDisplayArea,
     autoLaunch: obj.autoLaunch === true,
   };
 }

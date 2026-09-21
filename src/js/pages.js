@@ -578,37 +578,50 @@ export function watchPageHtml() {
                       </button>
                       <span class="watch-player__time" id="watch-player-time">00:00 / 00:00</span>
                     </div>
-                    <div class="watch-player__controls-center">
-                      <div class="watch-danmaku-bar">
-                        <button type="button" class="watch-danmaku-bar__toggle is-on" id="watch-danmaku-toggle" aria-label="弹幕开关" title="弹幕">
-                          ${materialIcon('subtitles', 'watch-danmaku-bar__toggle-icon')}
+                    <div class="watch-danmaku-bar">
+                      <button type="button" class="watch-danmaku-bar__toggle is-on" id="watch-danmaku-toggle" aria-label="弹幕开关" title="弹幕">
+                        ${materialIcon('subtitles', 'watch-danmaku-bar__toggle-icon')}
+                      </button>
+                      <div class="watch-player__menu-wrap watch-danmaku-bar__menu">
+                        <button type="button" class="watch-danmaku-bar__settings" id="watch-danmaku-settings-btn" aria-label="弹幕设置" title="弹幕设置">
+                          ${materialIcon('tune')}
                         </button>
-                        <input type="text" class="watch-danmaku-bar__input" id="watch-danmaku-input" maxlength="100" placeholder="发个友善的弹幕见证当下" autocomplete="off" />
-                        <button type="button" class="watch-danmaku-bar__send" id="watch-danmaku-send">发送</button>
-                        <div class="watch-player__menu-wrap watch-danmaku-bar__settings-wrap">
-                          <button type="button" class="watch-danmaku-bar__settings" id="watch-danmaku-settings-btn" aria-label="弹幕设置" title="弹幕设置">
-                            ${materialIcon('tune')}
-                          </button>
-                          <div class="watch-player__popup-menu watch-danmaku-settings" id="watch-danmaku-settings-menu" hidden>
-                            <label class="watch-danmaku-settings__row">
-                              <span>不透明度</span>
-                              <input type="range" id="watch-danmaku-opacity" min="20" max="100" value="85" />
-                            </label>
-                            <label class="watch-danmaku-settings__row">
-                              <span>字号</span>
-                              <input type="range" id="watch-danmaku-scale" min="60" max="160" value="100" />
-                            </label>
-                            <label class="watch-danmaku-settings__row">
-                              <span>显示区域</span>
-                              <input type="range" id="watch-danmaku-area" min="25" max="100" value="75" />
-                            </label>
+                        <div class="watch-player__popup-menu watch-danmaku-settings watch-danmaku-settings--panel" id="watch-danmaku-settings-menu" hidden>
+                          <div class="watch-danmaku-compose" id="watch-danmaku-compose">
+                            <p class="watch-danmaku-compose__label">颜色与位置</p>
+                            <div class="watch-danmaku-compose__color-row">
+                              <div class="watch-danmaku-compose__colors" id="watch-danmaku-compose-colors"></div>
+                              <label class="watch-danmaku-compose__custom" title="自定义颜色">
+                                <span class="sr-only">自定义颜色</span>
+                                <input type="color" class="watch-danmaku-compose__picker" id="watch-danmaku-compose-custom" value="#ffffff" />
+                              </label>
+                            </div>
+                            <div class="watch-danmaku-compose__types" id="watch-danmaku-compose-types"></div>
                           </div>
+                          <button type="button" class="watch-danmaku-settings__action" id="watch-danmaku-open-list-btn">打开弹幕列表</button>
+                          <label class="watch-danmaku-settings__row">
+                            <span>不透明度</span>
+                            <input type="range" id="watch-danmaku-opacity" min="20" max="100" value="85" />
+                          </label>
+                          <label class="watch-danmaku-settings__row">
+                            <span>字号</span>
+                            <input type="range" id="watch-danmaku-scale" min="60" max="160" value="100" />
+                          </label>
+                          <label class="watch-danmaku-settings__row">
+                            <span>显示区域</span>
+                            <input type="range" id="watch-danmaku-area" min="25" max="100" value="75" />
+                          </label>
                         </div>
+                      </div>
+                      <div class="watch-danmaku-bar__input-wrap">
+                        <span class="watch-danmaku-bar__input-prefix" aria-hidden="true">A</span>
+                        <input type="text" class="watch-danmaku-bar__input" id="watch-danmaku-input" maxlength="100" placeholder="点击发送弹幕" autocomplete="off" />
+                        <button type="button" class="watch-danmaku-bar__send" id="watch-danmaku-send" hidden>发送</button>
                       </div>
                     </div>
                     <div class="watch-player__controls-right">
                       <div class="watch-player__menu-wrap watch-player__quality-wrap">
-                        <button type="button" class="watch-player__text-btn" id="watch-player-quality-btn">清晰度</button>
+                        <button type="button" class="watch-player__text-btn" id="watch-player-quality-btn">自动</button>
                         <div class="watch-player__popup-menu" id="watch-player-quality-menu" hidden></div>
                       </div>
                       <div class="watch-player__menu-wrap watch-player__speed-wrap">

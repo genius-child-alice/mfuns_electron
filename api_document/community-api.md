@@ -353,6 +353,7 @@
 ### `POST /v1/danmaku/send_normal`
 
 - **Body:** `video_id`, `part`, `time`（秒）, `content`, `color`, `size`, `type`
+- **`color`:** 十进制 RGB（与 B 站一致），即 `0xRRGGBB` 转整数，例如白色 `16777215`（`#FFFFFF`）、红色 `16711680`（`#FF0000`）。文档未限定枚举；客户端可按 0–`16777215` 传任意色，服务端若拒绝会返回业务错误码。
 
 ---
 

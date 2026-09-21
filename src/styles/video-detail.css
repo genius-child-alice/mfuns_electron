@@ -218,86 +218,225 @@
 .watch-player__controls {
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-height: 44px;
-  padding: 0 10px 4px;
+  gap: 6px;
+  flex-wrap: nowrap;
+  min-height: 40px;
+  padding: 0 10px 6px;
+}
+
+.watch-player__controls .watch-player__btn {
+  width: 36px;
+  height: 36px;
+  font-size: 22px;
 }
 
 .watch-player__controls-left,
 .watch-player__controls-right {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   flex-shrink: 0;
-}
-
-.watch-player__controls-center {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  justify-content: center;
-  padding: 0 8px;
 }
 
 .watch-danmaku-bar {
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
-  gap: 6px;
-  width: 100%;
-  max-width: 520px;
+  gap: 4px;
+  margin: 0 6px;
 }
 
-.watch-danmaku-bar__toggle {
+.watch-danmaku-bar__menu {
+  flex-shrink: 0;
+}
+
+.watch-danmaku-bar__input-wrap {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 8px 0 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.14);
+  transition: background 0.15s ease;
+}
+
+.watch-danmaku-bar__input-wrap:focus-within {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.watch-danmaku-bar__input-prefix {
+  flex-shrink: 0;
+  margin-right: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--accent);
+  user-select: none;
+}
+
+.watch-danmaku-compose {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.watch-danmaku-compose__label {
+  margin: 0;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.watch-danmaku-compose__colors {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.watch-danmaku-compose__color {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 22%);
+  flex-shrink: 0;
+  background-color: #fff;
+}
+
+.watch-danmaku-compose__custom {
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
+}
+
+.watch-danmaku-compose__picker {
+  width: 28px;
   height: 28px;
+  padding: 0;
+  border: 2px solid transparent;
   border-radius: 6px;
-  color: rgba(255, 255, 255, 0.45);
+  background: transparent;
+  cursor: pointer;
+}
+
+.watch-danmaku-compose__picker.is-active {
+  border-color: #fff;
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 45%);
+}
+
+.watch-danmaku-compose__color-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.watch-danmaku-compose__color.is-active {
+  border-color: #fff;
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 50%);
+}
+
+.watch-danmaku-compose__types {
+  display: flex;
+  gap: 4px;
+}
+
+.watch-danmaku-compose__type {
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.75);
   background: rgba(255, 255, 255, 0.1);
 }
 
-.watch-danmaku-bar__toggle-icon {
-  font-size: 20px;
+.watch-danmaku-compose__type.is-active {
+  color: #fff;
+  background: var(--accent);
+}
+
+.watch-danmaku-compose__type:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.watch-danmaku-bar__toggle,
+.watch-danmaku-bar__settings {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 4px;
+  background: transparent;
+}
+
+.watch-danmaku-bar__toggle {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.watch-danmaku-bar__toggle .material-symbols-outlined,
+.watch-danmaku-bar__settings .material-symbols-outlined {
+  font-size: 22px;
   line-height: 1;
+  font-variation-settings:
+    'FILL' 0,
+    'wght' 400,
+    'GRAD' 0,
+    'opsz' 24;
+}
+
+.watch-danmaku-bar__toggle.is-on .material-symbols-outlined {
+  font-variation-settings:
+    'FILL' 1,
+    'wght' 400,
+    'GRAD' 0,
+    'opsz' 24;
 }
 
 .watch-danmaku-bar__toggle.is-on {
   color: var(--accent);
-  background: rgba(255, 255, 255, 0.14);
+}
+
+.watch-danmaku-bar__toggle:hover,
+.watch-danmaku-bar__settings:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .watch-danmaku-bar__input {
   flex: 1;
   min-width: 0;
-  height: 32px;
-  padding: 0 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(0, 0, 0, 0.35);
+  height: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
   color: #fff;
   font-size: 12px;
   outline: none;
 }
 
 .watch-danmaku-bar__input::placeholder {
-  color: rgba(255, 255, 255, 0.45);
-}
-
-.watch-danmaku-bar__input:focus {
-  border-color: rgba(255, 255, 255, 0.28);
+  color: rgba(255, 255, 255, 0.42);
 }
 
 .watch-danmaku-bar__send {
   flex-shrink: 0;
-  height: 32px;
-  padding: 0 14px;
-  border-radius: 999px;
+  height: 22px;
+  margin-left: 6px;
+  padding: 0 8px;
+  border-radius: 4px;
   background: var(--accent);
   color: #fff;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
 }
 
@@ -305,28 +444,35 @@
   filter: brightness(1.06);
 }
 
-.watch-danmaku-bar__settings-wrap {
-  flex-shrink: 0;
-}
-
 .watch-danmaku-bar__settings {
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
   color: rgba(255, 255, 255, 0.88);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20px;
-}
-
-.watch-danmaku-bar__settings:hover {
-  background: rgba(255, 255, 255, 0.12);
 }
 
 .watch-danmaku-settings {
   min-width: 220px;
   padding: 10px 12px;
+}
+
+.watch-danmaku-settings--panel {
+  left: 0;
+  right: auto;
+  padding: 14px 16px;
+}
+
+.watch-danmaku-settings__action {
+  display: block;
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  text-align: left;
+  color: #e3e3e3;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.watch-danmaku-settings__action:hover {
+  background: rgba(255, 255, 255, 0.14);
 }
 
 .watch-danmaku-settings__row {
@@ -344,18 +490,161 @@
   accent-color: var(--accent);
 }
 
-@media (max-width: 960px) {
+@media (max-width: 720px) {
+  .watch-player__time {
+    min-width: 0;
+    font-size: 11px;
+    padding-left: 2px;
+  }
+
   .watch-danmaku-bar {
-    max-width: none;
+    margin: 0 4px;
   }
 
-  .watch-danmaku-bar__send {
-    padding: 0 10px;
-  }
-
-  .watch-danmaku-bar__settings-wrap {
+  .watch-danmaku-bar__input-prefix {
     display: none;
   }
+
+  .watch-player__controls-right .watch-player__text-btn {
+    padding: 6px 4px;
+    font-size: 12px;
+  }
+}
+
+.danmaku-manager {
+  width: min(480px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  padding: 0;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text-primary);
+}
+
+.danmaku-manager::backdrop {
+  background: rgb(0 0 0 / 50%);
+  backdrop-filter: blur(4px);
+}
+
+.danmaku-manager__card {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 48px);
+  border-radius: 12px;
+  background: var(--bg-pane);
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 20px 60px rgb(0 0 0 / 40%);
+  overflow: hidden;
+}
+
+.danmaku-manager__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.danmaku-manager__head-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.danmaku-manager__title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.danmaku-manager__count {
+  margin: 4px 0 0;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.danmaku-manager__close {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+}
+
+.danmaku-manager__close:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.danmaku-manager__search-wrap {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.danmaku-manager__search {
+  width: 100%;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+}
+
+.danmaku-manager__search:focus {
+  border-color: var(--accent);
+}
+
+.danmaku-manager__list {
+  flex: 1;
+  min-height: 120px;
+  max-height: min(420px, 55vh);
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.danmaku-manager__row {
+  display: grid;
+  grid-template-columns: 52px 40px 1fr;
+  align-items: start;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  text-align: left;
+  font-size: 13px;
+}
+
+.danmaku-manager__row:hover {
+  background: var(--bg-hover);
+}
+
+.danmaku-manager__time {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.danmaku-manager__type {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.danmaku-manager__text {
+  word-break: break-word;
+  line-height: 1.35;
+}
+
+.danmaku-manager__empty {
+  margin: 24px 12px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-secondary);
 }
 
 .watch-player__btn {
@@ -389,10 +678,11 @@
 .watch-player__time {
   flex-shrink: 0;
   font-size: 12px;
-  min-width: 96px;
-  padding-left: 4px;
+  min-width: 92px;
+  padding-left: 2px;
   font-variant-numeric: tabular-nums;
   color: rgba(255, 255, 255, 0.92);
+  white-space: nowrap;
 }
 
 .watch-player__menu-wrap {
@@ -413,6 +703,30 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
   z-index: 5;
+}
+
+.watch-player__popup-menu.watch-danmaku-settings--panel {
+  min-width: min(380px, calc(100vw - 32px));
+  width: min(380px, calc(100vw - 32px));
+  max-height: min(480px, 72vh);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.watch-danmaku-settings--panel .watch-danmaku-compose__types {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.watch-danmaku-settings--panel .watch-danmaku-compose__type {
+  flex: 1;
+  min-width: 72px;
+  text-align: center;
+}
+
+.watch-danmaku-settings--panel .watch-danmaku-settings__row {
+  grid-template-columns: 80px 1fr;
 }
 
 .watch-player__menu-item {
@@ -458,12 +772,6 @@
   transform: rotate(-90deg);
   accent-color: var(--accent);
   cursor: pointer;
-}
-
-@media (max-width: 900px) {
-  .watch-player__controls-center {
-    display: none;
-  }
 }
 
 .watch-player__loading,

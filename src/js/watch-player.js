@@ -342,9 +342,7 @@ export class WatchPlayer {
     this.setError('');
     this.setLoading(false);
     this.videoId = '';
-    this.danmaku?.destroy();
-    this.danmaku = createWatchDanmaku(this.root);
-    this.danmaku.attachVideo(this.video);
+    this.danmaku?.resetForUnload();
   }
 
   detachHls() {
@@ -492,9 +490,28 @@ export function getWatchPlayer() {
   const root = document.getElementById('watch-player-root');
   if (!root) return null;
   if (!instance) instance = new WatchPlayer(root);
+  else if (!instance.danmaku) {
+    instance.danmaku = createWatchDanmaku(root);
+    instance.danmaku.attachVideo(instance.video);
+  }
   return instance;
 }
 
 export function destroyWatchPlayer() {
-  instance?.destroy();
+  if (!instance) return;
+  instance.danmaku?.destroy();
+  instance.destroy();
+  instance = null;
+}
+
+export function ensureWatchDanmaku() {
+  const player = getWatchPlayer();
+  if (!player) return null;
+  const root = document.getElementById('watch-player-root');
+  if (!root) return null;
+  if (!player.danmaku) {
+    player.danmaku = createWatchDanmaku(root);
+    player.danmaku.attachVideo(player.video);
+  }
+  return player.danmaku;
 }

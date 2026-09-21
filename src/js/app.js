@@ -58,6 +58,7 @@ import { bindSearchPage } from './search-page.js';
 import { bindTagPage } from './tag-page.js';
 import { bindImageViewer } from './image-viewer.js';
 import { bindCommentComposer } from './comment-composer.js';
+import { bindDanmakuManagerDialog } from './danmaku-manager-ui.js';
 
 /** @type {() => void} */
 let syncSettingsForm = () => {};
@@ -347,6 +348,22 @@ function renderShell() {
             <button type="submit" class="btn-accent favorite-folder-create__submit" id="favorite-folder-form-submit">创建</button>
           </div>
         </form>
+      </div>
+    </dialog>
+
+    <dialog class="danmaku-manager app-no-drag" id="danmaku-manager-dialog" aria-labelledby="danmaku-manager-title">
+      <div class="danmaku-manager__card">
+        <header class="danmaku-manager__head">
+          <div class="danmaku-manager__head-main">
+            <h2 class="danmaku-manager__title" id="danmaku-manager-title">弹幕列表</h2>
+            <p class="danmaku-manager__count" id="danmaku-manager-count"></p>
+          </div>
+          <button type="button" class="danmaku-manager__close" id="danmaku-manager-close" aria-label="关闭">${materialIcon('close')}</button>
+        </header>
+        <div class="danmaku-manager__search-wrap">
+          <input type="search" class="danmaku-manager__search" id="danmaku-manager-search" placeholder="搜索弹幕内容" autocomplete="off" />
+        </div>
+        <div class="danmaku-manager__list" id="danmaku-manager-list"></div>
       </div>
     </dialog>
 
@@ -721,6 +738,7 @@ function bootApp() {
   bindFeedDetail();
   bindFeedForward();
   bindVideoDetail();
+  bindDanmakuManagerDialog();
   bindArticleDetail();
   bindFavoritePicker();
   bindRewardDialog();

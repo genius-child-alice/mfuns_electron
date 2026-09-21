@@ -204,6 +204,10 @@ function bindAppSettingsControls() {
     if (label) label.textContent = `${percent}%`;
   });
 
+  window.addEventListener('mfuns:app-settings-changed', () => {
+    syncAppSettingsForm();
+  });
+
   document.getElementById('setting-auto-launch')?.addEventListener('change', async (event) => {
     const checked = /** @type {HTMLInputElement} */ (event.currentTarget).checked;
     saveAppSettings({ autoLaunch: checked });
