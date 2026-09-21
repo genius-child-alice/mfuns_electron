@@ -623,6 +623,13 @@ html[data-theme='light'] .content.content--mine {
   z-index: 2;
 }
 
+.mine-history-card__duration {
+  position: absolute;
+  right: 6px;
+  bottom: 10px;
+  z-index: 2;
+}
+
 .mine-history-card__time {
   position: absolute;
   left: 8px;

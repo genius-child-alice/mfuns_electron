@@ -4,6 +4,7 @@ import {
   fetchHotList,
   fetchRecommendByCategory,
   fetchRecommendList,
+  formatVideoDuration,
   mediaSrcForCover,
 } from './content-api.js';
 import { openContentDetail, previewFromCard } from './content-nav.js';
@@ -74,6 +75,7 @@ export function renderVideoCard(item) {
     ? `<img class="video-card__cover-img" src="${escapeHtml(coverSrc)}" alt="" loading="lazy" decoding="async" />`
     : `<div class="video-card__cover" style="--ph: ${hue}"></div>`;
   const dateLabel = formatDateLabel(item.createdAt);
+  const durationLabel = item.type === 1 ? formatVideoDuration(item.duration) : '';
 
   return `
     <article class="video-card" data-content-id="${escapeHtml(item.id)}" data-content-type="${item.type}">
@@ -84,6 +86,7 @@ export function renderVideoCard(item) {
             <span class="video-card__stat">${viewCountIcon('video-card__stat-icon')}${formatCount(item.views)}</span>
             <span class="video-card__stat">${materialIcon('chat_bubble', 'video-card__stat-icon')}${formatCount(item.comments)}</span>
           </div>
+          ${durationLabel ? `<span class="video-card__duration">${escapeHtml(durationLabel)}</span>` : ''}
         </div>
       </div>
       <div class="video-card__meta">

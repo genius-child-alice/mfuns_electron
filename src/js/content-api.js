@@ -1,6 +1,6 @@
 import { API_BASE, loadSession } from './auth.js';
 
-/** @typedef {{ id: string, title: string, cover: string | null, author: string, authorId: number | null, authorAvatar: string | null, type: number, views: number, comments: number, createdAt: string | null }} ContentPreview */
+/** @typedef {{ id: string, title: string, cover: string | null, author: string, authorId: number | null, authorAvatar: string | null, type: number, views: number, comments: number, duration: number | null, createdAt: string | null }} ContentPreview */
 
 /**
  * @param {Response} res
@@ -237,6 +237,36 @@ function pickCoverUrl(value) {
 }
 
 /**
+ * @param {number | null | undefined} seconds
+ * @returns {string}
+ */
+export function formatVideoDuration(seconds) {
+  if (seconds == null || !Number.isFinite(seconds) || seconds <= 0) return '';
+  const total = Math.floor(seconds);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  const mm = String(m).padStart(2, '0');
+  const ss = String(s).padStart(2, '0');
+  return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+}
+
+/**
+ * @param {Record<string, unknown>} item
+ * @param {Record<string, unknown> | null} resource
+ * @returns {number | null}
+ */
+function parseDuration(item, resource) {
+  const raw =
+    item.duration ?? item.video_duration ?? resource?.duration ?? resource?.video_duration;
+  if (typeof raw === 'number' && Number.isFinite(raw) && raw > 0) {
+    return Math.floor(raw);
+  }
+  const parsed = Number.parseFloat(`${raw ?? ''}`);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : null;
+}
+
+/**
  * @param {unknown} value
  * @returns {string | null}
  */
@@ -316,6 +346,7 @@ export function parseContentPreview(raw) {
     type: parseContentType(raw),
     views: Number(item.view_count ?? item.views ?? 0) || 0,
     comments: Number(item.comment_count ?? item.comments ?? 0) || 0,
+    duration: parseDuration(item, resource),
     createdAt: normalizeCreatedAt(
       item.created_at ?? item.time ?? item.createdAt ?? item.publish_time,
     ),

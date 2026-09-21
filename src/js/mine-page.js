@@ -1,6 +1,6 @@
 import { materialIcon } from './icons.js';
 import { loadSession } from './auth.js';
-import { mediaSrcForCover } from './content-api.js';
+import { formatVideoDuration, mediaSrcForCover } from './content-api.js';
 import { fetchHistoryPage } from './history-api.js';
 import { isLoggedIn } from './login-ui.js';
 import { getCurrentPage } from './pages.js';
@@ -203,12 +203,19 @@ function renderHistoryCard(entry) {
   const viewDate = parseViewDate(viewTime);
   const viewLabel = viewDate ? formatViewTimeLabel(viewDate) : '';
   const progressWidth = finished ? 100 : Math.round(progressRatio * 100);
+  const durationLabel =
+    preview.type === 1 ? formatVideoDuration(preview.duration) : '';
 
   return `
     <article class="mine-history-card video-card" data-content-id="${escapeHtml(preview.id)}" data-content-type="${preview.type}">
       <div class="mine-history-card__cover video-card__cover-wrap">
         ${cover}
         ${finished ? '<span class="mine-history-card__badge">已看完</span>' : ''}
+        ${
+          durationLabel
+            ? `<span class="video-card__duration mine-history-card__duration">${escapeHtml(durationLabel)}</span>`
+            : ''
+        }
         ${
           viewLabel
             ? `<span class="mine-history-card__time">${materialIcon('schedule', 'mine-history-card__time-icon')}${escapeHtml(viewLabel)}</span>`
