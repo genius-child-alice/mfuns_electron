@@ -4,9 +4,13 @@ import { requireLogin } from './login-ui.js';
 import {
   addFavorite,
   createFavoriteFolder,
+  DEFAULT_FAVORITE_FOLDER_STATUS,
   deleteFavoriteFolder,
+  favoriteFolderStatusLabel,
   fetchFavoriteFolderList,
   findFavoriteFoldersForResource,
+  FAVORITE_FOLDER_STATUS,
+  normalizeFavoriteFolderStatus,
   removeFavorite,
   resolveFavoriteStatus,
   resolveMineUserId,
@@ -85,12 +89,19 @@ function formatCount(n) {
  * @param {{ openAttr: string, openValue: number }} options
  */
 export function favoriteFolderRowHtml(folder, options) {
+  const statusTag =
+    folder.status !== FAVORITE_FOLDER_STATUS.PUBLIC
+      ? `<span class="mine-favorite-folder__status">${escapeHtml(favoriteFolderStatusLabel(folder.status))}</span>`
+      : '';
   return `
     <div class="mine-favorite-folder-wrap">
       <button type="button" class="mine-favorite-folder" ${options.openAttr}="${options.openValue}">
         <span class="mine-favorite-folder__icon">${materialIcon('folder')}</span>
         <span class="mine-favorite-folder__main">
-          <span class="mine-favorite-folder__name">${escapeHtml(folder.name)}</span>
+          <span class="mine-favorite-folder__name">
+            ${escapeHtml(folder.name)}
+            ${statusTag}
+          </span>
           ${
             folder.desc
               ? `<span class="mine-favorite-folder__desc">${escapeHtml(folder.desc)}</span>`
@@ -278,6 +289,25 @@ function setFolderFormLoading(loading) {
 }
 
 /**
+ * @param {number | null | undefined} status
+ */
+function setFolderFormStatus(status) {
+  const normalized = normalizeFavoriteFolderStatus(status);
+  document.querySelectorAll('input[name="favorite-folder-status"]').forEach((input) => {
+    if (!(input instanceof HTMLInputElement)) return;
+    input.checked = Number(input.value) === normalized;
+  });
+}
+
+function readFolderFormStatus() {
+  const checked = document.querySelector('input[name="favorite-folder-status"]:checked');
+  if (!(checked instanceof HTMLInputElement)) {
+    return DEFAULT_FAVORITE_FOLDER_STATUS;
+  }
+  return normalizeFavoriteFolderStatus(checked.value);
+}
+
+/**
  * @param {{ onCreated?: (folder: FavoriteFolder) => void }} [options]
  */
 export function openCreateFavoriteFolderDialog(options = {}) {
@@ -326,11 +356,13 @@ export function openFavoriteFolderFormDialog(options) {
     submitEl.textContent = '保存';
     nameInput.value = options.folder.name;
     if (descInput) descInput.value = options.folder.desc ?? '';
+    setFolderFormStatus(options.folder.status);
   } else {
     titleEl.textContent = '新建收藏夹';
     submitEl.textContent = '创建';
     form.reset();
     if (descInput) descInput.value = '';
+    setFolderFormStatus(DEFAULT_FAVORITE_FOLDER_STATUS);
   }
 
   dialog.showModal();
@@ -353,12 +385,13 @@ async function submitFavoriteFolderForm(event) {
     return;
   }
   const desc = descInput?.value ?? '';
+  const status = readFolderFormStatus();
   setFolderFormLoading(true);
   try {
     if (folderFormContext.mode === 'edit' && folderFormContext.listId != null) {
-      await updateFavoriteFolder(folderFormContext.listId, name, desc);
+      await updateFavoriteFolder(folderFormContext.listId, name, desc, status);
     } else {
-      await createFavoriteFolder(name, desc);
+      await createFavoriteFolder(name, desc, status);
     }
     folderFormContext.onComplete?.();
     folderFormContext.onComplete = null;

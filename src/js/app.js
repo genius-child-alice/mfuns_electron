@@ -322,6 +322,26 @@ function renderShell() {
             <span class="favorite-folder-create__label">简介（可选）</span>
             <textarea class="favorite-folder-create__textarea" id="favorite-folder-form-desc" name="desc" maxlength="200" rows="3" placeholder="简单介绍一下这个收藏夹"></textarea>
           </label>
+          <fieldset class="favorite-folder-create__field favorite-folder-create__visibility">
+            <legend class="favorite-folder-create__label">可见性</legend>
+            <div class="favorite-folder-create__status-group">
+              <label class="favorite-folder-create__status">
+                <input type="radio" name="favorite-folder-status" value="1" checked />
+                <span class="favorite-folder-create__status-main">公开</span>
+                <span class="favorite-folder-create__status-hint">所有人可见</span>
+              </label>
+              <label class="favorite-folder-create__status">
+                <input type="radio" name="favorite-folder-status" value="0" />
+                <span class="favorite-folder-create__status-main">私密</span>
+                <span class="favorite-folder-create__status-hint">仅自己可见</span>
+              </label>
+              <label class="favorite-folder-create__status">
+                <input type="radio" name="favorite-folder-status" value="2" />
+                <span class="favorite-folder-create__status-main">隐藏</span>
+                <span class="favorite-folder-create__status-hint">不在个人空间展示</span>
+              </label>
+            </div>
+          </fieldset>
           <div class="favorite-folder-create__actions">
             <button type="button" class="favorite-folder-create__cancel" id="favorite-folder-form-cancel">取消</button>
             <button type="submit" class="btn-accent favorite-folder-create__submit" id="favorite-folder-form-submit">创建</button>

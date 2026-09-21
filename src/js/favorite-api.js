@@ -3,12 +3,30 @@ import { loadSession } from './auth.js';
 
 /** @typedef {import('./content-api.js').ContentPreview} ContentPreview */
 
+/** @typedef {0 | 1 | 2} FavoriteFolderStatus */
+
 /** @typedef {{
  *   id: number,
  *   name: string,
  *   desc: string,
  *   count: number,
+ *   status: FavoriteFolderStatus,
  * }} FavoriteFolder */
+
+/** 实测 `get_favorite_list` 默认夹均为 status=1（公开）。 */
+export const FAVORITE_FOLDER_STATUS = {
+  PUBLIC: 1,
+  PRIVATE: 0,
+  HIDDEN: 2,
+};
+
+export const DEFAULT_FAVORITE_FOLDER_STATUS = FAVORITE_FOLDER_STATUS.PUBLIC;
+
+export const FAVORITE_FOLDER_STATUS_OPTIONS = [
+  { value: FAVORITE_FOLDER_STATUS.PUBLIC, label: '公开', hint: '所有人可见' },
+  { value: FAVORITE_FOLDER_STATUS.PRIVATE, label: '私密', hint: '仅自己可见' },
+  { value: FAVORITE_FOLDER_STATUS.HIDDEN, label: '隐藏', hint: '不在个人空间展示' },
+];
 
 /** @typedef {{
  *   items: ContentPreview[],
@@ -52,6 +70,28 @@ function extractList(data) {
 }
 
 /**
+ * @param {unknown} value
+ * @returns {FavoriteFolderStatus}
+ */
+export function normalizeFavoriteFolderStatus(value) {
+  const status = asInt(value);
+  if (status === FAVORITE_FOLDER_STATUS.PUBLIC) return FAVORITE_FOLDER_STATUS.PUBLIC;
+  if (status === FAVORITE_FOLDER_STATUS.PRIVATE) return FAVORITE_FOLDER_STATUS.PRIVATE;
+  if (status === FAVORITE_FOLDER_STATUS.HIDDEN) return FAVORITE_FOLDER_STATUS.HIDDEN;
+  return DEFAULT_FAVORITE_FOLDER_STATUS;
+}
+
+/**
+ * @param {FavoriteFolderStatus | number | null | undefined} status
+ */
+export function favoriteFolderStatusLabel(status) {
+  const normalized = normalizeFavoriteFolderStatus(status);
+  return (
+    FAVORITE_FOLDER_STATUS_OPTIONS.find((option) => option.value === normalized)?.label ?? '公开'
+  );
+}
+
+/**
  * @param {unknown} raw
  * @returns {FavoriteFolder | null}
  */
@@ -62,7 +102,8 @@ function parseFavoriteFolder(raw) {
   const name = `${item.name ?? item.title ?? '收藏夹'}`.trim() || '收藏夹';
   const desc = `${item.desc ?? item.description ?? item.info ?? ''}`.trim();
   const count = asInt(item.count ?? item.item_count ?? item.total) ?? 0;
-  return { id, name, desc, count };
+  const status = normalizeFavoriteFolderStatus(item.status);
+  return { id, name, desc, count, status };
 }
 
 /**
@@ -186,15 +227,18 @@ export async function removeFavorite(listId, resourceId, resourceType) {
 /**
  * @param {string} name
  * @param {string} desc
+ * @param {FavoriteFolderStatus | number | null | undefined} [status]
  * @returns {Record<string, string>}
  */
-function buildFavoriteFolderWriteBody(name, desc) {
+function buildFavoriteFolderWriteBody(name, desc, status) {
   const trimmedName = name.trim();
   const trimmedDesc = desc.trim();
+  const normalizedStatus = normalizeFavoriteFolderStatus(status);
   return {
     name: trimmedName,
     desc: trimmedDesc,
     info: trimmedDesc || trimmedName,
+    status: String(normalizedStatus),
   };
 }
 
@@ -241,7 +285,7 @@ async function postFavoriteFolderWrite(path, body) {
 
 /**
  * @param {unknown} data
- * @param {{ name: string, desc: string }} fallback
+ * @param {{ name: string, desc: string, status?: FavoriteFolderStatus }} fallback
  * @returns {FavoriteFolder | null}
  */
 export function parseCreatedFavoriteFolder(data, fallback) {
@@ -251,7 +295,12 @@ export function parseCreatedFavoriteFolder(data, fallback) {
     parseFavoriteFolder(root) || parseFavoriteFolder(nested) || parseFavoriteFolder(root.data);
   if (fromPayload) {
     if (!fromPayload.name && fallback.name) {
-      return { ...fromPayload, name: fallback.name, desc: fallback.desc || fromPayload.desc };
+      return {
+        ...fromPayload,
+        name: fallback.name,
+        desc: fallback.desc || fromPayload.desc,
+        status: fromPayload.status ?? normalizeFavoriteFolderStatus(fallback.status),
+      };
     }
     return fromPayload;
   }
@@ -264,6 +313,7 @@ export function parseCreatedFavoriteFolder(data, fallback) {
     name: fallback.name || '收藏夹',
     desc: fallback.desc,
     count: 0,
+    status: normalizeFavoriteFolderStatus(fallback.status),
   };
 }
 
@@ -271,23 +321,25 @@ export function parseCreatedFavoriteFolder(data, fallback) {
  * @param {number} listId
  * @param {string} name
  * @param {string} [desc]
+ * @param {FavoriteFolderStatus | number | null | undefined} [status]
  */
-export async function updateFavoriteFolder(listId, name, desc = '') {
+export async function updateFavoriteFolder(listId, name, desc = '', status) {
   const trimmedName = name.trim();
   const trimmedDesc = desc.trim();
+  const normalizedStatus = normalizeFavoriteFolderStatus(status);
   if (!trimmedName) {
     throw new Error('请填写收藏夹名称');
   }
   if (!Number.isFinite(listId) || listId <= 0) {
     throw new Error('无效的收藏夹');
   }
-  const folderBody = buildFavoriteFolderWriteBody(trimmedName, trimmedDesc);
+  const folderBody = buildFavoriteFolderWriteBody(trimmedName, trimmedDesc, normalizedStatus);
   await postFavoriteFolderWrite('/v1/favorite/update_favorite_list', {
     ...folderBody,
     list_id: String(listId),
     favorite_id: String(listId),
   });
-  return { id: listId, name: trimmedName, desc: trimmedDesc, count: 0 };
+  return { id: listId, name: trimmedName, desc: trimmedDesc, count: 0, status: normalizedStatus };
 }
 
 /**
@@ -365,15 +417,20 @@ export async function resolveFavoriteStatus(userId, resourceId, resourceType) {
   return { favorited, listId, folderIds };
 }
 
-export async function createFavoriteFolder(name, desc = '') {
+export async function createFavoriteFolder(name, desc = '', status) {
   const trimmedName = name.trim();
   const trimmedDesc = desc.trim();
+  const normalizedStatus = normalizeFavoriteFolderStatus(status);
   if (!trimmedName) {
     throw new Error('请填写收藏夹名称');
   }
-  const folderBody = buildFavoriteFolderWriteBody(trimmedName, trimmedDesc);
+  const folderBody = buildFavoriteFolderWriteBody(trimmedName, trimmedDesc, normalizedStatus);
   const data = await postFavoriteFolderWrite('/v1/favorite/create_favorite_list', folderBody);
-  const folder = parseCreatedFavoriteFolder(data, { name: trimmedName, desc: trimmedDesc });
+  const folder = parseCreatedFavoriteFolder(data, {
+    name: trimmedName,
+    desc: trimmedDesc,
+    status: normalizedStatus,
+  });
   if (folder) return folder;
 
   const userId = resolveMineUserId(null);
