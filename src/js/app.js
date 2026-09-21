@@ -33,8 +33,10 @@ import {
   messagePageHtml,
   contributePageHtml,
   setPage,
+  getCurrentPage,
   syncPagesAuthState,
 } from './pages.js';
+import { bindSettingsPage, refreshSettingsProfile } from './settings-page.js';
 import { bindMessagePage, openMessagePage } from './message-page.js';
 import { bindConfirmDialog } from './confirm-dialog.js';
 import { registerOpenLoginHandler, requireLogin } from './login-ui.js';
@@ -83,6 +85,7 @@ const SIDEBAR_TOOLS = [
 function goToSettingsPage() {
   setPage('settings');
   syncSettingsForm();
+  void refreshSettingsProfile();
 }
 
 function navIcon(name) {
@@ -494,6 +497,9 @@ function syncLoginUi() {
 
   syncPagesAuthState();
   refreshMinePage();
+  if (getCurrentPage() === 'settings') {
+    void refreshSettingsProfile();
+  }
 }
 
 function bindLogin() {
@@ -680,6 +686,8 @@ function bootApp() {
   bindWindowControls();
   bindNavigation();
   bindSettings();
+  bindSettingsPage({ onUserUpdated: syncLoginUi });
+  void refreshSettingsProfile();
   bindLogin();
   bindHomeFeed();
   bindFeedPage();

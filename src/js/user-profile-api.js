@@ -1,5 +1,6 @@
 import {
   apiGet,
+  apiPostJson,
   parseContentPreview,
   parsePreviewList,
   resolveCoverUrl,
@@ -522,4 +523,46 @@ export function userProfilesFromListData(data) {
   return toRawList(data)
     .map((item) => parseUserProfile(item))
     .filter((item) => item.id > 0);
+}
+
+/**
+ * @param {string} name
+ */
+export async function updateUserName(name) {
+  const trimmed = `${name ?? ''}`.trim();
+  if (!trimmed) throw new Error('昵称不能为空');
+  await apiPostJson('/v1/user/set_name', { name: trimmed });
+}
+
+/**
+ * @param {string} bio
+ */
+export async function updateUserBio(bio) {
+  await apiPostJson('/v1/user/set_bio', { bio: `${bio ?? ''}`.trim() });
+}
+
+/**
+ * @param {number} gender 0 保密 / 1 男 / 2 女
+ */
+export async function updateUserGender(gender) {
+  await apiPostJson('/v1/user/set_gender', { gender });
+}
+
+/**
+ * @param {string} avatarPath 上传接口返回的相对路径
+ */
+export async function updateUserAvatar(avatarPath) {
+  const avatar = `${avatarPath ?? ''}`.trim();
+  if (!avatar) throw new Error('无效的头像路径');
+  await apiPostJson('/v1/user/set_avatar', { avatar });
+}
+
+/**
+ * @param {unknown} value
+ * @returns {0 | 1 | 2}
+ */
+export function normalizeGenderValue(value) {
+  if (value === 1 || value === '1' || value === '男' || value === 'male') return 1;
+  if (value === 2 || value === '2' || value === '女' || value === 'female') return 2;
+  return 0;
 }

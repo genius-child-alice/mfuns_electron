@@ -35,13 +35,25 @@ html[data-theme='light'] .content.content--mine {
 }
 
 .settings-page {
-  max-width: 640px;
+  max-width: 960px;
   margin: 0 auto;
-  padding: 28px 24px 48px;
+  padding: 24px 28px 56px;
+}
+
+.settings-page__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 132px;
+  gap: 32px;
+  align-items: start;
+}
+
+.settings-page__main {
+  min-width: 0;
 }
 
 .settings-page__head {
-  margin-bottom: 20px;
+  margin-bottom: 24px;
+  padding-bottom: 8px;
 }
 
 .settings-page__title {
@@ -55,6 +67,19 @@ html[data-theme='light'] .content.content--mine {
   margin: 8px 0 0;
   font-size: 13px;
   color: var(--text-secondary);
+}
+
+.settings-divider {
+  border: none;
+  border-top: 1px solid var(--border-subtle);
+  margin: 28px 0;
+}
+
+.settings-block__title {
+  margin: 0 0 20px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
 .settings-page__section {

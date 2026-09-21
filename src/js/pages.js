@@ -719,28 +719,109 @@ export function settingsPageHtml() {
   return `
     <div class="page-view page-view--settings" data-page="settings" hidden>
       <div class="settings-page">
-        <header class="settings-page__head">
-          <h1 class="settings-page__title">设置</h1>
-          <p class="settings-page__sub">外观与主题偏好将保存在本机</p>
-        </header>
-        <section class="settings-section settings-page__section">
-          <h3>外观</h3>
-          <label class="field">
-            <span>主题模式</span>
-            <select id="setting-color-scheme">
-              <option value="light">浅色</option>
-              <option value="dark">深色</option>
-            </select>
-          </label>
-          <label class="field">
-            <span>主题色</span>
-            <div class="field-row">
-              <input type="color" id="setting-accent-picker" />
-              <input type="text" id="setting-accent-text" spellcheck="false" placeholder="rgb(123, 127, 247)" />
-            </div>
-          </label>
-          <button type="button" class="btn-secondary" id="btn-reset-accent">恢复默认主题色</button>
-        </section>
+        <div class="settings-page__grid">
+          <div class="settings-page__main">
+            <header class="settings-page__head">
+              <h1 class="settings-page__title">设置</h1>
+              <p class="settings-page__sub">账号资料与外观偏好</p>
+            </header>
+            <div id="settings-account-card" class="settings-account-card"></div>
+            <hr class="settings-divider" aria-hidden="true" />
+
+            <section
+              class="settings-block settings-section"
+              id="settings-section-profile"
+              aria-labelledby="settings-profile-heading"
+              hidden
+            >
+              <h2 class="settings-block__title" id="settings-profile-heading">个人资料</h2>
+              <div class="settings-row settings-row--avatar">
+                <div class="settings-row__label">
+                  <span class="settings-row__title">头像</span>
+                  <span class="settings-row__hint">支持 JPG、PNG，建议 200×200 以上</span>
+                </div>
+                <div class="settings-row__control">
+                  <button type="button" class="settings-profile-avatar-btn" id="settings-avatar-btn" aria-label="更换头像">
+                    <img class="settings-profile-avatar" id="settings-profile-avatar" src="assets/mfuns_logo.png" alt="" />
+                    <span class="settings-profile-avatar-btn__mask">更换</span>
+                  </button>
+                  <input type="file" id="settings-avatar-input" accept="image/*" hidden />
+                </div>
+              </div>
+              <div class="settings-row">
+                <div class="settings-row__label">
+                  <span class="settings-row__title">昵称</span>
+                </div>
+                <div class="settings-row__control settings-row__control--inline">
+                  <input type="text" class="settings-input" id="settings-profile-name" maxlength="24" autocomplete="nickname" />
+                  <button type="button" class="btn-accent btn-accent--sm" id="btn-save-profile-name">保存</button>
+                </div>
+              </div>
+              <div class="settings-row">
+                <div class="settings-row__label">
+                  <span class="settings-row__title">性别</span>
+                </div>
+                <div class="settings-row__control">
+                  <div class="settings-radio-group" role="radiogroup" aria-label="性别">
+                    <label class="settings-radio"><input type="radio" name="settings-profile-gender" value="0" checked /> 保密</label>
+                    <label class="settings-radio"><input type="radio" name="settings-profile-gender" value="1" /> 男</label>
+                    <label class="settings-radio"><input type="radio" name="settings-profile-gender" value="2" /> 女</label>
+                  </div>
+                </div>
+              </div>
+              <div class="settings-row settings-row--top">
+                <div class="settings-row__label">
+                  <span class="settings-row__title">个人简介</span>
+                </div>
+                <div class="settings-row__control settings-row__control--stack">
+                  <textarea class="settings-textarea" id="settings-profile-bio" maxlength="70" rows="3" placeholder="填写个人简介"></textarea>
+                  <button type="button" class="btn-accent btn-accent--sm settings-row__save" id="btn-save-profile-bio">保存</button>
+                </div>
+              </div>
+            </section>
+
+            <hr class="settings-divider" aria-hidden="true" />
+
+            <section
+              class="settings-block settings-section"
+              id="settings-section-appearance"
+              aria-labelledby="settings-appearance-heading"
+            >
+              <h2 class="settings-block__title" id="settings-appearance-heading">外观</h2>
+              <div class="settings-row">
+                <div class="settings-row__label">
+                  <span class="settings-row__title">主题模式</span>
+                  <span class="settings-row__hint">（更改后即时生效）</span>
+                </div>
+                <div class="settings-row__control">
+                  <select class="settings-select" id="setting-color-scheme">
+                    <option value="light">浅色</option>
+                    <option value="dark">深色</option>
+                  </select>
+                </div>
+              </div>
+              <div class="settings-row settings-row--top">
+                <div class="settings-row__label">
+                  <span class="settings-row__title">主题色</span>
+                  <span class="settings-row__hint">保存在本机</span>
+                </div>
+                <div class="settings-row__control settings-row__control--stack">
+                  <div class="field-row">
+                    <input type="color" id="setting-accent-picker" />
+                    <input type="text" class="settings-input" id="setting-accent-text" spellcheck="false" placeholder="rgb(123, 127, 247)" />
+                  </div>
+                  <button type="button" class="btn-secondary" id="btn-reset-accent">恢复默认主题色</button>
+                </div>
+              </div>
+            </section>
+          </div>
+          <nav class="settings-anchor" aria-label="设置目录">
+            <ul class="settings-anchor__list">
+              <li><a class="settings-anchor__link" href="#settings-section-profile" data-settings-anchor="profile">个人资料</a></li>
+              <li><a class="settings-anchor__link is-active" href="#settings-section-appearance" data-settings-anchor="appearance">外观</a></li>
+            </ul>
+          </nav>
+        </div>
       </div>
     </div>`;
 }
