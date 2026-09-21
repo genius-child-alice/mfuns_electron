@@ -293,7 +293,7 @@ function renderSidePanel() {
   const authorMeta =
     authorFans > 0 || authorTotalLikes > 0
       ? `${formatCount(authorFans)}粉丝 · ${formatCount(authorTotalLikes)}获赞`
-      : 'MFuns 创作者';
+      : 'Mfuns 创作者';
   const hasDesc = Boolean(detail.rawDescription);
   const publishIso = detail.publishedAt ?? preview.createdAt;
   const dateLabel = formatDateTime(publishIso);

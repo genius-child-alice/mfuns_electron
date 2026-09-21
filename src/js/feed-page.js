@@ -92,7 +92,7 @@ function renderFollowAside(users) {
   list.innerHTML = users
     .map((user) => {
       const avatar = mediaSrcForCover(user.avatar);
-      const name = user.name || 'MFuns 用户';
+      const name = user.name || 'Mfuns 用户';
       return `
         <button type="button" class="feed-page__nav feed-page__nav--user" data-feed-filter="${user.id}">
           ${

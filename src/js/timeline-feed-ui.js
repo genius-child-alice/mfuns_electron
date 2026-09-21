@@ -102,7 +102,7 @@ function setupFeedTextExpand(el) {
  */
 function renderFeedEmbeddedVideo(resource, ctx) {
   const coverSrc = mediaSrcForCover(resource.cover);
-  const author = resource.author || 'MFuns 用户';
+  const author = resource.author || 'Mfuns 用户';
   const authorId = resource.authorId;
   const session = loadSession();
   const selfId = sessionUserId(session?.user);
@@ -150,7 +150,7 @@ function renderFeedEmbeddedVideo(resource, ctx) {
 export function renderFeedCard(item, ctx = {}) {
   const domIdPrefix = ctx.domIdPrefix ?? 'timeline-feed';
   const profile = ctx.profileFallback;
-  const authorName = item.authorName || profile?.name || 'MFuns 用户';
+  const authorName = item.authorName || profile?.name || 'Mfuns 用户';
   const avatarSrc = mediaSrcForCover(item.authorAvatar || profile?.avatar);
   const dateLabel = formatFeedDate(item.createdAt);
   const viewsLabel = `${formatFeedCount(item.views)}浏览`;

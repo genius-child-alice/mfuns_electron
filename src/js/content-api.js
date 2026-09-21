@@ -315,7 +315,7 @@ export function parseContentPreview(raw) {
     (typeof user?.name === 'string' && user.name) ||
     (typeof user?.username === 'string' && user.username) ||
     (typeof item.user_name === 'string' && item.user_name) ||
-    'MFuns 用户';
+    'Mfuns 用户';
 
   const authorIdRaw = user?.id ?? user?.user_id ?? item.user_id ?? item.author_id;
   let authorId = null;

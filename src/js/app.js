@@ -151,7 +151,7 @@ function renderShell() {
       <div class="main-column">
         <header class="topbar app-no-drag">
           <div class="topbar__brand app-drag">
-            <a class="topbar__logo-link app-no-drag" href="#" aria-label="MFuns 首页">
+            <a class="topbar__logo-link app-no-drag" href="#" aria-label="Mfuns 首页">
               <span class="topbar__logo-mark" aria-hidden="true"></span>
             </a>
             <nav class="topbar__tabs app-no-drag" id="topbar-tabs-home" aria-label="内容分类">
@@ -246,7 +246,7 @@ function renderShell() {
             <p class="login-panel__error" id="login-error" role="alert"></p>
             <button type="button" class="login-panel__submit" id="btn-login-submit">登录</button>
             <p class="login-panel__legal">
-              未注册过 MFuns 的手机号，我们将自动帮你注册账号<br />
+              未注册过 Mfuns 的手机号，我们将自动帮你注册账号<br />
               登录或完成注册即代表你同意
               <a href="${LEGAL_URLS.userAgreement}" data-legal-link="${LEGAL_URLS.userAgreement}" data-legal-title="用户协议">用户协议</a>
               和
@@ -386,7 +386,7 @@ function renderShell() {
 
     <dialog class="close-app-dialog app-no-drag" id="close-app-dialog" aria-labelledby="close-app-dialog-title">
       <div class="close-app-dialog__card">
-        <h2 class="close-app-dialog__title" id="close-app-dialog-title">关闭 MFuns</h2>
+        <h2 class="close-app-dialog__title" id="close-app-dialog-title">关闭 Mfuns</h2>
         <p class="close-app-dialog__message">确定要关闭主界面吗？</p>
         <div class="close-app-dialog__actions" id="close-app-dialog-actions"></div>
       </div>

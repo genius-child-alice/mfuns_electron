@@ -26,7 +26,7 @@ export function showCloseAppDialog(useTray) {
       </button>
       <button type="button" class="close-app-dialog__btn close-app-dialog__btn--danger" data-close-choice="quit">
         ${materialIcon('logout', 'close-app-dialog__btn-icon')}
-        退出 MFuns
+        退出 Mfuns
       </button>
       <button type="button" class="close-app-dialog__btn close-app-dialog__btn--ghost" data-close-choice="cancel">取消</button>
     `
@@ -35,7 +35,7 @@ export function showCloseAppDialog(useTray) {
         <button type="button" class="close-app-dialog__btn close-app-dialog__btn--ghost close-app-dialog__btn--inline" data-close-choice="cancel">取消</button>
         <button type="button" class="close-app-dialog__btn close-app-dialog__btn--danger close-app-dialog__btn--inline" data-close-choice="quit">
           ${materialIcon('logout', 'close-app-dialog__btn-icon')}
-          退出 MFuns
+          退出 Mfuns
         </button>
       </div>
     `;

@@ -544,7 +544,7 @@ export function minePageHtml() {
               <img id="mine-avatar-img" src="${DEFAULT_AVATAR}" alt="" />
             </div>
             <div class="mine-profile__info">
-              <p class="mine-profile__name" id="mine-display-name">MFuns 用户</p>
+              <p class="mine-profile__name" id="mine-display-name">Mfuns 用户</p>
               <p class="mine-profile__coins">喵币：<span id="mine-neko-coin">-</span></p>
             </div>
             <div class="mine-profile__stats">
@@ -938,7 +938,7 @@ export function settingsPageHtml() {
                   <span class="settings-row__hint">（仅桌面客户端）</span>
                 </div>
                 <div class="settings-row__control">
-                  <label class="settings-checkbox"><input type="checkbox" id="setting-auto-launch" /> 登录系统时自动启动 MFuns</label>
+                  <label class="settings-checkbox"><input type="checkbox" id="setting-auto-launch" /> 登录系统时自动启动 Mfuns</label>
                 </div>
               </div>
               <div id="settings-desktop-client-block" hidden>
@@ -964,7 +964,7 @@ export function settingsPageHtml() {
                       </label>
                       <label class="settings-radio">
                         <input type="radio" name="setting-close-action" value="quit" checked />
-                        退出 MFuns
+                        退出 Mfuns
                       </label>
                     </div>
                   </div>
@@ -1021,14 +1021,14 @@ export function settingsPageHtml() {
             <hr class="settings-divider" aria-hidden="true" />
 
             <section class="settings-block settings-section" id="settings-section-about" aria-labelledby="settings-about-heading">
-              <h2 class="settings-block__title" id="settings-about-heading">关于 MFuns</h2>
+              <h2 class="settings-block__title" id="settings-about-heading">关于 Mfuns</h2>
               <div class="settings-row">
                 <div class="settings-row__label">
                   <span class="settings-row__title">版本</span>
                 </div>
                 <div class="settings-row__control" id="settings-app-version">-</div>
               </div>
-              <p class="settings-about__text">MFuns 桌面客户端 · 社区 API <code>api.mfuns.net</code></p>
+              <p class="settings-about__text">Mfuns 桌面客户端 · 社区 API <code>api.mfuns.net</code></p>
             </section>
           </div>
           <nav class="settings-anchor" aria-label="设置目录">

@@ -528,7 +528,7 @@ function fillProfileForm(profile) {
   if (!nameInput || !bioInput) return;
 
   if (profile) {
-    nameInput.value = profile.name === 'MFuns 用户' ? '' : profile.name;
+    nameInput.value = profile.name === 'Mfuns 用户' || profile.name === 'MFuns 用户' ? '' : profile.name;
     const bio = profile.bio === '暂无简介' ? '' : profile.bio;
     bioInput.value = bio;
     const gender = normalizeGenderValue(profile.gender);

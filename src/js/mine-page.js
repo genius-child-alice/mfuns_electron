@@ -899,7 +899,7 @@ function renderOfflineCacheView() {
   const items = listOfflineCache();
   if (!window.electronAPI?.offline) {
     root.innerHTML =
-      '<p class="mine-history__empty">离线缓存仅支持 MFuns 桌面客户端</p>';
+      '<p class="mine-history__empty">离线缓存仅支持 Mfuns 桌面客户端</p>';
     return;
   }
   if (items.length === 0) {

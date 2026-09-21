@@ -109,7 +109,7 @@ function parseUserProfile(raw) {
 
   return {
     id: asInt(source.id ?? source.user_id) ?? 0,
-    name: `${source.name ?? source.username ?? 'MFuns 用户'}`,
+    name: `${source.name ?? source.username ?? 'Mfuns 用户'}`,
     avatar: resolveCoverUrl(source.avatar ?? source.face),
     banner: resolveCoverUrl(source.banner_image ?? source.banner),
     bio,
@@ -386,7 +386,7 @@ function parseTimelineFeedItem(raw) {
     reposts: asInt(source.forward_count ?? source.repost_count ?? source.forwards) ?? 0,
     views: asInt(source.view_count ?? source.views) ?? 0,
     pinned: source.is_top === 1 || source.is_top === true || source.top === 1,
-    authorName: `${user.name ?? user.username ?? user.nickname ?? ''}`.trim() || 'MFuns 用户',
+    authorName: `${user.name ?? user.username ?? user.nickname ?? ''}`.trim() || 'Mfuns 用户',
     authorId: asInt(user.id ?? user.user_id ?? source.user_id ?? source.author_id),
     authorAvatar: resolveCoverUrl(user.avatar ?? user.face),
     images: parseFeedImages(source.images ?? source.image_list ?? source.pictures ?? extra.images),

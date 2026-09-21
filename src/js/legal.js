@@ -21,7 +21,7 @@ export function bindLegalLinks(root = document) {
     link.addEventListener('click', (e) => {
       e.preventDefault();
       const url = link.getAttribute('data-legal-link');
-      const linkTitle = link.getAttribute('data-legal-title') || 'MFuns';
+      const linkTitle = link.getAttribute('data-legal-title') || 'Mfuns';
       if (url) openInAppBrowser(url, linkTitle);
     });
   });
