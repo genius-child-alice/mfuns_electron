@@ -1,5 +1,6 @@
 import { API_BASE, loadSession } from './auth.js';
 import { apiGet, apiPostJson, resolveCoverUrl } from './content-api.js';
+import { resolveUserLevelId } from './user-level.js';
 
 /** @typedef {{ day: number, signed: boolean }} SignDay */
 
@@ -7,6 +8,7 @@ import { apiGet, apiPostJson, resolveCoverUrl } from './content-api.js';
  *   signedDays: number[],
  *   monthTimes: number,
  *   allTimes: number,
+ *   signedToday: boolean,
  * }} SignInfo */
 
 /** @typedef {{
@@ -15,6 +17,7 @@ import { apiGet, apiPostJson, resolveCoverUrl } from './content-api.js';
  *   avatar: string | null,
  *   count: number,
  *   time: string | null,
+ *   levelId: number | null,
  * }} SignRankEntry */
 
 /** @typedef {{ desc: string, type: string }} SignAward */
@@ -41,11 +44,31 @@ function asInt(value) {
  */
 function parseSignDays(raw) {
   if (!Array.isArray(raw)) return [];
+  const statusLike = raw.every((entry) => {
+    const text = `${entry ?? ''}`.trim();
+    return text === '0' || text === '1';
+  });
+  if (statusLike && raw.length > 1) {
+    /** @type {number[]} */
+    const days = [];
+    for (let i = 0; i < raw.length; i += 1) {
+      if (i === 0) continue;
+      if (`${raw[i]}`.trim() === '1') days.push(i);
+    }
+    return days;
+  }
   /** @type {number[]} */
   const days = [];
   for (const item of raw) {
     if (typeof item === 'number' && Number.isFinite(item)) {
       days.push(Math.trunc(item));
+      continue;
+    }
+    const text = `${item ?? ''}`.trim();
+    const dateMatch = text.match(/(?:\d{4}-\d{2}-)?(\d{1,2})$/);
+    if (dateMatch) {
+      const day = Number.parseInt(dateMatch[1], 10);
+      if (Number.isFinite(day)) days.push(day);
       continue;
     }
     const map = asMap(item);
@@ -62,10 +85,13 @@ function parseSignDays(raw) {
 function parseSignInfo(data) {
   const root = asMap(data);
   const list = root.list ?? root.sign_list ?? root.days;
+  const signedDays = parseSignDays(list);
+  const today = new Date().getDate();
   return {
-    signedDays: parseSignDays(list),
+    signedDays,
     monthTimes: asInt(root.month_times ?? root.monthTimes) ?? 0,
     allTimes: asInt(root.all_times ?? root.allTimes ?? root.total) ?? 0,
+    signedToday: signedDays.includes(today),
   };
 }
 
@@ -122,26 +148,43 @@ export async function fetchSignRankToday() {
         userId,
         userName: `${user.name ?? user.username ?? '用户'}`.trim(),
         avatar: resolveCoverUrl(user.avatar ?? user.face),
-        count: asInt(item.count) ?? 0,
-        time: typeof item.time === 'string' ? item.time : null,
+        count: asInt(item.count ?? item.all_times ?? item.sign_times) ?? 0,
+        time: formatRankTime(item.time ?? item.sign_time),
+        levelId: resolveUserLevelId(user),
       };
     })
     .filter((entry) => entry.userId > 0);
 }
 
 /**
- * @returns {Promise<Record<string, SignAward[]>>}
+ * @param {unknown} value
+ * @returns {string | null}
+ */
+function formatRankTime(value) {
+  if (value == null || value === '') return null;
+  const n = Number(value);
+  if (Number.isFinite(n) && n > 1e8) {
+    const d = new Date(n > 1e12 ? n : n * 1000);
+    return d.toTimeString().slice(0, 8);
+  }
+  const text = `${value}`.trim();
+  return text || null;
+}
+
+/**
+ * @returns {Promise<{ day: number, awards: SignAward[] }[]>}
  */
 export async function fetchSignAccumulatedAwards() {
   const data = await apiGet('/v1/sign/accumulated_awards');
   const root = asMap(data);
   const map = root.data && typeof root.data === 'object' ? root.data : data;
-  if (!map || typeof map !== 'object' || Array.isArray(map)) return {};
-  /** @type {Record<string, SignAward[]>} */
-  const result = {};
+  if (!map || typeof map !== 'object' || Array.isArray(map)) return [];
+  /** @type {{ day: number, awards: SignAward[] }[]} */
+  const result = [];
   for (const [key, value] of Object.entries(/** @type {Record<string, unknown>} */ (map))) {
-    if (!Array.isArray(value)) continue;
-    result[key] = value
+    const day = asInt(key);
+    if (day == null || !Array.isArray(value)) continue;
+    const awards = value
       .map((raw) => {
         const item = asMap(raw);
         return {
@@ -150,6 +193,8 @@ export async function fetchSignAccumulatedAwards() {
         };
       })
       .filter((award) => award.desc);
+    if (awards.length > 0) result.push({ day, awards });
   }
+  result.sort((a, b) => a.day - b.day);
   return result;
 }

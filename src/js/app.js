@@ -30,6 +30,7 @@ import {
   followListPageHtml,
   searchPageHtml,
   tagPageHtml,
+  signPageHtml,
   messagePageHtml,
   contributePageHtml,
   setPage,
@@ -56,6 +57,7 @@ import { bindMinePage, refreshMinePage } from './mine-page.js';
 import { mergeGuestWatchLaterIntoUser } from './watch-later-store.js';
 import { bindSearchPage } from './search-page.js';
 import { bindTagPage } from './tag-page.js';
+import { bindSignPage } from './sign-page.js';
 import { bindImageViewer } from './image-viewer.js';
 import { bindCommentComposer } from './comment-composer.js';
 import { bindDanmakuManagerDialog } from './danmaku-manager-ui.js';
@@ -185,6 +187,7 @@ function renderShell() {
           ${followListPageHtml()}
           ${searchPageHtml()}
           ${tagPageHtml()}
+          ${signPageHtml()}
           ${messagePageHtml()}
           ${contributePageHtml()}
           <button type="button" class="btn-refresh app-no-drag" aria-label="刷新">
@@ -747,6 +750,7 @@ function bootApp() {
   bindFollowList();
   bindSearchPage();
   bindTagPage();
+  bindSignPage();
   bindImageViewer();
   bindCommentComposer();
   bindConfirmDialog();

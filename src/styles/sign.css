@@ -1,0 +1,425 @@
+.content.content--sign {
+  padding: 0;
+  background: var(--page-canvas);
+}
+
+.sign-page {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 20px 24px 48px;
+}
+
+.sign-page__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.sign-page__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px 6px 6px;
+  border: none;
+  border-radius: var(--radius-md, 8px);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.sign-page__back:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.sign-page__back-icon {
+  font-size: 20px;
+}
+
+.sign-page__title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.sign-page__status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 32px 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.sign-page__status--error {
+  color: var(--text-secondary);
+}
+
+.sign-page__spin {
+  animation: sign-spin 0.9s linear infinite;
+}
+
+@keyframes sign-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.sign-page__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .sign-page__layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.sign-card {
+  padding: 18px 20px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+  margin-bottom: 16px;
+}
+
+.sign-card__title {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.sign-card__subtitle {
+  margin: 0 0 14px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.sign-card__hint {
+  margin: 12px 0 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.sign-card__empty {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.sign-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 22px 24px;
+  margin-bottom: 16px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+}
+
+.sign-hero__title {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.sign-hero__stats {
+  margin: 0 0 6px;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.sign-hero__stats strong {
+  color: var(--accent);
+}
+
+.sign-hero__reward {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.sign-hero__btn {
+  flex-shrink: 0;
+  min-width: 132px;
+  padding: 12px 22px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.sign-hero__btn:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
+.sign-cal__head,
+.sign-cal__grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+}
+
+.sign-cal__weekday {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding-bottom: 4px;
+}
+
+.sign-cal__cell {
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  background: var(--bg-base);
+  border: 1px solid var(--border-subtle);
+}
+
+.sign-cal__cell--empty {
+  visibility: hidden;
+  border: none;
+  background: transparent;
+  height: 30px;
+}
+
+.sign-cal__cell.is-signed {
+  color: #fff;
+  background: #3ecf6e;
+  border-color: transparent;
+  font-weight: 600;
+}
+
+.sign-cal__cell.is-today {
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.sign-cal__cell.is-makeup {
+  cursor: pointer;
+}
+
+.sign-cal__cell.is-makeup:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.sign-award__list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.sign-award__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.sign-award__row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.sign-award__main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.sign-award__day {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.sign-award__desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.sign-award__status {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.sign-award__status.is-met {
+  color: var(--accent);
+}
+
+.sign-card--rank {
+  margin-bottom: 0;
+  position: sticky;
+  top: calc(var(--topbar-height, 52px) + 12px);
+  max-height: calc(100vh - var(--topbar-height, 52px) - 48px);
+  display: flex;
+  flex-direction: column;
+}
+
+.sign-rank {
+  margin-top: 12px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-right: 4px;
+}
+
+.sign-rank__empty {
+  margin: 16px 0 8px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.sign-rank__item {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.sign-rank__avatar-btn {
+  display: block;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-radius: 50%;
+}
+
+.sign-rank__avatar-btn:hover .sign-rank__avatar {
+  opacity: 0.85;
+}
+
+.sign-rank__avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.sign-rank__avatar--ph {
+  display: block;
+  background: var(--bg-hover);
+}
+
+.sign-rank__name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.sign-rank__name {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: inherit;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+  text-align: left;
+}
+
+.sign-rank__name:hover {
+  color: var(--accent);
+}
+
+.sign-rank__meta {
+  margin: 4px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.sign-rank__place {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.mine-sign-entry {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin-top: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--bg-elevated);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mine-sign-entry:hover {
+  border-color: var(--accent-soft);
+  background: var(--bg-hover);
+}
+
+.mine-sign-entry__icon {
+  font-size: 22px;
+  color: var(--accent);
+}
+
+.mine-sign-entry__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mine-sign-entry__title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.mine-sign-entry__meta {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.mine-sign-entry__action {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--accent);
+}
+
+.mine-sign-entry__action.is-done {
+  color: var(--text-secondary);
+  background: var(--bg-base);
+  border: 1px solid var(--border-subtle);
+}
+
+.mine-sign-entry__chevron {
+  font-size: 20px;
+  color: var(--text-secondary);
+}

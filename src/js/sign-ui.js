@@ -1,97 +1,11 @@
-import { mediaSrcForCover } from './content-api.js';
 import { materialIcon } from './icons.js';
-import { isLoggedIn } from './login-ui.js';
-import { notify } from './notice-ui.js';
-import {
-  fetchSignAccumulatedAwards,
-  fetchSignInfo,
-  fetchSignRankToday,
-  performSignIn,
-} from './sign-api.js';
+import { isLoggedIn, requireLogin } from './login-ui.js';
+import { setPage } from './pages.js';
+import { fetchSignAccumulatedAwards, fetchSignInfo } from './sign-api.js';
 
-/**
- * @param {number} year
- * @param {number} month 1-12
- */
-function daysInMonth(year, month) {
-  return new Date(year, month, 0).getDate();
-}
-
-/**
- * @param {number[]} signedDays
- */
-function renderSignCalendar(signedDays) {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth() + 1;
-  const today = now.getDate();
-  const total = daysInMonth(year, month);
-  const signed = new Set(signedDays);
-
-  const cells = [];
-  for (let day = 1; day <= total; day += 1) {
-    const isSigned = signed.has(day);
-    const isToday = day === today;
-    cells.push(
-      `<span class="mine-sign__day${isSigned ? ' is-signed' : ''}${isToday ? ' is-today' : ''}" title="${month}月${day}日">${day}</span>`,
-    );
-  }
-  return cells.join('');
-}
-
-/**
- * @param {import('./sign-api.js').SignInfo} info
- */
-function renderSignCard(info) {
-  const now = new Date();
-  return `
-    <div class="mine-sign">
-      <div class="mine-sign__head">
-        <div>
-          <h3 class="mine-sign__title">每日签到</h3>
-          <p class="mine-sign__meta">本月 ${info.monthTimes} 天 · 累计 ${info.allTimes} 天</p>
-        </div>
-        <button type="button" class="btn-accent btn-accent--sm" id="mine-sign-btn">签到</button>
-      </div>
-      <div class="mine-sign__calendar" aria-label="${now.getMonth() + 1}月签到日历">
-        ${renderSignCalendar(info.signedDays)}
-      </div>
-      <details class="mine-sign__details">
-        <summary>今日签到榜</summary>
-        <div class="mine-sign__rank" id="mine-sign-rank">加载中…</div>
-      </details>
-    </div>`;
-}
-
-async function loadSignRank() {
-  const rankEl = document.getElementById('mine-sign-rank');
-  if (!rankEl) return;
-  try {
-    const list = await fetchSignRankToday();
-    if (!list.length) {
-      rankEl.innerHTML = '<p class="mine-sign__rank-empty">暂无排行</p>';
-      return;
-    }
-    rankEl.innerHTML = list
-      .slice(0, 8)
-      .map((entry, index) => {
-        const avatar = mediaSrcForCover(entry.avatar);
-        return `
-          <div class="mine-sign__rank-item">
-            <span class="mine-sign__rank-no">${index + 1}</span>
-            ${
-              avatar
-                ? `<img class="mine-sign__rank-avatar" src="${avatar}" alt="" />`
-                : '<span class="mine-sign__rank-avatar mine-sign__rank-avatar--ph"></span>'
-            }
-            <span class="mine-sign__rank-name">${entry.userName}</span>
-            <span class="mine-sign__rank-count">${entry.count} 天</span>
-          </div>`;
-      })
-      .join('');
-  } catch {
-    rankEl.innerHTML = '<p class="mine-sign__rank-empty">排行加载失败</p>';
-  }
+export function openSignPage() {
+  if (!requireLogin()) return;
+  setPage('sign');
 }
 
 export async function refreshSignCard() {
@@ -103,29 +17,35 @@ export async function refreshSignCard() {
     return;
   }
   card.hidden = false;
-  card.innerHTML = `${materialIcon('progress_activity', 'mine-history__spin')}加载签到…`;
+  card.innerHTML = `
+    <button type="button" class="mine-sign-entry" id="mine-sign-open">
+      ${materialIcon('event_available', 'mine-sign-entry__icon')}
+      <span class="mine-sign-entry__text">
+        <span class="mine-sign-entry__title">每日签到</span>
+        <span class="mine-sign-entry__meta" id="mine-sign-entry-meta">加载中…</span>
+      </span>
+      <span class="mine-sign-entry__action" id="mine-sign-entry-action">签到</span>
+      ${materialIcon('chevron_right', 'mine-sign-entry__chevron')}
+    </button>`;
+
+  document.getElementById('mine-sign-open')?.addEventListener('click', () => {
+    openSignPage();
+  });
+
   try {
     const info = await fetchSignInfo();
-    card.innerHTML = renderSignCard(info);
-    document.getElementById('mine-sign-btn')?.addEventListener('click', async () => {
-      const btn = document.getElementById('mine-sign-btn');
-      if (btn) btn.disabled = true;
-      try {
-        const msg = await performSignIn();
-        notify(msg || '签到成功', 'success');
-        await refreshSignCard();
-      } catch (err) {
-        notify(err instanceof Error ? err.message : '签到失败', 'error');
-      } finally {
-        if (btn) btn.disabled = false;
-      }
-    });
-    card.querySelector('.mine-sign__details')?.addEventListener('toggle', (event) => {
-      const details = /** @type {HTMLDetailsElement} */ (event.currentTarget);
-      if (details.open) void loadSignRank();
-    });
+    const meta = document.getElementById('mine-sign-entry-meta');
+    const action = document.getElementById('mine-sign-entry-action');
+    if (meta) {
+      meta.textContent = `本月 ${info.monthTimes} 天 · 累计 ${info.allTimes} 天`;
+    }
+    if (action) {
+      action.textContent = info.signedToday ? '今日已签到' : '去签到';
+      action.classList.toggle('is-done', info.signedToday);
+    }
   } catch {
-    card.innerHTML = '<p class="mine-sign__error">签到信息加载失败</p>';
+    const meta = document.getElementById('mine-sign-entry-meta');
+    if (meta) meta.textContent = '点击查看签到详情';
   }
 }
 

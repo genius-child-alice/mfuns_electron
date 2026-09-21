@@ -5,7 +5,7 @@ import { destroyWatchPlayer } from './watch-player.js';
 
 const DEFAULT_AVATAR = 'assets/mfuns_logo.png';
 
-/** @typedef {'home' | 'feed' | 'mine' | 'settings' | 'watch' | 'article' | 'space' | 'follow-list' | 'search' | 'tag' | 'message' | 'contribute'} PageId */
+/** @typedef {'home' | 'feed' | 'mine' | 'settings' | 'watch' | 'article' | 'space' | 'follow-list' | 'search' | 'tag' | 'message' | 'contribute' | 'sign'} PageId */
 
 /** @type {PageId} */
 let currentPage = 'home';
@@ -53,6 +53,24 @@ export function homePageHtml() {
       </nav>
       <p class="home-feed__status" id="home-feed-status" hidden role="status"></p>
       <div class="content-grid" id="home-feed-grid"></div>
+    </div>`;
+}
+
+export function signPageHtml() {
+  return `
+    <div class="page-view page-view--sign" data-page="sign" hidden>
+      <div class="sign-page">
+        <header class="sign-page__head">
+          <button type="button" class="sign-page__back app-no-drag" id="sign-page-back">
+            ${materialIcon('arrow_back', 'sign-page__back-icon')}
+            <span>返回</span>
+          </button>
+          <h1 class="sign-page__title">签到</h1>
+        </header>
+        <div class="sign-page__body" id="sign-page-body">
+          <p class="sign-page__status">加载签到信息…</p>
+        </div>
+      </div>
     </div>`;
 }
 
@@ -1046,6 +1064,7 @@ export function setPage(pageId) {
   main?.classList.toggle('content--tag', pageId === 'tag');
   main?.classList.toggle('content--message', pageId === 'message');
   main?.classList.toggle('content--contribute', pageId === 'contribute');
+  main?.classList.toggle('content--sign', pageId === 'sign');
 
   const homeTabs = document.getElementById('topbar-tabs-home');
   homeTabs?.toggleAttribute('hidden', pageId !== 'home');
@@ -1060,7 +1079,8 @@ export function setPage(pageId) {
         pageId === 'follow-list' ||
         pageId === 'tag' ||
         pageId === 'message' ||
-        pageId === 'contribute',
+        pageId === 'contribute' ||
+        pageId === 'sign',
     );
 
   syncPagesAuthState();
@@ -1079,6 +1099,9 @@ export function setPage(pageId) {
   }
   if (pageId === 'message') {
     void import('./message-page.js').then((mod) => mod.onMessagePageEnter());
+  }
+  if (pageId === 'sign') {
+    void import('./sign-page.js').then((mod) => mod.onSignPageEnter());
   }
   if (pageId === 'contribute') {
     void import('./contribute-page.js').then((mod) => mod.onContributePageEnter());
