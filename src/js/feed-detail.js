@@ -1,8 +1,8 @@
 import { materialIcon } from './icons.js';
 import { loadSession } from './auth.js';
+import { openCommentComposer } from './comment-composer.js';
 import { requireLogin } from './login-ui.js';
 import {
-  createComment,
   fetchCommentList,
   fetchReactionStatus,
   setResourceReaction,
@@ -308,22 +308,16 @@ export function bindFeedDetail() {
     });
   });
 
-  document.getElementById('feed-detail-comment-form')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
+  document.getElementById('feed-detail-comment-trigger')?.addEventListener('click', () => {
     if (!currentDetail?.commentAreaId || !requireLogin()) return;
-    const input = /** @type {HTMLTextAreaElement | null} */ (
-      document.getElementById('feed-detail-comment-input')
-    );
-    const text = input?.value.trim() ?? '';
-    if (!text) return;
-    try {
-      await createComment(currentDetail.commentAreaId, text);
-      if (input) input.value = '';
-      commentReplyStore.clear();
-      await reloadComments();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : '评论失败');
-    }
+    openCommentComposer({
+      title: '发表一个评论',
+      areaId: currentDetail.commentAreaId,
+      onSuccess: async () => {
+        commentReplyStore.clear();
+        await reloadComments();
+      },
+    });
   });
 
   bindTimelineFeedClick(document.getElementById('feed-detail-post'), {

@@ -7,7 +7,6 @@ import { loadSession } from './auth.js';
 import { getCurrentPage, setPage } from './pages.js';
 import { requireLogin } from './login-ui.js';
 import {
-  createComment,
   fetchCommentList,
   fetchFollowStatus,
   fetchReactionStatus,
@@ -30,6 +29,7 @@ import {
   renderCommentsHtml,
 } from './comment-ui.js';
 import { bindTagButtons, renderTagButtons } from './tag-page.js';
+import { commentComposerTriggerHtml, openCommentComposer } from './comment-composer.js';
 
 /** @typedef {import('./content-api.js').ContentPreview} ContentPreview */
 /** @typedef {import('./video-api.js').VideoDetail} VideoDetail */
@@ -338,10 +338,9 @@ function renderSidePanel() {
         </section>
       </div>
       <div class="watch-tab-panel" data-watch-panel="comments" ${activeTab === 'comments' ? '' : 'hidden'}>
-        <form class="watch-comment-form" id="watch-comment-form">
-          <textarea class="watch-comment-input" id="watch-comment-input" rows="3" placeholder="发一条友善的评论"></textarea>
-          <button type="submit" class="btn-accent watch-comment-submit">发布</button>
-        </form>
+        <div class="watch-comment-form" id="watch-comment-form">
+          ${commentComposerTriggerHtml('发一条友善的评论', 'watch-comment-trigger', 'watch-comment-trigger')}
+        </div>
         <div class="watch-comments" id="watch-comments-list">${renderCommentsHtml(commentItems, { bodyIdPrefix: COMMENT_BODY_PREFIX, replyBodyIdPrefix: COMMENT_REPLY_PREFIX, replyStore: commentReplyStore })}</div>
       </div>
     </div>`;
@@ -513,30 +512,6 @@ function bindSidePanelEvents() {
     });
   });
 
-  document.getElementById('watch-comment-form')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if (!currentDetail?.commentAreaId || !requireLogin()) return;
-    const input = /** @type {HTMLTextAreaElement | null} */ (
-      document.getElementById('watch-comment-input')
-    );
-    const text = input?.value.trim() ?? '';
-    if (!text) return;
-    try {
-      await createComment(currentDetail.commentAreaId, text);
-      if (input) input.value = '';
-      commentItems = await fetchCommentList(currentDetail.commentAreaId, 1);
-      commentReplyStore.clear();
-      if (currentDetail.preview) {
-        currentDetail.preview.comments = Math.max(
-          currentDetail.preview.comments,
-          commentItems.length,
-        );
-      }
-      renderSidePanel();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : '发送失败');
-    }
-  });
 }
 
 function setLoading(loading) {
@@ -681,6 +656,27 @@ export function bindVideoDetail() {
   });
 
   document.getElementById('watch-back-btn')?.addEventListener('click', closeVideoDetail);
+
+  watchRoot?.addEventListener('click', (event) => {
+    const target = /** @type {HTMLElement} */ (event.target);
+    if (!target.closest('#watch-comment-trigger')) return;
+    if (!currentDetail?.commentAreaId || !requireLogin()) return;
+    openCommentComposer({
+      title: '发表一个评论',
+      areaId: currentDetail.commentAreaId,
+      onSuccess: async () => {
+        commentItems = await fetchCommentList(currentDetail.commentAreaId, 1);
+        commentReplyStore.clear();
+        if (currentDetail.preview) {
+          currentDetail.preview.comments = Math.max(
+            currentDetail.preview.comments,
+            commentItems.length,
+          );
+        }
+        renderSidePanel();
+      },
+    });
+  });
 
   window.addEventListener('mfuns:danmaku-sent', () => {
     if (!currentDetail) return;

@@ -4,12 +4,12 @@ import { mountRichContent } from './rich-content.js';
 import { requireLogin } from './login-ui.js';
 import { resolveMineUserId } from './favorite-api.js';
 import {
-  createCommentReply,
   deleteComment,
   fetchCommentReplies,
   fetchReactionStatus,
   setCommentReaction,
 } from './video-api.js';
+import { openCommentComposer } from './comment-composer.js';
 
 /** @typedef {import('./video-api.js').CommunityComment} CommunityComment */
 
@@ -31,11 +31,6 @@ import {
  *   clear: () => void,
  *   replyTotal: (comment: CommunityComment, commentId: number) => number,
  * }} CommentReplyStore */
-
-/** @type {{ rootCommentId: number, mentionUserId: number | null, mentionName: string | null, onSuccess: (() => void) | null } | null} */
-let replyDialogContext = null;
-
-let replyDialogBound = false;
 
 /**
  * @param {string} text
@@ -459,10 +454,6 @@ async function handleDeleteComment(commentId, rootCommentId, options) {
   }
 }
 
-function getReplyDialog() {
-  return /** @type {HTMLDialogElement | null} */ (document.getElementById('comment-reply-dialog'));
-}
-
 /**
  * @param {{
  *   rootCommentId: number,
@@ -473,86 +464,14 @@ function getReplyDialog() {
  */
 export function openCommentReplyDialog(options) {
   if (!requireLogin()) return;
-  replyDialogContext = {
-    rootCommentId: options.rootCommentId,
-    mentionUserId: options.mentionUserId ?? null,
-    mentionName: options.mentionName ?? null,
-    onSuccess: options.onSuccess ?? null,
-  };
-
-  const dialog = getReplyDialog();
-  const input = /** @type {HTMLTextAreaElement | null} */ (
-    document.getElementById('comment-reply-input')
-  );
-  const hint = document.getElementById('comment-reply-hint');
-  const title = document.getElementById('comment-reply-title');
-  if (!dialog || !input) return;
-
-  if (options.mentionName) {
-    title.textContent = `回复 ${options.mentionName}`;
-    hint.textContent = `将回复到该评论下，并 @${options.mentionName}`;
-    input.value = '';
-  } else {
-    title.textContent = '回复评论';
-    hint.textContent = '友善交流，理性发言';
-    input.value = '';
-  }
-
-  dialog.showModal();
-  window.requestAnimationFrame(() => input.focus());
-}
-
-async function submitReplyDialog() {
-  const context = replyDialogContext;
-  const dialog = getReplyDialog();
-  const input = /** @type {HTMLTextAreaElement | null} */ (
-    document.getElementById('comment-reply-input')
-  );
-  const submitBtn = document.getElementById('comment-reply-submit');
-  if (!context || !input) return;
-
-  const text = input.value.trim();
-  if (!text) {
-    alert('请填写回复内容');
-    input.focus();
-    return;
-  }
-
-  if (submitBtn instanceof HTMLButtonElement) submitBtn.disabled = true;
-  try {
-    await createCommentReply(context.rootCommentId, text, {
-      userId: context.mentionUserId,
-      name: context.mentionName,
-    });
-    context.onSuccess?.();
-    replyDialogContext = null;
-    dialog?.close();
-    input.value = '';
-  } catch (err) {
-    alert(err instanceof Error ? err.message : '回复失败');
-  } finally {
-    if (submitBtn instanceof HTMLButtonElement) submitBtn.disabled = false;
-  }
-}
-
-export function bindCommentReplyDialog() {
-  if (replyDialogBound) return;
-  replyDialogBound = true;
-
-  const dialog = getReplyDialog();
-  document.getElementById('comment-reply-close')?.addEventListener('click', () => dialog?.close());
-  document.getElementById('comment-reply-cancel')?.addEventListener('click', () => dialog?.close());
-  dialog?.addEventListener('click', (event) => {
-    if (event.target === dialog) dialog.close();
-  });
-  dialog?.addEventListener('close', () => {
-    replyDialogContext = null;
-    const submitBtn = document.getElementById('comment-reply-submit');
-    if (submitBtn instanceof HTMLButtonElement) submitBtn.disabled = false;
-  });
-  document.getElementById('comment-reply-form')?.addEventListener('submit', (event) => {
-    event.preventDefault();
-    void submitReplyDialog();
+  openCommentComposer({
+    title: options.mentionName ? `回复 ${options.mentionName}` : '回复评论',
+    commentId: options.rootCommentId,
+    mention: {
+      userId: options.mentionUserId ?? null,
+      name: options.mentionName ?? null,
+    },
+    onSuccess: options.onSuccess,
   });
 }
 
@@ -570,8 +489,6 @@ export function bindCommentReplyDialog() {
 export function bindCommentSection(root, options) {
   if (!root || root.dataset.commentSectionBound === '1') return;
   root.dataset.commentSectionBound = '1';
-
-  bindCommentReplyDialog();
 
   root.addEventListener('click', (event) => {
     const target = /** @type {HTMLElement} */ (event.target);

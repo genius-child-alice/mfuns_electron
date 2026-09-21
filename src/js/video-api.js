@@ -464,13 +464,54 @@ function commentQuillJson(text) {
 }
 
 /**
+ * @param {File} file
+ * @returns {Promise<string>}
+ */
+export async function uploadCommentImage(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  /** @type {Record<string, string>} */
+  const headers = {};
+  const token = loadSession()?.token;
+  if (token) headers.Authorization = token;
+
+  const res = await fetch(`${API_BASE}/v1/media/upload_image`, {
+    method: 'POST',
+    headers,
+    body: formData,
+  });
+  const json = await res.json().catch(() => null);
+  if (!json || typeof json !== 'object') {
+    throw new Error(res.ok ? '上传响应无效' : `上传失败 (${res.status})`);
+  }
+  const body = /** @type {{ code?: number, msg?: string, data?: unknown }} */ (json);
+  if (!res.ok || body.code !== 1) {
+    throw new Error(body.msg || `上传失败 (${res.status})`);
+  }
+
+  const data = body.data;
+  const root = data && typeof data === 'object' ? /** @type {Record<string, unknown>} */ (data) : {};
+  const fileInfo =
+    root.file && typeof root.file === 'object'
+      ? /** @type {Record<string, unknown>} */ (root.file)
+      : root;
+  const path = fileInfo.file_path ?? fileInfo.path ?? root.file_path ?? root.path;
+  if (typeof path !== 'string' || !path.trim()) {
+    throw new Error('上传成功但未返回图片路径');
+  }
+  return path.trim();
+}
+
+/**
  * @param {number} commentId
  * @param {string} text
  * @param {{ userId?: number | null, name?: string | null }} [mention]
+ * @param {string[]} [imagePaths]
  */
-export async function createCommentReply(commentId, text, mention) {
+export async function createCommentReply(commentId, text, mention, imagePaths = []) {
   let payload = text.trim();
-  if (!payload) {
+  if (!payload && imagePaths.length === 0) {
     throw new Error('请填写回复内容');
   }
   if (mention?.name) {
@@ -480,7 +521,7 @@ export async function createCommentReply(commentId, text, mention) {
   await apiPostJson('/v1/comment/create_reply', {
     comment_id: commentId,
     content: commentQuillJson(payload),
-    images: '[]',
+    images: JSON.stringify(imagePaths),
   });
 }
 
@@ -517,16 +558,17 @@ export async function setFollow(userId, follow) {
 /**
  * @param {number} areaId
  * @param {string} text
+ * @param {string[]} [imagePaths]
  */
-export async function createComment(areaId, text) {
+export async function createComment(areaId, text, imagePaths = []) {
   const trimmed = text.trim();
-  if (!trimmed) {
+  if (!trimmed && imagePaths.length === 0) {
     throw new Error('请填写评论内容');
   }
   await apiPostJson('/v1/comment/create', {
     area_id: areaId,
     content: commentQuillJson(trimmed),
-    images: '[]',
+    images: JSON.stringify(imagePaths),
     html: 1,
   });
 }

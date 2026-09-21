@@ -7,7 +7,6 @@ import { getCurrentPage, setPage } from './pages.js';
 import { requireLogin } from './login-ui.js';
 import { fetchArticleDetail } from './article-api.js';
 import {
-  createComment,
   fetchCommentList,
   fetchFollowStatus,
   fetchReactionStatus,
@@ -25,6 +24,7 @@ import {
   renderCommentsHtml,
 } from './comment-ui.js';
 import { bindTagButtons, renderTagButtons } from './tag-page.js';
+import { commentComposerTriggerHtml, openCommentComposer } from './comment-composer.js';
 
 /** @typedef {import('./content-api.js').ContentPreview} ContentPreview */
 /** @typedef {import('./article-api.js').ArticleDetail} ArticleDetail */
@@ -210,10 +210,9 @@ function renderPage() {
 
       <section class="article-read__comments">
         <h2 class="article-read__comments-title">评论 <span class="article-read__comments-count">${formatCount(preview.comments)}</span></h2>
-        <form class="watch-comment-form" id="article-comment-form">
-          <textarea class="watch-comment-input" id="article-comment-input" rows="3" placeholder="发一条友善的评论"></textarea>
-          <button type="submit" class="btn-accent watch-comment-submit">发布</button>
-        </form>
+        <div class="watch-comment-form" id="article-comment-form">
+          ${commentComposerTriggerHtml('发一条友善的评论', 'article-comment-trigger', 'watch-comment-trigger')}
+        </div>
         <div class="watch-comments" id="article-comments-list">${renderCommentsHtml(commentItems, { bodyIdPrefix: COMMENT_BODY_PREFIX, replyBodyIdPrefix: COMMENT_REPLY_PREFIX, replyStore: commentReplyStore })}</div>
       </section>
     </article>`;
@@ -314,30 +313,6 @@ function bindPageEvents() {
     });
   });
 
-  document.getElementById('article-comment-form')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if (!currentDetail?.commentAreaId || !requireLogin()) return;
-    const input = /** @type {HTMLTextAreaElement | null} */ (
-      document.getElementById('article-comment-input')
-    );
-    const text = input?.value.trim() ?? '';
-    if (!text) return;
-    try {
-      await createComment(currentDetail.commentAreaId, text);
-      if (input) input.value = '';
-      commentItems = await fetchCommentList(currentDetail.commentAreaId, 1);
-      commentReplyStore.clear();
-      if (currentDetail.preview) {
-        currentDetail.preview.comments = Math.max(
-          currentDetail.preview.comments,
-          commentItems.length,
-        );
-      }
-      renderPage();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : '发送失败');
-    }
-  });
 }
 
 function setLoading(loading) {
@@ -450,4 +425,25 @@ export function bindArticleDetail() {
   });
 
   document.getElementById('article-back-btn')?.addEventListener('click', closeArticleDetail);
+
+  articleRoot?.addEventListener('click', (event) => {
+    const target = /** @type {HTMLElement} */ (event.target);
+    if (!target.closest('#article-comment-trigger')) return;
+    if (!currentDetail?.commentAreaId || !requireLogin()) return;
+    openCommentComposer({
+      title: '发表一个评论',
+      areaId: currentDetail.commentAreaId,
+      onSuccess: async () => {
+        commentItems = await fetchCommentList(currentDetail.commentAreaId, 1);
+        commentReplyStore.clear();
+        if (currentDetail.preview) {
+          currentDetail.preview.comments = Math.max(
+            currentDetail.preview.comments,
+            commentItems.length,
+          );
+        }
+        renderPage();
+      },
+    });
+  });
 }

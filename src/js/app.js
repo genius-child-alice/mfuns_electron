@@ -46,6 +46,7 @@ import { bindMinePage, refreshMinePage } from './mine-page.js';
 import { bindSearchPage } from './search-page.js';
 import { bindTagPage } from './tag-page.js';
 import { bindImageViewer } from './image-viewer.js';
+import { bindCommentComposer } from './comment-composer.js';
 
 /** @type {() => void} */
 let syncSettingsForm = () => {};
@@ -260,10 +261,9 @@ function renderShell() {
             <div class="watch-comments" id="feed-detail-comment-list"></div>
           </div>
         </div>
-        <form class="feed-detail__composer" id="feed-detail-composer">
-          <textarea class="feed-detail__composer-input" id="feed-detail-comment-input" rows="2" placeholder="发一条友善的评论"></textarea>
-          <button type="submit" class="btn-accent feed-detail__composer-submit">发布</button>
-        </form>
+        <div class="feed-detail__composer" id="feed-detail-composer">
+          <button type="button" class="feed-detail__composer-trigger" id="feed-detail-comment-trigger">发一条友善的评论</button>
+        </div>
       </div>
     </dialog>
 
@@ -283,25 +283,6 @@ function renderShell() {
             <span>新建收藏夹</span>
           </button>
         </footer>
-      </div>
-    </dialog>
-
-    <dialog class="comment-reply-dialog app-no-drag" id="comment-reply-dialog" aria-labelledby="comment-reply-title">
-      <div class="comment-reply-dialog__card">
-        <header class="comment-reply-dialog__head">
-          <div class="comment-reply-dialog__head-main">
-            <h2 class="comment-reply-dialog__title" id="comment-reply-title">回复评论</h2>
-            <p class="comment-reply-dialog__hint" id="comment-reply-hint">友善交流，理性发言</p>
-          </div>
-          <button type="button" class="comment-reply-dialog__close" id="comment-reply-close" aria-label="关闭">${materialIcon('close')}</button>
-        </header>
-        <form class="comment-reply-dialog__form" id="comment-reply-form">
-          <textarea class="comment-reply-dialog__input" id="comment-reply-input" rows="4" maxlength="1000" placeholder="写下你的回复…" required></textarea>
-          <div class="comment-reply-dialog__actions">
-            <button type="button" class="comment-reply-dialog__cancel" id="comment-reply-cancel">取消</button>
-            <button type="submit" class="btn-accent comment-reply-dialog__submit" id="comment-reply-submit">发布</button>
-          </div>
-        </form>
       </div>
     </dialog>
 
@@ -676,6 +657,7 @@ function bootApp() {
   bindSearchPage();
   bindTagPage();
   bindImageViewer();
+  bindCommentComposer();
   bindMinePage();
 }
 
