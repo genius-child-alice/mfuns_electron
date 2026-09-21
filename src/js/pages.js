@@ -5,7 +5,7 @@ import { destroyWatchPlayer } from './watch-player.js';
 
 const DEFAULT_AVATAR = 'assets/mfuns_logo.png';
 
-/** @typedef {'home' | 'feed' | 'mine' | 'settings' | 'watch' | 'article' | 'space' | 'follow-list'} PageId */
+/** @typedef {'home' | 'feed' | 'mine' | 'settings' | 'watch' | 'article' | 'space' | 'follow-list' | 'search'} PageId */
 
 /** @type {PageId} */
 let currentPage = 'home';
@@ -52,6 +52,26 @@ export function homePageHtml() {
       </nav>
       <p class="home-feed__status" id="home-feed-status" hidden role="status"></p>
       <div class="content-grid" id="home-feed-grid"></div>
+    </div>`;
+}
+
+export function searchPageHtml() {
+  return `
+    <div class="page-view page-view--search" data-page="search" hidden>
+      <div class="search-page">
+        <header class="search-page__head">
+          <h1 class="search-page__title" id="search-page-query">搜索</h1>
+        </header>
+        <nav class="search-page__tabs" id="search-page-tabs" aria-label="搜索分类">
+          <button type="button" class="search-page__tab is-active" data-search-tab="all">综合</button>
+          <button type="button" class="search-page__tab" data-search-tab="video">视频</button>
+          <button type="button" class="search-page__tab" data-search-tab="article">专栏</button>
+          <button type="button" class="search-page__tab" data-search-tab="user">用户</button>
+        </nav>
+        <p class="home-feed__status" id="search-page-status" hidden role="status"></p>
+        <div class="content-grid search-page__resource" id="search-page-resource"></div>
+        <div class="search-page__users" id="search-page-users" hidden></div>
+      </div>
     </div>`;
 }
 
@@ -379,6 +399,7 @@ export function setPage(pageId) {
   main?.classList.toggle('content--article', pageId === 'article');
   main?.classList.toggle('content--space', pageId === 'space');
   main?.classList.toggle('content--follow-list', pageId === 'follow-list');
+  main?.classList.toggle('content--search', pageId === 'search');
 
   const homeTabs = document.getElementById('topbar-tabs-home');
   homeTabs?.toggleAttribute('hidden', pageId !== 'home');
@@ -395,6 +416,9 @@ export function setPage(pageId) {
 
   syncPagesAuthState();
 
+  if (pageId === 'search') {
+    void import('./search-page.js').then((mod) => mod.onSearchPageEnter());
+  }
   if (pageId === 'mine') {
     void import('./mine-page.js').then((mod) => mod.onMinePageEnter());
   }

@@ -27,6 +27,7 @@ import {
   articlePageHtml,
   spacePageHtml,
   followListPageHtml,
+  searchPageHtml,
   setPage,
   syncPagesAuthState,
 } from './pages.js';
@@ -41,6 +42,7 @@ import { bindRewardDialog } from './reward-ui.js';
 import { bindUserSpace } from './user-space.js';
 import { bindFollowList } from './follow-list.js';
 import { bindMinePage, refreshMinePage } from './mine-page.js';
+import { bindSearchPage } from './search-page.js';
 
 /** @type {() => void} */
 let syncSettingsForm = () => {};
@@ -140,7 +142,7 @@ function renderShell() {
           <div class="topbar__actions app-drag">
             <div class="topbar__search app-no-drag">
               <label class="search-field">
-                <input type="search" class="search-input" placeholder="搜索你感兴趣的视频" aria-label="搜索" />
+                <input type="search" class="search-input" id="topbar-search-input" placeholder="搜索视频、专栏或用户" aria-label="搜索" enterkeyhint="search" />
                 ${materialIcon('search', 'material-symbols-outlined--search')}
               </label>
             </div>
@@ -163,6 +165,7 @@ function renderShell() {
           ${articlePageHtml()}
           ${spacePageHtml()}
           ${followListPageHtml()}
+          ${searchPageHtml()}
           <button type="button" class="btn-refresh app-no-drag" aria-label="刷新">
             ${materialIcon('refresh')}
           </button>
@@ -666,6 +669,7 @@ function bootApp() {
   bindRewardDialog();
   bindUserSpace();
   bindFollowList();
+  bindSearchPage();
   bindMinePage();
 }
 

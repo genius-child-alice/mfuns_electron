@@ -6,6 +6,10 @@
   background: var(--page-canvas);
 }
 
+.content.content--search {
+  background: var(--page-canvas);
+}
+
 html[data-theme='light'] .content.content--mine {
   background: var(--topbar-bg);
 }
