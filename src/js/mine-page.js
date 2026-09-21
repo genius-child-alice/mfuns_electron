@@ -1,4 +1,5 @@
 import { materialIcon } from './icons.js';
+import { confirmAction } from './confirm-dialog.js';
 import { notify } from './notice-ui.js';
 import { loadSession } from './auth.js';
 import { formatVideoDuration, mediaSrcForCover } from './content-api.js';
@@ -22,7 +23,8 @@ import { renderVideoCard } from './home-feed.js';
 import {
   clearWatchLater,
   listWatchLater,
-  removeVideoFromWatchLater,
+  removeFromWatchLater,
+  resolveWatchLaterUserId,
 } from './watch-later-store.js';
 import { fetchSubmissionTotal } from './contribute-api.js';
 
@@ -334,6 +336,30 @@ function syncTabUi() {
   syncSearchVisibility();
 }
 
+function syncMineGuestLayout() {
+  const body = document.getElementById('mine-page-body');
+  const guest = document.querySelector('.mine-page .guest-center');
+  if (!body) return;
+
+  if (isLoggedIn()) {
+    body.hidden = false;
+    if (guest) guest.hidden = true;
+    return;
+  }
+
+  if (activeTab === 'watchlater') {
+    body.hidden = false;
+    if (guest) guest.hidden = true;
+  } else {
+    body.hidden = true;
+    if (guest) guest.hidden = false;
+  }
+}
+
+export function syncMinePageAuthLayout() {
+  syncMineGuestLayout();
+}
+
 function renderPanelPlaceholder(message) {
   const root = getRootEl();
   if (!root) return;
@@ -393,13 +419,19 @@ export function refreshWatchLaterIfActive() {
 function renderWatchLaterView() {
   const root = getRootEl();
   if (!root) return;
-  const userId = resolveMineUserId(null);
-  const items = userId != null ? listWatchLater(userId) : [];
+  const items = listWatchLater(resolveWatchLaterUserId());
+  const videoCount = items.filter((item) => item.type === 1).length;
+  const articleCount = items.filter((item) => item.type === 0).length;
+  const metaParts = [];
+  if (videoCount > 0) metaParts.push(`${videoCount} 个视频`);
+  if (articleCount > 0) metaParts.push(`${articleCount} 篇文章`);
+  const metaLabel = metaParts.length > 0 ? metaParts.join(' · ') : `${items.length} 项内容`;
 
   if (items.length === 0) {
     root.innerHTML = `
       <div class="mine-watchlater">
-        <p class="mine-history__empty">暂无稍后再看视频</p>
+        <p class="mine-history__empty">暂无稍后再看内容</p>
+        <p class="mine-watchlater__hint">在视频或文章页点击「稍后再看」即可保存到本设备</p>
       </div>`;
     return;
   }
@@ -407,7 +439,7 @@ function renderWatchLaterView() {
   root.innerHTML = `
     <div class="mine-watchlater">
       <header class="mine-watchlater__head">
-        <p class="mine-watchlater__meta">共 ${items.length} 个视频 · 保存在本设备</p>
+        <p class="mine-watchlater__meta">共 ${metaLabel} · 保存在本设备</p>
         <button type="button" class="mine-watchlater__clear" id="mine-watchlater-clear">
           ${materialIcon('delete_outline', 'mine-watchlater__clear-icon')}
           清空
@@ -419,7 +451,7 @@ function renderWatchLaterView() {
             (item) => `
           <div class="mine-watchlater-card">
             ${renderVideoCard(item)}
-            <button type="button" class="mine-watchlater-card__remove" data-watchlater-remove="${escapeHtml(item.id)}" aria-label="移出稍后再看" title="移出稍后再看">
+            <button type="button" class="mine-watchlater-card__remove" data-watchlater-remove="${escapeHtml(item.id)}" data-watchlater-type="${item.type}" aria-label="移出稍后再看" title="移出稍后再看">
               ${materialIcon('close')}
             </button>
           </div>`,
@@ -432,9 +464,18 @@ function renderWatchLaterView() {
     card.addEventListener('click', (event) => {
       const target = /** @type {HTMLElement} */ (event.target);
       if (target.closest('.mine-watchlater-card__remove')) return;
-      const preview = previewFromCard(card);
-      if (!preview || preview.type !== 1) return;
-      void openContentDetail(preview);
+      const id = card.getAttribute('data-content-id');
+      const type = Number(card.getAttribute('data-content-type'));
+      const stored = items.find((entry) => entry.id === id && entry.type === type);
+      const preview = previewFromCard(card, stored ?? {});
+      if (!preview || (preview.type !== 0 && preview.type !== 1)) return;
+      void openContentDetail({
+        ...preview,
+        cover: stored?.cover ?? preview.cover,
+        authorId: stored?.authorId ?? preview.authorId,
+        authorAvatar: stored?.authorAvatar ?? preview.authorAvatar,
+        duration: stored?.duration ?? preview.duration,
+      });
     });
   });
 
@@ -442,19 +483,25 @@ function renderWatchLaterView() {
     btn.addEventListener('click', (event) => {
       event.stopPropagation();
       const id = btn.getAttribute('data-watchlater-remove');
-      const uid = resolveMineUserId(null);
-      if (!id || uid == null) return;
-      removeVideoFromWatchLater(uid, id);
+      const type = Number(btn.getAttribute('data-watchlater-type'));
+      if (!id || (type !== 0 && type !== 1)) return;
+      removeFromWatchLater(resolveWatchLaterUserId(), id, type);
       renderWatchLaterView();
     });
   });
 
   document.getElementById('mine-watchlater-clear')?.addEventListener('click', () => {
-    if (!confirm('确定清空稍后再看列表？')) return;
-    const uid = resolveMineUserId(null);
-    if (uid == null) return;
-    clearWatchLater(uid);
-    renderWatchLaterView();
+    void (async () => {
+      const confirmed = await confirmAction({
+        title: '清空稍后再看',
+        message: '确定清空本设备的稍后再看列表吗？',
+        confirmText: '清空',
+        variant: 'danger',
+      });
+      if (!confirmed) return;
+      clearWatchLater(resolveWatchLaterUserId());
+      renderWatchLaterView();
+    })();
   });
 }
 
@@ -715,8 +762,16 @@ async function loadHistoryMore() {
 function showTabPanel(tab) {
   activeTab = tab;
   syncTabUi();
+  syncMineGuestLayout();
 
-  if (!isLoggedIn()) return;
+  if (!isLoggedIn()) {
+    if (tab === 'watchlater') {
+      refreshWatchLaterView();
+    } else {
+      renderPanelPlaceholder('登录后查看该内容');
+    }
+    return;
+  }
 
   if (tab === 'history') {
     if (allHistoryItems.length === 0 && !loading) {
@@ -776,9 +831,13 @@ function onMainScroll() {
 }
 
 export function refreshMinePage() {
+  syncMineGuestLayout();
   if (!isLoggedIn()) {
     resetHistoryState();
     resetFavoriteState();
+    if (getCurrentPage() === 'mine' && activeTab === 'watchlater') {
+      refreshWatchLaterView();
+    }
     return;
   }
   void loadMineDashboard();
@@ -795,7 +854,13 @@ export function refreshMinePage() {
 }
 
 export function onMinePageEnter() {
-  if (!isLoggedIn()) return;
+  syncMineGuestLayout();
+  if (!isLoggedIn()) {
+    if (activeTab === 'watchlater') {
+      refreshWatchLaterView();
+    }
+    return;
+  }
   void loadMineDashboard();
   if (activeTab === 'history') {
     if (allHistoryItems.length === 0) void loadHistoryFirstPage();
@@ -891,4 +956,5 @@ export function bindMinePage() {
   });
 
   syncTabUi();
+  syncMineGuestLayout();
 }

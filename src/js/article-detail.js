@@ -21,6 +21,11 @@ import { openRewardDialog } from './reward-ui.js';
 import { openShareDialog } from './share-ui.js';
 import { coinInteractLabel, favoriteInteractLabel } from './interact-bar-labels.js';
 import {
+  isInWatchLater,
+  resolveWatchLaterUserId,
+  toggleWatchLater,
+} from './watch-later-store.js';
+import {
   bindCommentSection,
   createCommentReplyStore,
   mountAllCommentRichText,
@@ -50,6 +55,7 @@ let favorited = false;
 let favoriteListId = null;
 let rewardCount = 0;
 let favoriteCount = 0;
+let watchLater = false;
 
 /** @type {import('./video-api.js').CommunityComment[]} */
 let commentItems = [];
@@ -139,6 +145,10 @@ function renderInteractBar() {
       <button type="button" class="watch-interact-bar__item ${favorited ? 'is-active' : ''}" id="article-fav-btn">
         <span class="watch-interact-bar__icon">${materialIcon('star')}</span>
         <span class="watch-interact-bar__label">${favoriteInteractLabel(favoriteCount, favorited)}</span>
+      </button>
+      <button type="button" class="watch-interact-bar__item ${watchLater ? 'is-active' : ''}" id="article-later-btn" title="稍后再看">
+        <span class="watch-interact-bar__icon">${materialIcon('schedule')}</span>
+        <span class="watch-interact-bar__label">${watchLater ? '已添加' : '稍后再看'}</span>
       </button>
       <button type="button" class="watch-interact-bar__item" id="article-share-btn">
         <span class="watch-interact-bar__icon">${materialIcon('share')}</span>
@@ -300,6 +310,13 @@ function bindPageEvents() {
     void toggleArticleReaction(true);
   });
 
+  document.getElementById('article-later-btn')?.addEventListener('click', () => {
+    if (!currentDetail) return;
+    watchLater = toggleWatchLater(resolveWatchLaterUserId(), currentDetail.preview);
+    notify(watchLater ? '已加入稍后再看' : '已移出稍后再看', 'success');
+    renderPage();
+  });
+
   document.getElementById('article-forward-feed-btn')?.addEventListener('click', () => {
     if (!currentDetail || !requireLogin()) return;
     void import('./feed-forward.js').then(({ openFeedForward }) => {
@@ -359,6 +376,7 @@ export async function openArticleDetail(preview) {
   favoriteListId = null;
   rewardCount = 0;
   favoriteCount = 0;
+  watchLater = isInWatchLater(resolveWatchLaterUserId(), preview.id, 0);
   disliked = false;
   dislikeCount = 0;
   commentReplyStore.clear();
@@ -378,6 +396,7 @@ export async function openArticleDetail(preview) {
     currentDetail = detail;
     rewardCount = detail.rewardCount;
     favoriteCount = detail.favoriteCount;
+    watchLater = isInWatchLater(resolveWatchLaterUserId(), detail.preview.id, 0);
 
     const session = loadSession();
     const likePromise = fetchReactionStatus(Number(detail.preview.id), 0).catch(() => ({

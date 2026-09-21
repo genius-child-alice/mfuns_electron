@@ -24,7 +24,11 @@ import { toggleResourceFavorite } from './favorite-ui.js';
 import { openRewardDialog } from './reward-ui.js';
 import { openShareDialog } from './share-ui.js';
 import { coinInteractLabel, favoriteInteractLabel } from './interact-bar-labels.js';
-import { isVideoInWatchLater, toggleVideoWatchLater } from './watch-later-store.js';
+import {
+  isInWatchLater,
+  resolveWatchLaterUserId,
+  toggleWatchLater,
+} from './watch-later-store.js';
 import {
   bindCommentSection,
   createCommentReplyStore,
@@ -422,10 +426,9 @@ function bindSidePanelEvents() {
   });
 
   document.getElementById('watch-later-btn')?.addEventListener('click', () => {
-    if (!currentDetail || !requireLogin()) return;
-    const userId = resolveMineUserId(null);
-    if (userId == null) return;
-    watchLater = toggleVideoWatchLater(userId, currentDetail.preview);
+    if (!currentDetail) return;
+    watchLater = toggleWatchLater(resolveWatchLaterUserId(), currentDetail.preview);
+    notify(watchLater ? '已加入稍后再看' : '已移出稍后再看', 'success');
     renderSidePanel();
   });
 
@@ -567,8 +570,7 @@ export async function openVideoDetail(preview) {
   disliked = false;
   dislikeCount = 0;
   commentReplyStore.clear();
-  const userId = resolveMineUserId(null);
-  watchLater = userId != null && isVideoInWatchLater(userId, preview.id);
+  watchLater = isInWatchLater(resolveWatchLaterUserId(), preview.id, 1);
   authorFans = 0;
   authorTotalLikes = 0;
   setLoading(true);
@@ -640,8 +642,7 @@ export async function openVideoDetail(preview) {
     following = followStatus;
     favorited = favoriteStatus.favorited;
     favoriteListId = favoriteStatus.listId;
-    const uid = resolveMineUserId(null);
-    watchLater = uid != null && isVideoInWatchLater(uid, detail.preview.id);
+    watchLater = isInWatchLater(resolveWatchLaterUserId(), detail.preview.id, 1);
     if (authorProfile) {
       authorFans = authorProfile.fans;
       authorTotalLikes = authorProfile.totalLikes;

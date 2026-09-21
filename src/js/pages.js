@@ -535,7 +535,7 @@ export function minePageHtml() {
           </label>
         </div>
 
-        <div class="mine-page__body" data-auth-only hidden>
+        <div class="mine-page__body" id="mine-page-body">
           <div class="mine-history" id="mine-history-root"></div>
         </div>
         ${guestCenterBlock('你还未登录', '登录注册解锁更多精彩内容')}
