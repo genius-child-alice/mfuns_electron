@@ -215,26 +215,92 @@ export function contributePageHtml() {
   return `
     <div class="page-view page-view--contribute" data-page="contribute" hidden>
       <div class="contribute-page" id="contribute-page-root">
-        <div id="contribute-list-view">
+        <div id="contribute-hub-view">
           <header class="contribute-page__header app-no-drag">
-            <h1 class="contribute-page__title">我的投稿</h1>
-            <div class="contribute-page__tabs" role="tablist" aria-label="投稿类型">
-              <button type="button" class="contribute-page__tab is-active" data-contribute-tab="0" role="tab" aria-selected="true">文章</button>
-              <button type="button" class="contribute-page__tab" data-contribute-tab="1" role="tab" aria-selected="false">视频</button>
-            </div>
-            <button type="button" class="btn-accent" id="contribute-create-btn" title="发布投稿" data-auth-only hidden>
-              ${materialIcon('add', 'contribute-page__add-icon')}
-              <span>发布</span>
-            </button>
+            <h1 class="contribute-page__title">创作中心</h1>
+            <nav class="contribute-hub-nav" aria-label="创作中心分类">
+              <button type="button" class="contribute-hub-nav__item is-active" data-contribute-section="submission">投稿</button>
+              <button type="button" class="contribute-hub-nav__item" data-contribute-section="feed">动态</button>
+              <button type="button" class="contribute-hub-nav__item" data-contribute-section="published">已发布</button>
+            </nav>
           </header>
-          ${guestBanner('登录账号，管理你的投稿')}
+          ${guestBanner('登录账号，管理投稿与动态')}
           <div class="contribute-page__body" data-auth-only hidden>
-            <div class="contribute-list-scroll" id="contribute-list-scroll">
-              <div class="contribute-list" id="contribute-list"></div>
-            </div>
-            <p class="contribute-list-footer" id="contribute-list-footer" hidden></p>
+            <section id="contribute-submission-section" class="contribute-hub-section">
+              <div class="contribute-section-toolbar">
+                <div class="contribute-page__tabs" role="tablist" aria-label="投稿类型">
+                  <button type="button" class="contribute-page__tab is-active" data-contribute-tab="0" role="tab" aria-selected="true">文章</button>
+                  <button type="button" class="contribute-page__tab" data-contribute-tab="1" role="tab" aria-selected="false">视频</button>
+                </div>
+                <button type="button" class="btn-accent" id="contribute-create-btn" title="发布投稿">
+                  ${materialIcon('add', 'contribute-page__add-icon')}
+                  <span>发布投稿</span>
+                </button>
+              </div>
+              <div class="contribute-list-scroll" id="contribute-list-scroll">
+                <div class="contribute-list" id="contribute-list"></div>
+              </div>
+              <p class="contribute-list-footer" id="contribute-list-footer" hidden></p>
+            </section>
+            <section id="contribute-feed-section" class="contribute-hub-section" hidden>
+              <div class="contribute-section-toolbar">
+                <p class="contribute-section-desc">管理你发布的动态</p>
+                <button type="button" class="btn-accent" id="contribute-feed-compose-btn">
+                  ${materialIcon('edit_note', 'contribute-page__add-icon')}
+                  <span>发布动态</span>
+                </button>
+              </div>
+              <div class="contribute-list-scroll" id="contribute-feed-scroll">
+                <div class="contribute-list" id="contribute-feed-list"></div>
+              </div>
+              <p class="contribute-list-footer" id="contribute-feed-footer" hidden></p>
+            </section>
+            <section id="contribute-published-section" class="contribute-hub-section" hidden>
+              <div class="contribute-section-toolbar">
+                <div class="contribute-page__tabs" role="tablist" aria-label="已发布类型">
+                  <button type="button" class="contribute-page__tab is-active" data-published-tab="0" role="tab" aria-selected="true">文章</button>
+                  <button type="button" class="contribute-page__tab" data-published-tab="1" role="tab" aria-selected="false">视频</button>
+                </div>
+              </div>
+              <div class="contribute-list-scroll" id="contribute-published-scroll">
+                <div class="contribute-list" id="contribute-published-list"></div>
+              </div>
+              <p class="contribute-list-footer" id="contribute-published-footer" hidden></p>
+            </section>
           </div>
-          ${guestEmpty('登录后管理投稿')}
+          ${guestEmpty('登录后使用创作中心')}
+        </div>
+
+        <div class="contribute-subview" id="contribute-feed-compose-view" hidden>
+          <header class="contribute-subview__header app-no-drag">
+            <button type="button" class="contribute-subview__back" id="contribute-feed-compose-back">
+              ${materialIcon('arrow_back')}
+              <span>返回</span>
+            </button>
+            <h2 class="contribute-subview__heading">发布动态</h2>
+            <div class="contribute-subview__actions">
+              <button type="button" class="btn-accent" id="contribute-feed-compose-submit">发布</button>
+            </div>
+          </header>
+          <div class="contribute-subview__body">
+            <form class="contribute-form" onsubmit="return false">
+              <div class="contribute-field">
+                <label for="contribute-feed-compose-content">正文</label>
+                <textarea id="contribute-feed-compose-content" rows="8" placeholder="分享此刻的想法…"></textarea>
+              </div>
+              <div class="contribute-field">
+                <label>图片（最多 9 张）</label>
+                <div class="contribute-feed-compose-images" id="contribute-feed-compose-images"></div>
+                <button type="button" class="btn-accent" id="contribute-feed-compose-add-image">添加图片</button>
+                <input type="file" class="contribute-hidden-input" id="contribute-feed-compose-image-file" accept="image/*" />
+              </div>
+              <div class="contribute-field">
+                <label for="contribute-feed-compose-tags">标签</label>
+                <input type="text" id="contribute-feed-compose-tags" placeholder="用逗号分隔，最多 10 个" />
+              </div>
+              <p class="contribute-section-desc">动态发布后将出现在全站时间线</p>
+            </form>
+          </div>
         </div>
 
         <div class="contribute-subview" id="contribute-editor-view" hidden>
@@ -252,7 +318,7 @@ export function contributePageHtml() {
             <form class="contribute-form" id="contribute-editor-form" onsubmit="return false">
               <div class="contribute-field">
                 <label for="contribute-editor-title-input">标题</label>
-                <input type="text" id="contribute-editor-title-input" maxlength="120" placeholder="请输入标题" />
+                <input type="text" id="contribute-editor-title-input" maxlength="30" placeholder="请输入标题（最多 30 字）" />
               </div>
               <div class="contribute-field">
                 <label for="contribute-editor-category">分类</label>
@@ -302,9 +368,17 @@ export function contributePageHtml() {
                 </div>
                 <textarea id="contribute-editor-content" placeholder="文章使用 Markdown；视频投稿填写简介"></textarea>
               </div>
+              <div class="contribute-field">
+                <label for="contribute-editor-copyright">版权</label>
+                <select id="contribute-editor-copyright">
+                  <option value="2">原创</option>
+                  <option value="1">转载</option>
+                  <option value="0">其他</option>
+                </select>
+              </div>
               <div class="contribute-draft-row" id="contribute-editor-draft-row">
                 <input type="checkbox" id="contribute-editor-draft" />
-                <label for="contribute-editor-draft">保存为草稿</label>
+                <label for="contribute-editor-draft">仅存草稿，不直接发布</label>
               </div>
             </form>
           </div>
@@ -344,6 +418,13 @@ export function feedPageHtml() {
           <p class="feed-page__aside-guest" data-guest-only>登录后查看关注列表</p>
         </aside>
         <div class="feed-page__main">
+          <header class="feed-page__toolbar app-no-drag" data-auth-only hidden>
+            <h2 class="feed-page__toolbar-title">动态</h2>
+            <button type="button" class="btn-accent feed-page__compose-btn" id="feed-page-compose-btn">
+              ${materialIcon('edit_note', 'feed-page__compose-icon')}
+              <span>发布动态</span>
+            </button>
+          </header>
           ${guestBanner('登录账号，查看你关注的 UP 主内容')}
           <div class="feed-page__stream" data-auth-only hidden>
             <div class="feed-page__scroll" id="feed-page-scroll">
@@ -393,6 +474,17 @@ export function minePageHtml() {
               <button type="button" class="mine-profile__stat-btn" id="mine-open-fans"><strong id="mine-stat-fans">-</strong><span>粉丝</span></button>
             </div>
             <button type="button" class="mine-profile__space" id="btn-open-my-space">空间 &gt;</button>
+          </div>
+          <div class="mine-creator-links" data-auth-only hidden>
+            <button type="button" class="mine-creator-links__item" id="mine-open-contribute">
+              ${materialIcon('upload', 'mine-creator-links__icon')}
+              <span>创作中心</span>
+              <small id="mine-submission-count"></small>
+            </button>
+            <button type="button" class="mine-creator-links__item" id="mine-compose-feed">
+              ${materialIcon('edit_note', 'mine-creator-links__icon')}
+              <span>发布动态</span>
+            </button>
           </div>
         </div>
 

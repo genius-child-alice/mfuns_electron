@@ -1,5 +1,7 @@
 import { materialIcon } from './icons.js';
 import { loadSession } from './auth.js';
+import { deleteFeed } from './feed-api.js';
+import { openFeedForward } from './feed-forward.js';
 import { openCommentComposer } from './comment-composer.js';
 import { requireLogin } from './login-ui.js';
 import {
@@ -163,9 +165,34 @@ async function reloadComments() {
 /**
  * @param {FeedDetail} detail
  */
+/**
+ * @param {Record<string, unknown> | null | undefined} user
+ */
+function sessionUserId(user) {
+  if (!user) return null;
+  const id = user.id ?? user.user_id;
+  if (typeof id === 'number' && Number.isFinite(id)) return Math.trunc(id);
+  const parsed = Number.parseInt(`${id ?? ''}`, 10);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function syncFeedOwnerActions(detail) {
+  const actions = document.getElementById('feed-detail-owner-actions');
+  const forwardBtn = document.getElementById('feed-detail-forward-btn');
+  const deleteBtn = document.getElementById('feed-detail-delete-btn');
+  if (!actions || !forwardBtn || !deleteBtn) return;
+  const viewerId = sessionUserId(loadSession()?.user);
+  const isOwner = viewerId != null && detail.feed.authorId === viewerId;
+  const loggedIn = Boolean(loadSession()?.token);
+  forwardBtn.hidden = !loggedIn;
+  deleteBtn.hidden = !isOwner;
+  actions.hidden = !loggedIn && !isOwner;
+}
+
 function renderDetailContent(detail) {
   const post = document.getElementById('feed-detail-post');
   if (!post) return;
+  syncFeedOwnerActions(detail);
   post.innerHTML = renderFeedCard(detail.feed, {
     domIdPrefix: FEED_DETAIL_DOM,
     profileFallback: null,
@@ -325,5 +352,27 @@ export function bindFeedDetail() {
       closeFeedDetail();
       void import('./user-space.js').then((mod) => mod.openUserSpace(uid));
     },
+  });
+
+  document.getElementById('feed-detail-forward-btn')?.addEventListener('click', () => {
+    if (!currentDetail || !requireLogin()) return;
+    openFeedForward({
+      resourceId: currentDetail.feed.id,
+      resourceType: 3,
+      resourceTitle: currentDetail.feed.title || currentDetail.feed.content,
+      resourceCover: currentDetail.feed.images[0] ?? currentDetail.feed.resource?.cover ?? '',
+    });
+  });
+
+  document.getElementById('feed-detail-delete-btn')?.addEventListener('click', () => {
+    if (!currentDetail || !requireLogin()) return;
+    if (!window.confirm('确定删除这条动态吗？删除后无法恢复。')) return;
+    void deleteFeed(currentDetail.feed.id)
+      .then(() => {
+        closeFeedDetail();
+      })
+      .catch((err) => {
+        alert(err instanceof Error ? err.message : '删除失败');
+      });
   });
 }

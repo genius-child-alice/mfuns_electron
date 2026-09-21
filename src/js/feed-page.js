@@ -239,4 +239,11 @@ export function bindFeedPage() {
   bindTimelineFeedClick(document.getElementById('feed-page-list'), {
     onOpenUserSpace: (uid) => openUserSpace(uid),
   });
+
+  document.getElementById('feed-page-compose-btn')?.addEventListener('click', () => {
+    void import('./contribute-page.js').then((mod) => {
+      mod.openContributePage('feed');
+      mod.openFeedComposeView();
+    });
+  });
 }

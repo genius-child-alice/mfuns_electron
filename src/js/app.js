@@ -39,6 +39,7 @@ import { registerOpenLoginHandler, requireLogin } from './login-ui.js';
 import { bindHomeFeed } from './home-feed.js';
 import { bindFeedPage } from './feed-page.js';
 import { bindFeedDetail } from './feed-detail.js';
+import { bindFeedForward, feedForwardDialogHtml } from './feed-forward.js';
 import { bindVideoDetail } from './video-detail.js';
 import { bindArticleDetail } from './article-detail.js';
 import { bindFavoritePicker } from './favorite-ui.js';
@@ -244,6 +245,10 @@ function renderShell() {
     <dialog class="feed-detail app-no-drag" id="feed-detail-dialog" aria-labelledby="feed-detail-title">
       <div class="feed-detail__shell">
         <div class="feed-detail__head">
+          <div class="feed-detail__head-actions" id="feed-detail-owner-actions" hidden>
+            <button type="button" class="feed-detail__owner-btn" id="feed-detail-forward-btn" title="转发到动态">${materialIcon('share')}</button>
+            <button type="button" class="feed-detail__owner-btn feed-detail__owner-btn--danger" id="feed-detail-delete-btn" title="删除动态">${materialIcon('delete')}</button>
+          </div>
           <button type="button" class="feed-detail__close" id="feed-detail-close" aria-label="关闭">${materialIcon('close')}</button>
         </div>
         <div class="feed-detail__scroll">
@@ -272,6 +277,8 @@ function renderShell() {
         </div>
       </div>
     </dialog>
+
+    ${feedForwardDialogHtml()}
 
     <dialog class="favorite-picker app-no-drag" id="favorite-picker-dialog" aria-labelledby="favorite-picker-title">
       <div class="favorite-picker__card">
@@ -654,6 +661,7 @@ function bootApp() {
   bindHomeFeed();
   bindFeedPage();
   bindFeedDetail();
+  bindFeedForward();
   bindVideoDetail();
   bindArticleDetail();
   bindFavoritePicker();

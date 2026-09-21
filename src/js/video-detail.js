@@ -217,6 +217,10 @@ function renderIntroToolbar() {
         <span class="watch-interact-bar__icon">${materialIcon('share')}</span>
         <span class="watch-interact-bar__label">分享</span>
       </button>
+      <button type="button" class="watch-interact-bar__item" id="watch-forward-feed-btn">
+        <span class="watch-interact-bar__icon">${materialIcon('edit_note')}</span>
+        <span class="watch-interact-bar__label">转动态</span>
+      </button>
     </div>`;
 }
 
@@ -469,6 +473,18 @@ function bindSidePanelEvents() {
     } catch (err) {
       alert(err instanceof Error ? err.message : '关注失败');
     }
+  });
+
+  document.getElementById('watch-forward-feed-btn')?.addEventListener('click', () => {
+    if (!currentDetail || !requireLogin()) return;
+    void import('./feed-forward.js').then(({ openFeedForward }) => {
+      openFeedForward({
+        resourceId: currentDetail.preview.id,
+        resourceType: 1,
+        resourceTitle: currentDetail.preview.title,
+        resourceCover: currentDetail.preview.cover ?? '',
+      });
+    });
   });
 
   document.getElementById('watch-share-btn')?.addEventListener('click', async () => {

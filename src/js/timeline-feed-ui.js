@@ -251,11 +251,12 @@ export function hydrateFeedCards(items, domIdPrefix = 'timeline-feed', opts = {}
   items.forEach((item) => {
     const titleEl = document.getElementById(`${domIdPrefix}-title-${item.id}`);
     const bodyEl = document.getElementById(`${domIdPrefix}-body-${item.id}`);
-    if (titleEl && item.rawTitle.trim()) {
-      mountRichContent(titleEl, item.rawTitle);
+    const titleSource = item.rawTitle?.trim() || item.title?.trim() || '';
+    if (titleEl && titleSource) {
+      mountRichContent(titleEl, titleSource);
     }
     if (bodyEl) {
-      const source = item.rawContent.trim() || item.content || '分享了一条动态';
+      const source = item.rawContent?.trim() || item.content?.trim() || '分享了一条动态';
       mountRichContent(bodyEl, source);
       bodyEl.parentElement?.querySelector('.user-space__feed-card__expand')?.remove();
       if (clampBody) setupFeedTextExpand(bodyEl);

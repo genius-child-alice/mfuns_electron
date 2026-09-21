@@ -151,6 +151,25 @@
   color: var(--text-primary);
 }
 
+.user-space__feed-card__title.markdown-body--feed > :first-child,
+.user-space__feed-card__text.markdown-body--feed > :first-child {
+  margin-top: 0;
+}
+
+.user-space__feed-card__title.markdown-body--feed > :last-child,
+.user-space__feed-card__text.markdown-body--feed > :last-child {
+  margin-bottom: 0;
+}
+
+.user-space__feed-card__text.markdown-body--feed p {
+  margin: 0 0 0.35em;
+}
+
+.user-space__feed-card__text.markdown-body--feed strong,
+.user-space__feed-card__title.markdown-body--feed strong {
+  font-weight: 600;
+}
+
 .markdown-body.markdown-body--feed blockquote {
   border-left-color: var(--border-subtle);
   background: var(--bg-subtle);

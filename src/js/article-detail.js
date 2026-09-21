@@ -139,6 +139,10 @@ function renderInteractBar() {
         <span class="watch-interact-bar__icon">${materialIcon('share')}</span>
         <span class="watch-interact-bar__label">分享</span>
       </button>
+      <button type="button" class="watch-interact-bar__item" id="article-forward-feed-btn">
+        <span class="watch-interact-bar__icon">${materialIcon('edit_note')}</span>
+        <span class="watch-interact-bar__label">转动态</span>
+      </button>
     </div>`;
 }
 
@@ -280,6 +284,18 @@ function bindPageEvents() {
 
   document.getElementById('article-dislike-btn')?.addEventListener('click', () => {
     void toggleArticleReaction(true);
+  });
+
+  document.getElementById('article-forward-feed-btn')?.addEventListener('click', () => {
+    if (!currentDetail || !requireLogin()) return;
+    void import('./feed-forward.js').then(({ openFeedForward }) => {
+      openFeedForward({
+        resourceId: currentDetail.preview.id,
+        resourceType: 0,
+        resourceTitle: currentDetail.preview.title,
+        resourceCover: currentDetail.preview.cover ?? '',
+      });
+    });
   });
 
   document.getElementById('article-share-btn')?.addEventListener('click', async () => {

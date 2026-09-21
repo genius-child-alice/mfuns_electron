@@ -23,6 +23,7 @@ import {
   listWatchLater,
   removeVideoFromWatchLater,
 } from './watch-later-store.js';
+import { fetchSubmissionTotal } from './contribute-api.js';
 
 /** @typedef {import('./history-api.js').HistoryEntry} HistoryEntry */
 /** @typedef {'history' | 'offline' | 'favorite' | 'watchlater'} MineTabId */
@@ -94,6 +95,21 @@ function applyMineDashboard(stats) {
   if (fansEl) fansEl.textContent = formatCount(stats.fans);
 }
 
+async function loadSubmissionCount() {
+  const el = document.getElementById('mine-submission-count');
+  if (!el || !isLoggedIn()) return;
+  try {
+    const [articles, videos] = await Promise.all([
+      fetchSubmissionTotal(0),
+      fetchSubmissionTotal(1),
+    ]);
+    const total = articles + videos;
+    el.textContent = total > 0 ? `${total} 篇投稿` : '';
+  } catch {
+    el.textContent = '';
+  }
+}
+
 async function loadMineDashboard() {
   if (!isLoggedIn() || profileLoading) return;
   const userId = sessionUserId(loadSession()?.user);
@@ -103,6 +119,7 @@ async function loadMineDashboard() {
   try {
     const stats = await fetchMineDashboard(userId);
     applyMineDashboard(stats);
+    void loadSubmissionCount();
   } catch {
     applyMineDashboard({
       nekoCoin: 0,
@@ -799,6 +816,17 @@ export function onMinePageEnter() {
 }
 
 export function bindMinePage() {
+  document.getElementById('mine-open-contribute')?.addEventListener('click', () => {
+    void import('./contribute-page.js').then((mod) => mod.openContributePage('submission'));
+  });
+
+  document.getElementById('mine-compose-feed')?.addEventListener('click', () => {
+    void import('./contribute-page.js').then((mod) => {
+      mod.openContributePage('feed');
+      mod.openFeedComposeView();
+    });
+  });
+
   document.getElementById('mine-open-follows')?.addEventListener('click', () => {
     const session = loadSession();
     const userId = session?.user?.id ?? session?.user?.user_id;

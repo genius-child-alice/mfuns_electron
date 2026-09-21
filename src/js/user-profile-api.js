@@ -72,9 +72,14 @@ function toRawList(data) {
  */
 function feedPlainText(raw) {
   const text = `${raw ?? ''}`.trim();
-  if (!text.startsWith('[')) return text;
+  if (!text.startsWith('{') && !text.startsWith('[')) return text;
   try {
-    const ops = JSON.parse(text);
+    const decoded = JSON.parse(text);
+    const ops = Array.isArray(decoded)
+      ? decoded
+      : decoded && typeof decoded === 'object'
+        ? /** @type {Record<string, unknown>} */ (decoded).ops
+        : null;
     if (!Array.isArray(ops)) return text;
     return ops
       .map((op) => (op && typeof op.insert === 'string' ? op.insert : ''))

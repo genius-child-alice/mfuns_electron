@@ -19,6 +19,15 @@ import {
   updateVideoSubmission,
 } from './contribute-api.js';
 import { uploadVideoToOss } from './video-uploader.js';
+import {
+  bindContributeFeedSection,
+  onContributeFeedSectionEnter,
+  openFeedComposeView,
+} from './contribute-feed-section.js';
+import {
+  bindContributePublishedSection,
+  onContributePublishedSectionEnter,
+} from './contribute-published-section.js';
 
 /** @typedef {import('./contribute-api.js').SubmissionItem} SubmissionItem */
 /** @typedef {import('./contribute-api.js').SubmissionDetail} SubmissionDetail */
@@ -29,8 +38,11 @@ const PAGE_SIZE = 20;
 /** @type {0 | 1} */
 let listTab = 0;
 
-/** @type {'list' | 'editor' | 'detail'} */
-let view = 'list';
+/** @type {'hub' | 'editor' | 'detail' | 'feed-compose'} */
+let view = 'hub';
+
+/** @type {'submission' | 'feed' | 'published'} */
+let hubSection = 'submission';
 
 /** @type {SubmissionItem[]} */
 let items = [];
@@ -54,6 +66,7 @@ let editorUploadProgress = 0;
 let editorUploadingCover = false;
 let editorUploadingArticleImage = false;
 let editorShowPreview = false;
+let editorCopyright = 2;
 /** @type {number | null} */
 let editorCategoryId = null;
 /** @type {string[]} */
@@ -104,9 +117,23 @@ function getRoot() {
 
 function showView(next) {
   view = next;
-  document.getElementById('contribute-list-view')?.toggleAttribute('hidden', next !== 'list');
+  document.getElementById('contribute-hub-view')?.toggleAttribute('hidden', next !== 'hub');
   document.getElementById('contribute-editor-view')?.toggleAttribute('hidden', next !== 'editor');
   document.getElementById('contribute-detail-view')?.toggleAttribute('hidden', next !== 'detail');
+  document.getElementById('contribute-feed-compose-view')?.toggleAttribute('hidden', next !== 'feed-compose');
+}
+
+function showHubSection(section) {
+  hubSection = section;
+  document.querySelectorAll('[data-contribute-section]').forEach((el) => {
+    el.classList.toggle('is-active', el.getAttribute('data-contribute-section') === section);
+  });
+  document.getElementById('contribute-submission-section')?.toggleAttribute('hidden', section !== 'submission');
+  document.getElementById('contribute-feed-section')?.toggleAttribute('hidden', section !== 'feed');
+  document.getElementById('contribute-published-section')?.toggleAttribute('hidden', section !== 'published');
+  if (section === 'submission') void loadListFirstPage();
+  else if (section === 'feed') onContributeFeedSectionEnter();
+  else if (section === 'published') onContributePublishedSectionEnter();
 }
 
 function renderListTabs() {
@@ -267,6 +294,7 @@ function resetEditorState() {
   editorUploadingCover = false;
   editorUploadingArticleImage = false;
   editorShowPreview = false;
+  editorCopyright = editorType === 1 ? 0 : 2;
   editorCategoryId = null;
   editorTags = [];
   editorVideoParts = [];
@@ -294,6 +322,8 @@ async function openEditor(type, contributeId = null) {
   if (coverEl) coverEl.value = '';
   if (tagInput) tagInput.value = '';
   if (draftEl) draftEl.checked = false;
+  const copyrightEl = document.getElementById('contribute-editor-copyright');
+  if (copyrightEl) copyrightEl.value = String(editorCopyright);
 
   const headingEl = document.getElementById('contribute-editor-heading');
   if (headingEl) {
@@ -551,6 +581,10 @@ async function saveEditor() {
   const categorySelect = document.getElementById('contribute-editor-category');
   const categoryId = Number.parseInt(categorySelect?.value ?? '', 10);
   const draft = document.getElementById('contribute-editor-draft')?.checked ?? false;
+  const copyright = Number.parseInt(
+    document.getElementById('contribute-editor-copyright')?.value ?? `${editorCopyright}`,
+    10,
+  );
 
   if (!title) {
     alert('请输入标题');
@@ -588,6 +622,7 @@ async function saveEditor() {
           tags: editorTags,
           cover,
           draft,
+          copyright,
         });
       } else {
         await updateArticleSubmission({
@@ -598,6 +633,7 @@ async function saveEditor() {
           tags: editorTags,
           cover,
           draft,
+          copyright,
         });
       }
     } else if (editorContributeId == null) {
@@ -608,6 +644,7 @@ async function saveEditor() {
         videos: editorVideoParts,
         tags: editorTags,
         cover,
+        copyright,
       });
     } else {
       await updateVideoSubmission({
@@ -618,9 +655,10 @@ async function saveEditor() {
         videos: editorVideoParts,
         tags: editorTags,
         cover,
+        copyright,
       });
     }
-    showView('list');
+    showView('hub');
     await loadListFirstPage();
   } catch (err) {
     alert(err instanceof Error ? err.message : '保存失败');
@@ -724,7 +762,7 @@ async function confirmDelete(contributeId) {
   try {
     await deleteSubmission(listTab, contributeId);
     if (view === 'detail') {
-      showView('list');
+      showView('hub');
     }
     await loadListFirstPage();
   } catch (err) {
@@ -745,8 +783,8 @@ async function ensureCategories() {
 
 async function onContributePageEnterInternal() {
   renderListTabs();
-  if (view === 'list') {
-    await loadListFirstPage();
+  if (view === 'hub') {
+    showHubSection(hubSection);
   }
 }
 
@@ -754,18 +792,36 @@ export function onContributePageEnter() {
   void onContributePageEnterInternal();
 }
 
-export function openContributePage() {
+/**
+ * @param {'submission' | 'feed' | 'published'} [section]
+ */
+export function openContributePage(section = 'submission') {
   if (!requireLogin()) return;
-  view = 'list';
-  showView('list');
+  hubSection = section;
+  view = 'hub';
+  showView('hub');
+  showHubSection(section);
   setPage('contribute');
 }
+
+export { openFeedComposeView };
 
 export function bindContributePage() {
   if (bound) return;
   bound = true;
 
   void ensureCategories();
+  bindContributeFeedSection(showView);
+  bindContributePublishedSection();
+
+  document.querySelectorAll('[data-contribute-section]').forEach((el) => {
+    el.addEventListener('click', () => {
+      const section = el.getAttribute('data-contribute-section');
+      if (section === 'submission' || section === 'feed' || section === 'published') {
+        showHubSection(section);
+      }
+    });
+  });
 
   document.getElementById('contribute-create-btn')?.addEventListener('click', () => {
     void openEditor(listTab);
@@ -858,14 +914,11 @@ export function bindContributePage() {
     });
   });
 
-  document.getElementById('contribute-back-list')?.addEventListener('click', () => {
-    showView('list');
-  });
   document.getElementById('contribute-editor-back')?.addEventListener('click', () => {
-    showView('list');
+    showView('hub');
   });
   document.getElementById('contribute-detail-back')?.addEventListener('click', () => {
-    showView('list');
+    showView('hub');
   });
   document.getElementById('contribute-editor-save')?.addEventListener('click', () => {
     void saveEditor();
