@@ -5,7 +5,7 @@ import { destroyWatchPlayer } from './watch-player.js';
 
 const DEFAULT_AVATAR = 'assets/mfuns_logo.png';
 
-/** @typedef {'home' | 'feed' | 'mine' | 'settings' | 'watch' | 'article' | 'space' | 'follow-list' | 'search' | 'tag' | 'message'} PageId */
+/** @typedef {'home' | 'feed' | 'mine' | 'settings' | 'watch' | 'article' | 'space' | 'follow-list' | 'search' | 'tag' | 'message' | 'contribute'} PageId */
 
 /** @type {PageId} */
 let currentPage = 'home';
@@ -207,6 +207,123 @@ export function messagePageHtml() {
           </div>
         </div>
         ${guestEmpty('登录后查看私信')}
+      </div>
+    </div>`;
+}
+
+export function contributePageHtml() {
+  return `
+    <div class="page-view page-view--contribute" data-page="contribute" hidden>
+      <div class="contribute-page" id="contribute-page-root">
+        <div id="contribute-list-view">
+          <header class="contribute-page__header app-no-drag">
+            <h1 class="contribute-page__title">我的投稿</h1>
+            <div class="contribute-page__tabs" role="tablist" aria-label="投稿类型">
+              <button type="button" class="contribute-page__tab is-active" data-contribute-tab="0" role="tab" aria-selected="true">文章</button>
+              <button type="button" class="contribute-page__tab" data-contribute-tab="1" role="tab" aria-selected="false">视频</button>
+            </div>
+            <button type="button" class="btn-accent" id="contribute-create-btn" title="发布投稿" data-auth-only hidden>
+              ${materialIcon('add', 'contribute-page__add-icon')}
+              <span>发布</span>
+            </button>
+          </header>
+          ${guestBanner('登录账号，管理你的投稿')}
+          <div class="contribute-page__body" data-auth-only hidden>
+            <div class="contribute-list-scroll" id="contribute-list-scroll">
+              <div class="contribute-list" id="contribute-list"></div>
+            </div>
+            <p class="contribute-list-footer" id="contribute-list-footer" hidden></p>
+          </div>
+          ${guestEmpty('登录后管理投稿')}
+        </div>
+
+        <div class="contribute-subview" id="contribute-editor-view" hidden>
+          <header class="contribute-subview__header app-no-drag">
+            <button type="button" class="contribute-subview__back" id="contribute-editor-back">
+              ${materialIcon('arrow_back')}
+              <span>返回</span>
+            </button>
+            <h2 class="contribute-subview__heading" id="contribute-editor-heading">发布投稿</h2>
+            <div class="contribute-subview__actions">
+              <button type="button" class="btn-accent" id="contribute-editor-save">保存</button>
+            </div>
+          </header>
+          <div class="contribute-subview__body">
+            <form class="contribute-form" id="contribute-editor-form" onsubmit="return false">
+              <div class="contribute-field">
+                <label for="contribute-editor-title-input">标题</label>
+                <input type="text" id="contribute-editor-title-input" maxlength="120" placeholder="请输入标题" />
+              </div>
+              <div class="contribute-field">
+                <label for="contribute-editor-category">分类</label>
+                <select id="contribute-editor-category">
+                  <option value="">请选择分类</option>
+                </select>
+              </div>
+              <div class="contribute-field">
+                <label>标签</label>
+                <div class="contribute-tags" id="contribute-editor-tags"></div>
+                <input type="text" id="contribute-editor-tag-input" placeholder="输入标签，逗号或回车分隔，最多 10 个" />
+              </div>
+              <div class="contribute-field">
+                <label>封面</label>
+                <div class="contribute-cover-row">
+                  <div class="contribute-cover-preview" id="contribute-editor-cover-preview"></div>
+                  <div class="contribute-cover-actions">
+                    <input type="hidden" id="contribute-editor-cover" />
+                    <label class="btn-accent" for="contribute-editor-cover-file">上传封面</label>
+                    <input type="file" class="contribute-hidden-input" id="contribute-editor-cover-file" accept="image/*" />
+                  </div>
+                </div>
+              </div>
+              <div class="contribute-field" id="contribute-editor-video-only" hidden>
+                <div class="contribute-video-parts">
+                  <div class="contribute-video-parts__head">
+                    <h3>分P管理</h3>
+                    <button type="button" class="btn-accent" id="contribute-editor-add-part">添加分P</button>
+                  </div>
+                  <div id="contribute-editor-video-parts"></div>
+                  <p class="contribute-editor-upload-progress" id="contribute-editor-upload-progress" hidden></p>
+                  <input type="file" class="contribute-hidden-input" id="contribute-editor-video-file" accept="video/*" />
+                </div>
+              </div>
+              <div class="contribute-field">
+                <label for="contribute-editor-content">正文 / 简介</label>
+                <div id="contribute-editor-article-only">
+                  <div class="contribute-editor-toolbar app-no-drag">
+                    <button type="button" id="contribute-editor-md-bold">粗体</button>
+                    <button type="button" id="contribute-editor-md-italic">斜体</button>
+                    <button type="button" id="contribute-editor-md-list">列表</button>
+                    <label for="contribute-editor-article-image-file">插入图片</label>
+                    <input type="file" class="contribute-hidden-input" id="contribute-editor-article-image-file" accept="image/*" />
+                    <button type="button" id="contribute-editor-toggle-preview">预览</button>
+                  </div>
+                  <div class="contribute-editor-preview markdown-body" id="contribute-editor-preview" hidden></div>
+                </div>
+                <textarea id="contribute-editor-content" placeholder="文章使用 Markdown；视频投稿填写简介"></textarea>
+              </div>
+              <div class="contribute-draft-row" id="contribute-editor-draft-row">
+                <input type="checkbox" id="contribute-editor-draft" />
+                <label for="contribute-editor-draft">保存为草稿</label>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <div class="contribute-subview" id="contribute-detail-view" hidden>
+          <header class="contribute-subview__header app-no-drag">
+            <button type="button" class="contribute-subview__back" id="contribute-detail-back">
+              ${materialIcon('arrow_back')}
+              <span>返回</span>
+            </button>
+            <h2 class="contribute-subview__heading">投稿详情</h2>
+            <div class="contribute-subview__actions">
+              <button type="button" class="contribute-subview__back" id="contribute-detail-edit">编辑</button>
+              <button type="button" class="contribute-subview__back contribute-card__action--danger" id="contribute-detail-delete">删除</button>
+            </div>
+          </header>
+          <div class="contribute-subview__body" id="contribute-detail-body"></div>
+        </div>
       </div>
     </div>`;
 }
@@ -526,7 +643,8 @@ export function setPage(pageId) {
     el.classList.toggle(
       'is-active',
       (pageId === 'settings' && tool === 'settings') ||
-        (pageId === 'message' && tool === 'message'),
+        (pageId === 'message' && tool === 'message') ||
+        (pageId === 'contribute' && tool === 'upload'),
     );
   });
 
@@ -542,6 +660,7 @@ export function setPage(pageId) {
   main?.classList.toggle('content--search', pageId === 'search');
   main?.classList.toggle('content--tag', pageId === 'tag');
   main?.classList.toggle('content--message', pageId === 'message');
+  main?.classList.toggle('content--contribute', pageId === 'contribute');
 
   const homeTabs = document.getElementById('topbar-tabs-home');
   homeTabs?.toggleAttribute('hidden', pageId !== 'home');
@@ -555,7 +674,8 @@ export function setPage(pageId) {
         pageId === 'space' ||
         pageId === 'follow-list' ||
         pageId === 'tag' ||
-        pageId === 'message',
+        pageId === 'message' ||
+        pageId === 'contribute',
     );
 
   syncPagesAuthState();
@@ -574,6 +694,9 @@ export function setPage(pageId) {
   }
   if (pageId === 'message') {
     void import('./message-page.js').then((mod) => mod.onMessagePageEnter());
+  }
+  if (pageId === 'contribute') {
+    void import('./contribute-page.js').then((mod) => mod.onContributePageEnter());
   }
 }
 

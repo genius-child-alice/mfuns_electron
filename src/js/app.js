@@ -30,6 +30,7 @@ import {
   searchPageHtml,
   tagPageHtml,
   messagePageHtml,
+  contributePageHtml,
   setPage,
   syncPagesAuthState,
 } from './pages.js';
@@ -175,6 +176,7 @@ function renderShell() {
           ${searchPageHtml()}
           ${tagPageHtml()}
           ${messagePageHtml()}
+          ${contributePageHtml()}
           <button type="button" class="btn-refresh app-no-drag" aria-label="刷新">
             ${materialIcon('refresh')}
           </button>
@@ -368,7 +370,7 @@ function bindNavigation() {
   });
 
   document.querySelector('[data-sidebar-tool="upload"]')?.addEventListener('click', () => {
-    if (!requireLogin()) return;
+    void import('./contribute-page.js').then((mod) => mod.openContributePage());
   });
 
   document.querySelector('[data-sidebar-tool="message"]')?.addEventListener('click', () => {
@@ -663,6 +665,7 @@ function bootApp() {
   bindImageViewer();
   bindCommentComposer();
   bindMessagePage();
+  void import('./contribute-page.js').then((mod) => mod.bindContributePage());
   bindMinePage();
 }
 
