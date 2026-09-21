@@ -1,0 +1,79 @@
+body.image-viewer-open {
+  overflow: hidden;
+}
+
+.image-viewer {
+  width: 100vw;
+  height: 100vh;
+  max-width: 100vw;
+  max-height: 100vh;
+  margin: 0;
+  padding: 48px 24px 24px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  overflow: hidden;
+}
+
+.image-viewer::backdrop {
+  background: rgba(0, 0, 0, 0.82);
+  backdrop-filter: blur(2px);
+}
+
+.image-viewer__close {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.45);
+  transition: background 0.15s ease;
+}
+
+.image-viewer__close:hover {
+  background: rgba(0, 0, 0, 0.65);
+}
+
+.image-viewer__close-icon {
+  font-size: 22px;
+}
+
+.image-viewer__stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.image-viewer__img {
+  display: block;
+  max-width: min(96vw, 1280px);
+  max-height: calc(100vh - 96px);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.45);
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+img:not([class*='avatar']):not([class*='cover']):not([class*='thumb']):not(.sidebar__avatar-img):not(.splash__logo):not(.guest-empty__img):not(.video-card__cover-img) {
+  cursor: zoom-in;
+}
+
+.video-card__cover-wrap img,
+.mine-history-card__cover img {
+  cursor: pointer;
+}
+
+#image-viewer img {
+  cursor: default;
+}

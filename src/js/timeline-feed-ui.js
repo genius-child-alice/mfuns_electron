@@ -1,4 +1,4 @@
-import { materialIcon } from './icons.js';
+import { materialIcon, viewCountIcon } from './icons.js';
 import { loadSession } from './auth.js';
 import { mediaSrcForCover } from './content-api.js';
 import { loadStickerUrlMap } from './emoji-pack.js';
@@ -152,6 +152,7 @@ export function renderFeedCard(item, ctx = {}) {
   const authorName = item.authorName || profile?.name || 'MFuns 用户';
   const avatarSrc = mediaSrcForCover(item.authorAvatar || profile?.avatar);
   const dateLabel = formatFeedDate(item.createdAt);
+  const viewsLabel = `${formatFeedCount(item.views)}浏览`;
   const titleSource = item.rawTitle?.trim() || item.title?.trim() || '';
   const imageUrls = item.images.slice(0, 9);
   const images = imageUrls
@@ -195,7 +196,16 @@ export function renderFeedCard(item, ctx = {}) {
               <span class="user-space__feed-card__name">${escapeHtml(authorName)}</span>
               ${pinHtml}
             </div>
-            ${dateLabel ? `<time class="user-space__feed-card__time" datetime="">${escapeHtml(dateLabel)}</time>` : ''}
+            <div class="user-space__feed-card__meta">
+              <span class="user-space__feed-card__stat">
+                ${viewCountIcon('user-space__feed-card__stat-icon')}${escapeHtml(viewsLabel)}
+              </span>
+              ${
+                dateLabel
+                  ? `<span class="user-space__feed-card__meta-sep" aria-hidden="true">·</span><time class="user-space__feed-card__time" datetime="${escapeHtml(item.createdAt ?? '')}">${escapeHtml(dateLabel)}</time>`
+                  : ''
+              }
+            </div>
           </div>
         </header>
         <button type="button" class="user-space__feed-card__more" aria-label="更多">${materialIcon('more_vert')}</button>

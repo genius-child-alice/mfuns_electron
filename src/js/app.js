@@ -45,6 +45,7 @@ import { bindFollowList } from './follow-list.js';
 import { bindMinePage, refreshMinePage } from './mine-page.js';
 import { bindSearchPage } from './search-page.js';
 import { bindTagPage } from './tag-page.js';
+import { bindImageViewer } from './image-viewer.js';
 
 /** @type {() => void} */
 let syncSettingsForm = () => {};
@@ -674,6 +675,7 @@ function bootApp() {
   bindFollowList();
   bindSearchPage();
   bindTagPage();
+  bindImageViewer();
   bindMinePage();
 }
 

@@ -317,6 +317,20 @@ function parseFeedImages(raw) {
 }
 
 /**
+ * @param {unknown} value
+ * @returns {string | null}
+ */
+function parseFeedCreatedAt(value) {
+  if (typeof value === 'string' && value.trim()) return value.trim();
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const ms = value < 1e12 ? value * 1000 : value;
+    const date = new Date(ms);
+    return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  }
+  return null;
+}
+
+/**
  * @param {unknown} raw
  * @returns {TimelineFeedItem | null}
  */
@@ -353,10 +367,13 @@ function parseTimelineFeedItem(raw) {
     rawTitle,
     content: feedPlainText(rawContent) || `${rawContent}`.trim(),
     rawContent,
-    createdAt:
-      (typeof source.created_at === 'string' && source.created_at) ||
-      (typeof source.time === 'string' && source.time) ||
-      null,
+    createdAt: parseFeedCreatedAt(
+      source.created_at ??
+        source.time ??
+        source.createdAt ??
+        source.published_at ??
+        source.publish_time,
+    ),
     likes: asInt(like.count ?? source.like_count ?? source.likes) ?? 0,
     comments: asInt(source.comment_count ?? source.comments) ?? 0,
     reposts: asInt(source.forward_count ?? source.repost_count ?? source.forwards) ?? 0,
