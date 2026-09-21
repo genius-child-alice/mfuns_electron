@@ -1,0 +1,118 @@
+.content.content--tag {
+  padding: 20px 24px 32px;
+  background: var(--page-canvas);
+}
+
+.page-view--tag:not([hidden]) {
+  min-height: 100%;
+}
+
+.tag-page {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.tag-page__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.tag-page__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.tag-page__back:hover {
+  background: var(--bg-subtle);
+}
+
+.tag-page__back-icon {
+  font-size: 20px;
+}
+
+.tag-page__title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.tag-page__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.tag-page__tab {
+  padding: 6px 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.tag-page__tab:hover {
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border-subtle));
+}
+
+.tag-page__tab.is-active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-elevated));
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.tag-page__grid {
+  margin-top: 4px;
+}
+
+.tag-page__empty {
+  grid-column: 1 / -1;
+  margin: 48px 0;
+  text-align: center;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.tag-page__hint {
+  margin: 16px 0 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.watch-tag {
+  cursor: pointer;
+  border: none;
+  font: inherit;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    transform 0.1s ease;
+}
+
+.watch-tag:hover {
+  background: color-mix(in srgb, var(--accent) 22%, var(--accent-soft));
+}
+
+.watch-tag:active {
+  transform: scale(0.97);
+}

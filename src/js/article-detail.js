@@ -24,6 +24,7 @@ import {
   mountAllCommentRichText,
   renderCommentsHtml,
 } from './comment-ui.js';
+import { bindTagButtons, renderTagButtons } from './tag-page.js';
 
 /** @typedef {import('./content-api.js').ContentPreview} ContentPreview */
 /** @typedef {import('./article-api.js').ArticleDetail} ArticleDetail */
@@ -201,7 +202,7 @@ function renderPage() {
 
       ${
         detail.tags.length
-          ? `<div class="article-read__tags watch-tags">${detail.tags.map((t) => `<span class="watch-tag">${escapeHtml(t)}</span>`).join('')}</div>`
+          ? `<div class="article-read__tags watch-tags">${renderTagButtons(detail.tags)}</div>`
           : ''
       }
 
@@ -434,7 +435,10 @@ export function closeArticleDetail() {
 }
 
 export function bindArticleDetail() {
-  bindCommentSection(document.getElementById('article-page-root'), {
+  const articleRoot = document.getElementById('article-page-root');
+  if (articleRoot) bindTagButtons(articleRoot);
+
+  bindCommentSection(articleRoot, {
     getComments: () => commentItems,
     setComments: (comments) => {
       commentItems = comments;

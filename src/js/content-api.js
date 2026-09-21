@@ -237,6 +237,20 @@ function pickCoverUrl(value) {
 }
 
 /**
+ * @param {unknown} value
+ * @returns {string | null}
+ */
+function normalizeCreatedAt(value) {
+  if (typeof value === 'string' && value) return value;
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const ms = value < 1e12 ? value * 1000 : value;
+    const date = new Date(ms);
+    return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  }
+  return null;
+}
+
+/**
  * @param {unknown} raw
  * @returns {number}
  */
@@ -302,11 +316,9 @@ export function parseContentPreview(raw) {
     type: parseContentType(raw),
     views: Number(item.view_count ?? item.views ?? 0) || 0,
     comments: Number(item.comment_count ?? item.comments ?? 0) || 0,
-    createdAt:
-      (typeof item.created_at === 'string' && item.created_at) ||
-      (typeof item.time === 'string' && item.time) ||
-      (typeof item.createdAt === 'string' && item.createdAt) ||
-      null,
+    createdAt: normalizeCreatedAt(
+      item.created_at ?? item.time ?? item.createdAt ?? item.publish_time,
+    ),
   };
 }
 

@@ -29,6 +29,7 @@ import {
   mountAllCommentRichText,
   renderCommentsHtml,
 } from './comment-ui.js';
+import { bindTagButtons, renderTagButtons } from './tag-page.js';
 
 /** @typedef {import('./content-api.js').ContentPreview} ContentPreview */
 /** @typedef {import('./video-api.js').VideoDetail} VideoDetail */
@@ -320,12 +321,12 @@ function renderSidePanel() {
                 <div class="watch-desc markdown-body" id="watch-desc-rich"></div>
                 ${
                   detail.tags.length
-                    ? `<div class="watch-tags">${detail.tags.map((t) => `<span class="watch-tag">${escapeHtml(t)}</span>`).join('')}</div>`
+                    ? `<div class="watch-tags">${renderTagButtons(detail.tags)}</div>`
                     : ''
                 }
               </div>`
             : detail.tags.length
-              ? `<div class="watch-tags watch-tags--solo">${detail.tags.map((t) => `<span class="watch-tag">${escapeHtml(t)}</span>`).join('')}</div>`
+              ? `<div class="watch-tags watch-tags--solo">${renderTagButtons(detail.tags)}</div>`
               : ''
         }
 
@@ -665,7 +666,10 @@ export function closeVideoDetail() {
 }
 
 export function bindVideoDetail() {
-  bindCommentSection(document.getElementById('watch-page-root'), {
+  const watchRoot = document.getElementById('watch-page-root');
+  if (watchRoot) bindTagButtons(watchRoot);
+
+  bindCommentSection(watchRoot, {
     getComments: () => commentItems,
     setComments: (comments) => {
       commentItems = comments;

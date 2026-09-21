@@ -28,6 +28,7 @@ import {
   spacePageHtml,
   followListPageHtml,
   searchPageHtml,
+  tagPageHtml,
   setPage,
   syncPagesAuthState,
 } from './pages.js';
@@ -43,6 +44,7 @@ import { bindUserSpace } from './user-space.js';
 import { bindFollowList } from './follow-list.js';
 import { bindMinePage, refreshMinePage } from './mine-page.js';
 import { bindSearchPage } from './search-page.js';
+import { bindTagPage } from './tag-page.js';
 
 /** @type {() => void} */
 let syncSettingsForm = () => {};
@@ -166,6 +168,7 @@ function renderShell() {
           ${spacePageHtml()}
           ${followListPageHtml()}
           ${searchPageHtml()}
+          ${tagPageHtml()}
           <button type="button" class="btn-refresh app-no-drag" aria-label="刷新">
             ${materialIcon('refresh')}
           </button>
@@ -670,6 +673,7 @@ function bootApp() {
   bindUserSpace();
   bindFollowList();
   bindSearchPage();
+  bindTagPage();
   bindMinePage();
 }
 

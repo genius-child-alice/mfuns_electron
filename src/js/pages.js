@@ -5,7 +5,7 @@ import { destroyWatchPlayer } from './watch-player.js';
 
 const DEFAULT_AVATAR = 'assets/mfuns_logo.png';
 
-/** @typedef {'home' | 'feed' | 'mine' | 'settings' | 'watch' | 'article' | 'space' | 'follow-list' | 'search'} PageId */
+/** @typedef {'home' | 'feed' | 'mine' | 'settings' | 'watch' | 'article' | 'space' | 'follow-list' | 'search' | 'tag'} PageId */
 
 /** @type {PageId} */
 let currentPage = 'home';
@@ -52,6 +52,29 @@ export function homePageHtml() {
       </nav>
       <p class="home-feed__status" id="home-feed-status" hidden role="status"></p>
       <div class="content-grid" id="home-feed-grid"></div>
+    </div>`;
+}
+
+export function tagPageHtml() {
+  return `
+    <div class="page-view page-view--tag" data-page="tag" hidden>
+      <div class="tag-page">
+        <header class="tag-page__head">
+          <button type="button" class="tag-page__back app-no-drag" id="tag-page-back">
+            ${materialIcon('arrow_back', 'tag-page__back-icon')}
+            <span>返回</span>
+          </button>
+          <h1 class="tag-page__title" id="tag-page-title">标签广场</h1>
+        </header>
+        <nav class="tag-page__tabs" id="tag-page-tabs" aria-label="标签内容分类">
+          <button type="button" class="tag-page__tab is-active" data-tag-tab="latest">最新</button>
+          <button type="button" class="tag-page__tab" data-tag-tab="video">视频</button>
+          <button type="button" class="tag-page__tab" data-tag-tab="article">文章</button>
+        </nav>
+        <p class="home-feed__status" id="tag-page-status" hidden role="status"></p>
+        <div class="content-grid tag-page__grid" id="tag-page-grid"></div>
+        <p class="tag-page__hint" id="tag-page-hint" hidden></p>
+      </div>
     </div>`;
 }
 
@@ -422,6 +445,7 @@ export function setPage(pageId) {
   main?.classList.toggle('content--space', pageId === 'space');
   main?.classList.toggle('content--follow-list', pageId === 'follow-list');
   main?.classList.toggle('content--search', pageId === 'search');
+  main?.classList.toggle('content--tag', pageId === 'tag');
 
   const homeTabs = document.getElementById('topbar-tabs-home');
   homeTabs?.toggleAttribute('hidden', pageId !== 'home');
@@ -433,13 +457,17 @@ export function setPage(pageId) {
       pageId === 'watch' ||
         pageId === 'article' ||
         pageId === 'space' ||
-        pageId === 'follow-list',
+        pageId === 'follow-list' ||
+        pageId === 'tag',
     );
 
   syncPagesAuthState();
 
   if (pageId === 'search') {
     void import('./search-page.js').then((mod) => mod.onSearchPageEnter());
+  }
+  if (pageId === 'tag') {
+    void import('./tag-page.js').then((mod) => mod.onTagPageEnter());
   }
   if (pageId === 'mine') {
     void import('./mine-page.js').then((mod) => mod.onMinePageEnter());
