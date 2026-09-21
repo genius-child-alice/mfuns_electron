@@ -55,8 +55,9 @@
   gap: 8px;
   min-height: 52px;
   padding: 0 8px 0 4px;
-  background: var(--accent);
-  color: #fff;
+  background: var(--bg-pane);
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .comment-composer__title {
@@ -85,13 +86,15 @@
 }
 
 .comment-composer__icon-btn:hover {
-  background: rgb(255 255 255 / 12%);
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 .comment-composer__submit {
   padding: 8px 12px;
   font-size: 15px;
   font-weight: 600;
+  color: var(--accent);
 }
 
 .comment-composer__submit:disabled {
