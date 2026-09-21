@@ -37,5 +37,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getVersion: () => ipcRenderer.invoke('app:getVersion'),
     setAutoLaunch: (enabled) => ipcRenderer.invoke('app:setAutoLaunch', enabled),
     getAutoLaunch: () => ipcRenderer.invoke('app:getAutoLaunch'),
+    getDesktopSettings: () => ipcRenderer.invoke('app:getDesktopSettings'),
+    setDesktopSettings: (patch) => ipcRenderer.invoke('app:setDesktopSettings', patch),
+    relaunch: () => ipcRenderer.invoke('app:relaunch'),
   },
 });

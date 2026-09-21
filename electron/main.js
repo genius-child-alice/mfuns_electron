@@ -1,7 +1,19 @@
-const { app, BrowserWindow, ipcMain, session, protocol, net } = require('electron');
+const { app, BrowserWindow, ipcMain, session, protocol, net, Tray, Menu, dialog } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const { pathToFileURL } = require('url');
+const {
+  readDesktopSettings,
+  writeDesktopSettings,
+  readDesktopSettingsForStartup,
+} = require('./desktop-settings');
+
+app.setName('MFuns');
+
+const startupDesktopSettings = readDesktopSettingsForStartup();
+if (startupDesktopSettings.disableGpuAcceleration) {
+  app.disableHardwareAcceleration();
+}
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -150,6 +162,125 @@ async function installMfunsMediaProtocol() {
 
 /** @type {BrowserWindow | null} */
 let mainWindow = null;
+/** @type {Tray | null} */
+let tray = null;
+let isQuitting = false;
+let closeDialogOpen = false;
+
+function destroyTray() {
+  tray?.destroy();
+  tray = null;
+}
+
+function hideMainWindowToTray() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (process.platform === 'win32') {
+    mainWindow.setSkipTaskbar(true);
+  }
+  mainWindow.hide();
+}
+
+function showMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    createWindow();
+    return;
+  }
+  if (process.platform === 'win32') {
+    mainWindow.setSkipTaskbar(false);
+  }
+  if (!mainWindow.isVisible()) mainWindow.show();
+  mainWindow.focus();
+}
+
+function ensureTray() {
+  const settings = readDesktopSettings();
+  if (settings.closeAction !== 'tray') {
+    destroyTray();
+    return;
+  }
+  if (tray) return;
+  try {
+    tray = new Tray(appIconPath);
+  } catch (err) {
+    console.error('系统托盘创建失败', err);
+    return;
+  }
+  tray.setToolTip('MFuns');
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: '显示主窗口',
+      click: () => {
+        showMainWindow();
+      },
+    },
+    { type: 'separator' },
+    {
+      label: '退出 MFuns',
+      click: () => {
+        isQuitting = true;
+        app.quit();
+      },
+    },
+  ]);
+  tray.setContextMenu(contextMenu);
+  tray.on('double-click', () => {
+    showMainWindow();
+  });
+  tray.on('click', () => {
+    showMainWindow();
+  });
+}
+
+async function promptAndClose() {
+  if (closeDialogOpen || !mainWindow || isQuitting) return;
+  closeDialogOpen = true;
+  const settings = readDesktopSettings();
+  const useTray = settings.closeAction === 'tray';
+  const buttons = useTray ? ['最小化到托盘', '退出 MFuns', '取消'] : ['退出 MFuns', '取消'];
+  const cancelId = buttons.length - 1;
+  try {
+    const { response } = await dialog.showMessageBox(mainWindow, {
+      type: 'question',
+      title: 'MFuns',
+      message: '确定要关闭主界面吗？',
+      buttons,
+      cancelId,
+      noLink: true,
+    });
+    if (useTray) {
+      if (response === 0) {
+        hideMainWindowToTray();
+        return;
+      }
+      if (response === 1) {
+        isQuitting = true;
+        mainWindow.close();
+        return;
+      }
+      return;
+    }
+    if (response === 0) {
+      isQuitting = true;
+      mainWindow.close();
+    }
+  } finally {
+    closeDialogOpen = false;
+  }
+}
+
+function handleMainWindowClose(event) {
+  if (isQuitting) return;
+  const settings = readDesktopSettings();
+  if (settings.promptOnClose) {
+    event.preventDefault();
+    void promptAndClose();
+    return;
+  }
+  if (settings.closeAction === 'tray') {
+    event.preventDefault();
+    hideMainWindowToTray();
+  }
+}
 
 /**
  * @param {string} url
@@ -194,6 +325,11 @@ function openInAppBrowser(url, title) {
 }
 
 function createWindow() {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    showMainWindow();
+    return;
+  }
+
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
@@ -218,9 +354,16 @@ function createWindow() {
     mainWindow?.show();
   });
 
+  mainWindow.on('close', handleMainWindowClose);
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
+
   if (isDev) {
     mainWindow.webContents.openDevTools({ mode: 'detach' });
   }
+
+  ensureTray();
 }
 
 ipcMain.on('window:minimize', () => mainWindow?.minimize());
@@ -341,6 +484,30 @@ ipcMain.handle('app:getAutoLaunch', () => {
   }
 });
 
+ipcMain.handle('app:getDesktopSettings', () => ({
+  ok: true,
+  settings: readDesktopSettings(),
+}));
+
+ipcMain.handle('app:setDesktopSettings', (_event, patch) => {
+  try {
+    const settings = writeDesktopSettings(patch ?? {});
+    ensureTray();
+    return { ok: true, settings };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : '保存失败',
+    };
+  }
+});
+
+ipcMain.handle('app:relaunch', () => {
+  app.relaunch();
+  app.exit(0);
+  return { ok: true };
+});
+
 app.whenReady().then(async () => {
   await installMfunsMediaProtocol();
   await installMfunsOfflineProtocol();
@@ -351,14 +518,30 @@ app.whenReady().then(async () => {
   createWindow();
 
   app.on('activate', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      showMainWindow();
+      return;
+    }
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
     }
   });
 });
 
+app.on('before-quit', () => {
+  isQuitting = true;
+});
+
 app.on('window-all-closed', () => {
+  const settings = readDesktopSettings();
+  if (settings.closeAction === 'tray' && !isQuitting) {
+    return;
+  }
   if (process.platform !== 'darwin') {
     app.quit();
   }
+});
+
+app.on('will-quit', () => {
+  destroyTray();
 });

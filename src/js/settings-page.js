@@ -130,6 +130,96 @@ export function bindSettingsPage(options = {}) {
 
   bindSettingsAnchorNav();
   bindAppSettingsControls();
+  bindDesktopSettingsControls();
+}
+
+/** @returns {boolean} */
+function isDesktopClient() {
+  return Boolean(window.electronAPI?.app?.getDesktopSettings);
+}
+
+/** @type {boolean | null} */
+let desktopGpuAtLoad = null;
+
+function updateDesktopGpuRelaunchHint() {
+  const relaunchBtn = document.getElementById('setting-relaunch-app');
+  const gpu = document.getElementById('setting-disable-gpu');
+  if (!(relaunchBtn instanceof HTMLButtonElement) || !(gpu instanceof HTMLInputElement)) return;
+  if (desktopGpuAtLoad === null) {
+    relaunchBtn.hidden = true;
+    return;
+  }
+  relaunchBtn.hidden = gpu.checked === desktopGpuAtLoad;
+}
+
+async function syncDesktopSettingsForm() {
+  const block = document.getElementById('settings-desktop-client-block');
+  if (!isDesktopClient()) {
+    block?.setAttribute('hidden', '');
+    return;
+  }
+  block?.removeAttribute('hidden');
+  const res = await window.electronAPI.app.getDesktopSettings();
+  if (!res?.ok || !res.settings) return;
+  const { disableGpuAcceleration, closeAction, promptOnClose } = res.settings;
+  if (desktopGpuAtLoad === null) {
+    desktopGpuAtLoad = Boolean(disableGpuAcceleration);
+  }
+  const gpu = document.getElementById('setting-disable-gpu');
+  if (gpu instanceof HTMLInputElement) gpu.checked = Boolean(disableGpuAcceleration);
+  const prompt = document.getElementById('setting-prompt-on-close');
+  if (prompt instanceof HTMLInputElement) prompt.checked = promptOnClose !== false;
+  const closeRadio = document.querySelector(
+    `input[name="setting-close-action"][value="${closeAction === 'tray' ? 'tray' : 'quit'}"]`,
+  );
+  if (closeRadio instanceof HTMLInputElement) closeRadio.checked = true;
+  updateDesktopGpuRelaunchHint();
+}
+
+async function persistDesktopSettings(patch) {
+  if (!isDesktopClient()) return null;
+  const res = await window.electronAPI.app.setDesktopSettings(patch);
+  if (!res?.ok) {
+    notify(res?.error || '桌面设置保存失败', 'error');
+    return null;
+  }
+  return res.settings;
+}
+
+function bindDesktopSettingsControls() {
+  void syncDesktopSettingsForm();
+
+  document.getElementById('setting-disable-gpu')?.addEventListener('change', async (event) => {
+    const checked = /** @type {HTMLInputElement} */ (event.currentTarget).checked;
+    const settings = await persistDesktopSettings({ disableGpuAcceleration: checked });
+    if (!settings) {
+      await syncDesktopSettingsForm();
+      return;
+    }
+    updateDesktopGpuRelaunchHint();
+    notify('GPU 设置已保存，请重启应用后生效', 'info');
+  });
+
+  document.getElementById('setting-prompt-on-close')?.addEventListener('change', async (event) => {
+    const checked = /** @type {HTMLInputElement} */ (event.currentTarget).checked;
+    const settings = await persistDesktopSettings({ promptOnClose: checked });
+    if (!settings) await syncDesktopSettingsForm();
+  });
+
+  document.querySelectorAll('input[name="setting-close-action"]').forEach((input) => {
+    input.addEventListener('change', async (event) => {
+      const el = /** @type {HTMLInputElement} */ (event.currentTarget);
+      if (!el.checked) return;
+      const closeAction = el.value === 'tray' ? 'tray' : 'quit';
+      const settings = await persistDesktopSettings({ closeAction });
+      if (!settings) await syncDesktopSettingsForm();
+      else notify(closeAction === 'tray' ? '关闭时将最小化到托盘' : '关闭时将退出应用');
+    });
+  });
+
+  document.getElementById('setting-relaunch-app')?.addEventListener('click', () => {
+    void window.electronAPI?.app?.relaunch?.();
+  });
 }
 
 function formatBytes(bytes) {
@@ -165,6 +255,7 @@ function syncAppSettingsForm() {
   }
   void refreshOfflineUsageLabel();
   void syncAutoLaunchFromSystem();
+  void syncDesktopSettingsForm();
 }
 
 async function syncAutoLaunchFromSystem() {

@@ -890,6 +890,44 @@ export function settingsPageHtml() {
                   <label class="settings-checkbox"><input type="checkbox" id="setting-auto-launch" /> 登录系统时自动启动 MFuns</label>
                 </div>
               </div>
+              <div id="settings-desktop-client-block" hidden>
+                <div class="settings-row settings-row--top">
+                  <div class="settings-row__label">
+                    <span class="settings-row__title">禁用 GPU 加速</span>
+                    <span class="settings-row__hint">界面异常或模糊时可尝试勾选，需重启应用</span>
+                  </div>
+                  <div class="settings-row__control settings-row__control--stack">
+                    <label class="settings-checkbox"><input type="checkbox" id="setting-disable-gpu" /> 禁用 GPU 加速</label>
+                    <button type="button" class="btn-secondary settings-row__save" id="setting-relaunch-app" hidden>重启应用</button>
+                  </div>
+                </div>
+                <div class="settings-row settings-row--top">
+                  <div class="settings-row__label">
+                    <span class="settings-row__title">关闭主界面时</span>
+                  </div>
+                  <div class="settings-row__control settings-row__control--stack">
+                    <div class="settings-radio-group" role="radiogroup" aria-label="关闭主界面时">
+                      <label class="settings-radio">
+                        <input type="radio" name="setting-close-action" value="tray" />
+                        最小化到系统托盘
+                      </label>
+                      <label class="settings-radio">
+                        <input type="radio" name="setting-close-action" value="quit" checked />
+                        退出 MFuns
+                      </label>
+                    </div>
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span class="settings-row__title">关闭时提示</span>
+                    <span class="settings-row__hint">点击关闭按钮时弹出确认</span>
+                  </div>
+                  <div class="settings-row__control">
+                    <label class="settings-checkbox"><input type="checkbox" id="setting-prompt-on-close" checked /> 关闭时提示</label>
+                  </div>
+                </div>
+              </div>
             </section>
 
             <hr class="settings-divider" aria-hidden="true" />
