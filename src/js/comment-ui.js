@@ -130,6 +130,22 @@ function renderCommentReactionButtons(item) {
 }
 
 /**
+ * @param {number} rootCommentId
+ */
+function renderRootReplyButton(rootCommentId) {
+  return `<button type="button" class="watch-comment__reply-btn" data-comment-reply="${rootCommentId}">回复</button>`;
+}
+
+/**
+ * @param {CommunityComment} reply
+ * @param {number} rootCommentId
+ */
+function renderNestedReplyButton(reply, rootCommentId) {
+  if (reply.authorId == null || reply.authorId <= 0) return '';
+  return `<button type="button" class="watch-comment__reply-btn" data-comment-reply-to="${reply.id}" data-comment-reply-root="${rootCommentId}" data-comment-reply-name="${escapeHtml(reply.authorName)}" data-comment-reply-user="${reply.authorId}">回复</button>`;
+}
+
+/**
  * @param {CommunityComment} item
  * @param {{ bodyIdPrefix: string, compact?: boolean, replyActionHtml?: string, currentUserId?: number | null, rootCommentId?: number }} options
  */
@@ -160,8 +176,10 @@ function renderCommentRow(item, options) {
         ${author}
         <div class="watch-comment__text markdown-body" id="${options.bodyIdPrefix}-${item.id}"></div>
         <div class="watch-comment__meta">
-          ${renderCommentReactionButtons(item)}
-          ${extraMeta}
+          <div class="watch-comment__meta-main">
+            ${renderCommentReactionButtons(item)}
+            ${extraMeta}
+          </div>
           ${deleteBtn}
         </div>
       </div>
@@ -188,15 +206,12 @@ function renderReplyThreadHtml(comment, thread, rootCommentId, options) {
   } else {
     body = thread.items
       .map((reply) => {
-        const replyBtn = reply.authorId
-          ? `<button type="button" class="watch-comment__reply-btn" data-comment-reply-to="${reply.id}" data-comment-reply-root="${rootCommentId}" data-comment-reply-name="${escapeHtml(reply.authorName)}" data-comment-reply-user="${reply.authorId}">回复</button>`
-          : '';
         return renderCommentRow(reply, {
           bodyIdPrefix: options.replyBodyIdPrefix,
           compact: true,
           currentUserId: options.currentUserId,
           rootCommentId,
-          replyActionHtml: replyBtn,
+          replyActionHtml: renderNestedReplyButton(reply, rootCommentId),
         });
       })
       .join('');
@@ -246,17 +261,25 @@ export function renderCommentsHtml(comments, options) {
           })
         : '';
 
+      const replyToggleHtml =
+        replyTotal > 0 || thread.expanded
+          ? `<div class="watch-comment-thread__actions">
+              <button type="button" class="watch-comment__reply-toggle" data-comment-replies-toggle="${item.id}">
+                ${materialIcon(thread.expanded ? 'expand_less' : 'expand_more', 'watch-comment__reply-toggle-icon')}
+                <span>${toggleLabel}</span>
+              </button>
+            </div>`
+          : '';
+
       return `
         <div class="watch-comment-thread" data-comment-thread="${item.id}">
-          ${renderCommentRow(item, { bodyIdPrefix: options.bodyIdPrefix, currentUserId, rootCommentId: item.id })}
-          <div class="watch-comment-thread__actions">
-            ${
-              replyTotal > 0 || thread.expanded
-                ? `<button type="button" class="watch-comment__reply-toggle" data-comment-replies-toggle="${item.id}">${toggleLabel}</button>`
-                : ''
-            }
-            <button type="button" class="watch-comment__reply-btn" data-comment-reply="${item.id}">回复</button>
-          </div>
+          ${renderCommentRow(item, {
+            bodyIdPrefix: options.bodyIdPrefix,
+            currentUserId,
+            rootCommentId: item.id,
+            replyActionHtml: renderRootReplyButton(item.id),
+          })}
+          ${replyToggleHtml}
           ${threadHtml}
         </div>`;
     })
