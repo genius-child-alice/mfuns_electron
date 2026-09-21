@@ -95,7 +95,7 @@ function parseArticleDetail(seed, data) {
       ? asMap(root.user)
       : asMap(resource.user);
   const like = asMap(asMap(root.like_status).like);
-  const category = asMap(resource.category);
+  const category = asMap(resource.category ?? root.category);
 
   const mergedRaw = { ...root, ...resource, resource_info: resource };
   const parsed = parseContentPreview(mergedRaw);
@@ -132,9 +132,12 @@ function parseArticleDetail(seed, data) {
     },
     rawContent,
     tags: [
-      ...parseTags(root.tags),
-      ...parseTags(resource.tags ?? resource.tag),
-      ...(category.name ? [`${category.name}`] : []),
+      ...new Set([
+        ...parseTags(root.tags),
+        ...parseTags(root.tag),
+        ...parseTags(resource.tags ?? resource.tag),
+        ...(category.name ? [`${category.name}`] : []),
+      ]),
     ],
     commentAreaId:
       asInt(resource.comment_area_id ?? root.comment_area_id ?? root.commentId) ?? null,
