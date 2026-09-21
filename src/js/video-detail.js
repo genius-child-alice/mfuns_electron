@@ -25,6 +25,11 @@ import { openRewardDialog } from './reward-ui.js';
 import { openShareDialog } from './share-ui.js';
 import { coinInteractLabel, favoriteInteractLabel } from './interact-bar-labels.js';
 import {
+  downloadVideoToOffline,
+  findOfflineEntry,
+  offlinePlaybackSrc,
+} from './offline-cache-store.js';
+import {
   isInWatchLater,
   resolveWatchLaterUserId,
   toggleWatchLater,
@@ -67,6 +72,8 @@ let favoriteListId = null;
 let rewardCount = 0;
 let favoriteCount = 0;
 let watchLater = false;
+let offlineCached = false;
+let offlineDownloading = false;
 
 /** @type {ContentPreview[]} */
 let relatedItems = [];
@@ -221,6 +228,10 @@ function renderIntroToolbar() {
       <button type="button" class="watch-interact-bar__item ${watchLater ? 'is-active' : ''}" id="watch-later-btn" title="稍后再看">
         <span class="watch-interact-bar__icon">${materialIcon('schedule')}</span>
         <span class="watch-interact-bar__label">${watchLater ? '已添加' : '稍后再看'}</span>
+      </button>
+      <button type="button" class="watch-interact-bar__item ${offlineCached ? 'is-active' : ''}" id="watch-offline-btn" title="离线缓存" ${offlineDownloading ? 'disabled' : ''}>
+        <span class="watch-interact-bar__icon">${materialIcon('download')}</span>
+        <span class="watch-interact-bar__label">${offlineDownloading ? '缓存中' : offlineCached ? '已缓存' : '缓存'}</span>
       </button>
       <button type="button" class="watch-interact-bar__item" id="watch-share-btn">
         <span class="watch-interact-bar__icon">${materialIcon('share')}</span>
@@ -433,6 +444,29 @@ function bindSidePanelEvents() {
     renderSidePanel();
   });
 
+  document.getElementById('watch-offline-btn')?.addEventListener('click', () => {
+    if (!currentDetail || offlineCached || offlineDownloading) return;
+    if (!window.electronAPI?.offline?.download) {
+      notify('离线缓存仅支持桌面客户端', 'error');
+      return;
+    }
+    offlineDownloading = true;
+    renderSidePanel();
+    void downloadVideoToOffline(currentDetail.preview, activePartIndex, (msg) => {
+      notify(msg, 'info');
+    })
+      .then(() => {
+        offlineCached = true;
+      })
+      .catch((err) => {
+        notify(err instanceof Error ? err.message : '缓存失败', 'error');
+      })
+      .finally(() => {
+        offlineDownloading = false;
+        renderSidePanel();
+      });
+  });
+
   document.getElementById('watch-fav-btn')?.addEventListener('click', () => {
     if (!currentDetail) return;
     void toggleResourceFavorite({
@@ -572,6 +606,8 @@ export async function openVideoDetail(preview) {
   dislikeCount = 0;
   commentReplyStore.clear();
   watchLater = isInWatchLater(resolveWatchLaterUserId(), preview.id, 1);
+  offlineCached = Boolean(findOfflineEntry(preview.id, 0));
+  offlineDownloading = false;
   authorFans = 0;
   authorTotalLikes = 0;
   setLoading(true);
@@ -589,6 +625,20 @@ export async function openVideoDetail(preview) {
     currentParts = parts;
     rewardCount = detail.rewardCount;
     favoriteCount = detail.favoriteCount;
+    offlineCached = Boolean(findOfflineEntry(preview.id, activePartIndex));
+
+    const offline = findOfflineEntry(preview.id, activePartIndex);
+    const offlineSrc = offline ? offlinePlaybackSrc(offline.fileName) : null;
+    if (offlineSrc && parts[activePartIndex]) {
+      parts[activePartIndex].qualities = [
+        {
+          part: parts[activePartIndex].part,
+          name: '离线',
+          label: offline.qualityLabel,
+          url: offlineSrc,
+        },
+      ];
+    }
 
     const poster = detail.preview.cover ? mediaSrcForCover(detail.preview.cover) : null;
     if (parts.length > 0) {

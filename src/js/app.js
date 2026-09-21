@@ -53,6 +53,7 @@ import { bindPromptDialog, promptDialogHtml } from './prompt-dialog.js';
 import { bindUserSpace } from './user-space.js';
 import { bindFollowList } from './follow-list.js';
 import { bindMinePage, refreshMinePage } from './mine-page.js';
+import { mergeGuestWatchLaterIntoUser } from './watch-later-store.js';
 import { bindSearchPage } from './search-page.js';
 import { bindTagPage } from './tag-page.js';
 import { bindImageViewer } from './image-viewer.js';
@@ -643,6 +644,12 @@ function bindLogin() {
         await loginWithPassword(accountInput?.value ?? '', passwordInput?.value ?? '');
       } else {
         await loginWithSms(phoneInput?.value ?? '', smsCodeInput?.value ?? '');
+      }
+      const session = loadSession();
+      const uid = Number(session?.user?.id ?? session?.user?.user_id);
+      if (Number.isFinite(uid) && uid > 0) {
+        const merged = mergeGuestWatchLaterIntoUser(uid);
+        if (merged > 0) notify(`已合并 ${merged} 条稍后再看到账号`, 'success');
       }
       syncLoginUi();
       dialog?.close();

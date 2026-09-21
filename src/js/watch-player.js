@@ -21,6 +21,7 @@ function isHlsUrl(url) {
 
 /** @param {string} url */
 function proxyMediaUrl(url) {
+  if (url.startsWith('mfuns-offline://')) return url;
   return mediaPlaybackSrc(url) ?? url;
 }
 

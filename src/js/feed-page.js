@@ -6,6 +6,7 @@ import { getCurrentPage } from './pages.js';
 import {
   fetchAllFollowing,
   fetchFollowingFeeds,
+  fetchNewReplyFeeds,
   fetchUserFeeds,
 } from './user-profile-api.js';
 import {
@@ -23,6 +24,9 @@ import { openUserSpace } from './user-space.js';
 let filterUserId = null;
 
 let feedStartId = -1;
+let globalPage = 1;
+/** @type {'following' | 'global'} */
+let feedStreamMode = 'following';
 let loading = false;
 let hasMore = true;
 let asideBound = false;
@@ -67,7 +71,10 @@ function setHint(html, visible = true) {
 function syncAsideActive() {
   document.querySelectorAll('[data-feed-filter]').forEach((btn) => {
     const raw = btn.getAttribute('data-feed-filter');
-    const active = raw === 'all' ? filterUserId == null : Number(raw) === filterUserId;
+    let active = false;
+    if (raw === 'all') active = filterUserId == null && feedStreamMode === 'following';
+    else if (raw === 'global') active = filterUserId == null && feedStreamMode === 'global';
+    else active = Number(raw) === filterUserId;
     btn.classList.toggle('is-active', active);
   });
 }
@@ -116,21 +123,36 @@ async function loadFeedPage(first) {
   try {
     const session = loadSession();
     const selfId = sessionUserId(session?.user);
-    if (!filterUserId && !selfId) {
-      setHint('请先登录', true);
+    if (!filterUserId && feedStreamMode === 'following' && !selfId) {
+      setHint('请先登录查看关注动态，或切换到全站动态', true);
       hasMore = false;
       return;
     }
 
     /** @type {TimelineFeedItem[]} */
-    const items = filterUserId
-      ? await fetchUserFeeds(filterUserId, first ? -1 : feedStartId)
-      : await fetchFollowingFeeds(first ? -1 : feedStartId, selfId);
+    let items;
+    if (filterUserId) {
+      items = await fetchUserFeeds(filterUserId, first ? -1 : feedStartId);
+    } else if (feedStreamMode === 'global') {
+      const page = first ? 1 : globalPage + 1;
+      items = await fetchNewReplyFeeds(page, 20);
+      globalPage = page;
+      if (first) feedStartId = -1;
+    } else {
+      items = await fetchFollowingFeeds(first ? -1 : feedStartId, selfId);
+    }
 
     if (first) {
       getListEl()?.replaceChildren();
       if (items.length === 0) {
-        setHint(filterUserId ? 'TA 还没有发布动态' : '暂无关注动态，去关注一些 UP 主吧', true);
+        setHint(
+          filterUserId
+            ? 'TA 还没有发布动态'
+            : feedStreamMode === 'global'
+              ? '暂无全站动态'
+              : '暂无关注动态，去关注一些 UP 主吧',
+          true,
+        );
         hasMore = false;
         return;
       }
@@ -149,7 +171,9 @@ async function loadFeedPage(first) {
       setHint('没有更多了', true);
     }
 
-    if (items.length > 0) {
+    if (feedStreamMode === 'global') {
+      hasMore = items.length >= 20;
+    } else if (items.length > 0) {
       const last = items[items.length - 1];
       feedStartId = last.id;
       hasMore = true;
@@ -193,8 +217,22 @@ async function loadAside() {
  */
 function selectFeedFilter(userId) {
   filterUserId = userId;
+  if (userId != null) feedStreamMode = 'following';
   syncAsideActive();
   resetFeedState();
+  globalPage = 1;
+  void loadFeedPage(true);
+}
+
+/**
+ * @param {'following' | 'global'} mode
+ */
+function selectFeedStream(mode) {
+  feedStreamMode = mode;
+  filterUserId = null;
+  syncAsideActive();
+  resetFeedState();
+  globalPage = 1;
   void loadFeedPage(true);
 }
 
@@ -203,7 +241,11 @@ function onAsideClick(event) {
   if (!btn) return;
   const raw = btn.getAttribute('data-feed-filter');
   if (raw === 'all') {
-    selectFeedFilter(null);
+    selectFeedStream('following');
+    return;
+  }
+  if (raw === 'global') {
+    selectFeedStream('global');
     return;
   }
   const id = Number.parseInt(raw ?? '', 10);
@@ -221,11 +263,12 @@ function onFeedScroll() {
 
 export function onFeedPageEnter() {
   if (getCurrentPage() !== 'feed') return;
-  if (!isLoggedIn()) return;
   resetFeedState();
   filterUserId = null;
+  feedStreamMode = isLoggedIn() ? 'following' : 'global';
+  globalPage = 1;
   syncAsideActive();
-  void loadAside();
+  if (isLoggedIn()) void loadAside();
   void loadFeedPage(true);
 }
 

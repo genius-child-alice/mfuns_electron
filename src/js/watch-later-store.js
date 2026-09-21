@@ -210,3 +210,52 @@ export function toggleWatchLater(userId, preview) {
 
 /** @deprecated 使用 toggleWatchLater */
 export const toggleVideoWatchLater = toggleWatchLater;
+
+/**
+ * 登录后将 guest 桶合并进账号桶（同 id+type 保留较新 addedAt）。
+ * @param {number} userId
+ * @returns {number} 合并条数
+ */
+export function mergeGuestWatchLaterIntoUser(userId) {
+  if (!Number.isFinite(userId) || userId <= 0) return 0;
+  const buckets = loadBuckets();
+  const guestList = buckets.guest;
+  if (!Array.isArray(guestList) || guestList.length === 0) return 0;
+
+  const userKey = bucketKey(userId);
+  const userList = Array.isArray(buckets[userKey]) ? [...buckets[userKey]] : [];
+  /** @type {Map<string, WatchLaterEntry>} */
+  const merged = new Map();
+
+  for (const entry of userList) {
+    if (!isSupportedWatchLaterEntry(entry)) continue;
+    merged.set(`${entry.type}:${entry.id}`, entry);
+  }
+
+  let added = 0;
+  for (const entry of guestList) {
+    if (!isSupportedWatchLaterEntry(entry)) continue;
+    const key = `${entry.type}:${entry.id}`;
+    const existing = merged.get(key);
+    if (!existing) {
+      merged.set(key, entry);
+      added += 1;
+      continue;
+    }
+    const existingTime = Date.parse(existing.addedAt ?? '') || 0;
+    const guestTime = Date.parse(entry.addedAt ?? '') || 0;
+    if (guestTime > existingTime) merged.set(key, entry);
+  }
+
+  const nextList = [...merged.values()].sort((a, b) => {
+    const ta = Date.parse(a.addedAt ?? '') || 0;
+    const tb = Date.parse(b.addedAt ?? '') || 0;
+    return tb - ta;
+  });
+
+  buckets[userKey] = nextList.slice(0, MAX_ITEMS);
+  delete buckets.guest;
+  saveBuckets(buckets);
+  if (added > 0) notifyWatchLaterChanged();
+  return added;
+}

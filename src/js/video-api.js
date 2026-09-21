@@ -1,4 +1,5 @@
 import { API_BASE, loadSession } from './auth.js';
+import { loadAppSettings } from './app-preferences.js';
 import {
   apiGet,
   apiPostJson,
@@ -620,7 +621,15 @@ export function getQualitiesForPart(parts, partIndex) {
  * @param {number} [partIndex]
  */
 export function pickDefaultQuality(parts, partIndex = 0) {
-  const qualities = getQualitiesForPart(parts, partIndex);
+  const qualities = sortQualitiesDesc(getQualitiesForPart(parts, partIndex));
   if (qualities.length === 0) return null;
-  return sortQualitiesDesc(qualities)[0];
+  const pref = loadAppSettings().defaultQuality;
+  if (pref !== 'auto') {
+    const target = Number.parseInt(pref, 10);
+    const match =
+      qualities.find((q) => qualityPixels(q) === target) ??
+      qualities.find((q) => qualityPixels(q) <= target);
+    if (match) return match;
+  }
+  return qualities[0];
 }

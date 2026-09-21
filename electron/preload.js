@@ -18,4 +18,24 @@ contextBridge.exposeInMainWorld('electronAPI', {
      */
     open: (url, title) => ipcRenderer.invoke('browser:open', { url, title }),
   },
+  offline: {
+    /**
+     * @param {string} url
+     * @param {string} relPath
+     */
+    download: (url, relPath) => ipcRenderer.invoke('offline:download', { url, relPath }),
+    /** @param {string} relPath */
+    delete: (relPath) => ipcRenderer.invoke('offline:delete', { relPath }),
+    clearAll: () => ipcRenderer.invoke('offline:clearAll'),
+    getUsage: () => ipcRenderer.invoke('offline:getUsage'),
+    /**
+     * @param {string} relPath
+     */
+    playbackSrc: (relPath) => `mfuns-offline://load?f=${encodeURIComponent(relPath)}`,
+  },
+  app: {
+    getVersion: () => ipcRenderer.invoke('app:getVersion'),
+    setAutoLaunch: (enabled) => ipcRenderer.invoke('app:setAutoLaunch', enabled),
+    getAutoLaunch: () => ipcRenderer.invoke('app:getAutoLaunch'),
+  },
 });

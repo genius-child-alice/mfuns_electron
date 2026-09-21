@@ -566,3 +566,75 @@ export function normalizeGenderValue(value) {
   if (value === 2 || value === '2' || value === '女' || value === 'female') return 2;
   return 0;
 }
+
+/** @typedef {{ id: number, name: string, tag: string, description: string, icon: string | null, count: number }} BackpackItem */
+
+/** @typedef {{ levelId: number, experience: number }} LevelSection */
+
+/**
+ * @param {unknown} data
+ * @returns {BackpackItem[]}
+ */
+function parseBackpackList(data) {
+  const root = asMap(data);
+  const list = Array.isArray(data) ? data : root.list ?? root.items;
+  if (!Array.isArray(list)) return [];
+  return list
+    .map((raw) => {
+      const item = asMap(raw);
+      const id = asInt(item.id) ?? 0;
+      return {
+        id,
+        name: `${item.name ?? ''}`.trim() || '物品',
+        tag: `${item.tag ?? ''}`.trim(),
+        description: `${item.description ?? item.desc ?? ''}`.trim(),
+        icon: resolveCoverUrl(item.icon),
+        count: asInt(item.count) ?? 0,
+      };
+    })
+    .filter((item) => item.id > 0);
+}
+
+/**
+ * @returns {Promise<BackpackItem[]>}
+ */
+export async function fetchUserBackpack() {
+  const data = await apiGet('/v1/user/get_user_backpack');
+  return parseBackpackList(data);
+}
+
+/**
+ * @param {unknown} data
+ * @returns {LevelSection[]}
+ */
+function parseLevelSections(data) {
+  const list = Array.isArray(data) ? data : asMap(data).list;
+  if (!Array.isArray(list)) return [];
+  return list
+    .map((raw) => {
+      const item = asMap(raw);
+      const levelId = asInt(item.level_id ?? item.id) ?? 0;
+      const experience = asInt(item.experience ?? item.exp) ?? 0;
+      return { levelId, experience };
+    })
+    .filter((item) => item.levelId > 0)
+    .sort((a, b) => a.levelId - b.levelId);
+}
+
+/**
+ * @returns {Promise<LevelSection[]>}
+ */
+export async function fetchLevelSections() {
+  const data = await apiGet('/v1/user/level_section');
+  return parseLevelSections(data);
+}
+
+/**
+ * @param {number} [page]
+ * @param {number} [size]
+ * @returns {Promise<TimelineFeedItem[]>}
+ */
+export async function fetchNewReplyFeeds(page = 1, size = 20) {
+  const data = await apiGet('/v1/feeds/new_reply_list', { page, size, html: 1 });
+  return parseTimelineFeedList(data);
+}

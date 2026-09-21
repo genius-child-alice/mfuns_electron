@@ -444,7 +444,11 @@ export function feedPageHtml() {
           <nav class="feed-page__aside-inner" id="feed-page-aside" data-auth-only hidden>
             <button type="button" class="feed-page__nav feed-page__nav--all is-active" data-feed-filter="all">
               ${materialIcon('auto_awesome', 'feed-page__nav-icon')}
-              <span>全部动态</span>
+              <span>关注动态</span>
+            </button>
+            <button type="button" class="feed-page__nav feed-page__nav--global" data-feed-filter="global">
+              ${materialIcon('public', 'feed-page__nav-icon')}
+              <span>全站动态</span>
             </button>
             <div class="feed-page__aside-divider" aria-hidden="true"></div>
             <div class="feed-page__follow-list" id="feed-page-follow-list"></div>
@@ -460,7 +464,7 @@ export function feedPageHtml() {
             </button>
           </header>
           ${guestBanner('登录账号，查看你关注的 UP 主内容')}
-          <div class="feed-page__stream" data-auth-only hidden>
+          <div class="feed-page__stream">
             <div class="feed-page__scroll" id="feed-page-scroll">
               <div id="feed-page-list"></div>
               <p class="feed-page__hint" id="feed-page-hint" hidden></p>
@@ -509,17 +513,7 @@ export function minePageHtml() {
             </div>
             <button type="button" class="mine-profile__space" id="btn-open-my-space">空间 &gt;</button>
           </div>
-          <div class="mine-creator-links" data-auth-only hidden>
-            <button type="button" class="mine-creator-links__item" id="mine-open-contribute">
-              ${materialIcon('upload', 'mine-creator-links__icon')}
-              <span>创作中心</span>
-              <small id="mine-submission-count"></small>
-            </button>
-            <button type="button" class="mine-creator-links__item" id="mine-compose-feed">
-              ${materialIcon('edit_note', 'mine-creator-links__icon')}
-              <span>发布动态</span>
-            </button>
-          </div>
+          <div class="mine-sign-card" id="mine-sign-card" data-auth-only hidden></div>
         </div>
 
         <div class="mine-page__toolbar">
@@ -814,11 +808,137 @@ export function settingsPageHtml() {
                 </div>
               </div>
             </section>
+
+            <hr class="settings-divider" aria-hidden="true" />
+
+            <section class="settings-block settings-section" id="settings-section-account-extra" aria-labelledby="settings-account-extra-heading" hidden>
+              <h2 class="settings-block__title" id="settings-account-extra-heading">账号与背包</h2>
+              <div class="settings-row settings-row--top">
+                <div class="settings-row__label">
+                  <span class="settings-row__title">等级经验</span>
+                </div>
+                <div class="settings-row__control" id="settings-level-sections">加载中…</div>
+              </div>
+              <div class="settings-row settings-row--top">
+                <div class="settings-row__label">
+                  <span class="settings-row__title">我的背包</span>
+                </div>
+                <div class="settings-row__control" id="settings-backpack-list">加载中…</div>
+              </div>
+            </section>
+
+            <hr class="settings-divider" aria-hidden="true" />
+
+            <section class="settings-block settings-section" id="settings-section-playback" aria-labelledby="settings-playback-heading">
+              <h2 class="settings-block__title" id="settings-playback-heading">播放设置</h2>
+              <div class="settings-row">
+                <div class="settings-row__label">
+                  <span class="settings-row__title">默认清晰度</span>
+                </div>
+                <div class="settings-row__control">
+                  <select class="settings-select" id="setting-default-quality">
+                    <option value="auto">自动（最高）</option>
+                    <option value="1080">1080P</option>
+                    <option value="720">720P</option>
+                    <option value="480">480P</option>
+                    <option value="360">360P</option>
+                  </select>
+                </div>
+              </div>
+              <div class="settings-row">
+                <div class="settings-row__label">
+                  <span class="settings-row__title">弹幕显示</span>
+                </div>
+                <div class="settings-row__control">
+                  <label class="settings-checkbox"><input type="checkbox" id="setting-danmaku-enabled" checked /> 开启弹幕</label>
+                </div>
+              </div>
+              <div class="settings-row">
+                <div class="settings-row__label">
+                  <span class="settings-row__title">弹幕不透明度</span>
+                </div>
+                <div class="settings-row__control settings-row__control--inline">
+                  <input type="range" id="setting-danmaku-opacity" min="20" max="100" value="100" />
+                  <span id="setting-danmaku-opacity-label">100%</span>
+                </div>
+              </div>
+            </section>
+
+            <hr class="settings-divider" aria-hidden="true" />
+
+            <section class="settings-block settings-section" id="settings-section-general" aria-labelledby="settings-general-heading">
+              <h2 class="settings-block__title" id="settings-general-heading">常规设置</h2>
+              <div class="settings-row">
+                <div class="settings-row__label">
+                  <span class="settings-row__title">开机自启</span>
+                  <span class="settings-row__hint">（仅桌面客户端）</span>
+                </div>
+                <div class="settings-row__control">
+                  <label class="settings-checkbox"><input type="checkbox" id="setting-auto-launch" /> 登录系统时自动启动 MFuns</label>
+                </div>
+              </div>
+            </section>
+
+            <hr class="settings-divider" aria-hidden="true" />
+
+            <section class="settings-block settings-section" id="settings-section-cache" aria-labelledby="settings-cache-heading">
+              <h2 class="settings-block__title" id="settings-cache-heading">缓存管理</h2>
+              <div class="settings-row settings-row--top">
+                <div class="settings-row__label">
+                  <span class="settings-row__title">离线缓存</span>
+                  <span class="settings-row__hint" id="settings-offline-usage">计算中…</span>
+                </div>
+                <div class="settings-row__control settings-row__control--stack">
+                  <button type="button" class="btn-secondary" id="btn-clear-offline-cache">清空离线视频</button>
+                </div>
+              </div>
+              <div class="settings-row settings-row--top">
+                <div class="settings-row__label">
+                  <span class="settings-row__title">稍后再看</span>
+                  <span class="settings-row__hint">本机列表</span>
+                </div>
+                <div class="settings-row__control">
+                  <button type="button" class="btn-secondary" id="btn-clear-watch-later">清空稍后再看</button>
+                </div>
+              </div>
+            </section>
+
+            <hr class="settings-divider" aria-hidden="true" />
+
+            <section class="settings-block settings-section" id="settings-section-shortcuts" aria-labelledby="settings-shortcuts-heading">
+              <h2 class="settings-block__title" id="settings-shortcuts-heading">快捷键</h2>
+              <ul class="settings-shortcuts">
+                <li><kbd>Space</kbd><span>播放 / 暂停</span></li>
+                <li><kbd>F</kbd><span>全屏</span></li>
+                <li><kbd>M</kbd><span>静音</span></li>
+                <li><kbd>←</kbd> / <kbd>→</kbd><span>快退 / 快进 5 秒</span></li>
+                <li><kbd>↑</kbd> / <kbd>↓</kbd><span>音量加减</span></li>
+              </ul>
+            </section>
+
+            <hr class="settings-divider" aria-hidden="true" />
+
+            <section class="settings-block settings-section" id="settings-section-about" aria-labelledby="settings-about-heading">
+              <h2 class="settings-block__title" id="settings-about-heading">关于 MFuns</h2>
+              <div class="settings-row">
+                <div class="settings-row__label">
+                  <span class="settings-row__title">版本</span>
+                </div>
+                <div class="settings-row__control" id="settings-app-version">-</div>
+              </div>
+              <p class="settings-about__text">MFuns 桌面客户端 · 社区 API <code>api.mfuns.net</code></p>
+            </section>
           </div>
           <nav class="settings-anchor" aria-label="设置目录">
             <ul class="settings-anchor__list">
               <li><a class="settings-anchor__link" href="#settings-section-profile" data-settings-anchor="profile">个人资料</a></li>
+              <li><a class="settings-anchor__link" href="#settings-section-account-extra" data-settings-anchor="account-extra">账号与背包</a></li>
               <li><a class="settings-anchor__link is-active" href="#settings-section-appearance" data-settings-anchor="appearance">外观</a></li>
+              <li><a class="settings-anchor__link" href="#settings-section-playback" data-settings-anchor="playback">播放设置</a></li>
+              <li><a class="settings-anchor__link" href="#settings-section-general" data-settings-anchor="general">常规设置</a></li>
+              <li><a class="settings-anchor__link" href="#settings-section-cache" data-settings-anchor="cache">缓存管理</a></li>
+              <li><a class="settings-anchor__link" href="#settings-section-shortcuts" data-settings-anchor="shortcuts">快捷键</a></li>
+              <li><a class="settings-anchor__link" href="#settings-section-about" data-settings-anchor="about">关于</a></li>
             </ul>
           </nav>
         </div>

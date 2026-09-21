@@ -26,7 +26,8 @@ import {
   removeFromWatchLater,
   resolveWatchLaterUserId,
 } from './watch-later-store.js';
-import { fetchSubmissionTotal } from './contribute-api.js';
+import { listOfflineCache, removeOfflineEntry } from './offline-cache-store.js';
+import { refreshSignCard } from './sign-ui.js';
 
 /** @typedef {import('./history-api.js').HistoryEntry} HistoryEntry */
 /** @typedef {'history' | 'offline' | 'favorite' | 'watchlater'} MineTabId */
@@ -98,21 +99,6 @@ function applyMineDashboard(stats) {
   if (fansEl) fansEl.textContent = formatCount(stats.fans);
 }
 
-async function loadSubmissionCount() {
-  const el = document.getElementById('mine-submission-count');
-  if (!el || !isLoggedIn()) return;
-  try {
-    const [articles, videos] = await Promise.all([
-      fetchSubmissionTotal(0),
-      fetchSubmissionTotal(1),
-    ]);
-    const total = articles + videos;
-    el.textContent = total > 0 ? `${total} 篇投稿` : '';
-  } catch {
-    el.textContent = '';
-  }
-}
-
 async function loadMineDashboard() {
   if (!isLoggedIn() || profileLoading) return;
   const userId = sessionUserId(loadSession()?.user);
@@ -122,7 +108,7 @@ async function loadMineDashboard() {
   try {
     const stats = await fetchMineDashboard(userId);
     applyMineDashboard(stats);
-    void loadSubmissionCount();
+    void refreshSignCard();
   } catch {
     applyMineDashboard({
       nekoCoin: 0,
@@ -803,8 +789,104 @@ function showTabPanel(tab) {
   }
 
   if (tab === 'offline') {
-    renderPanelPlaceholder('离线缓存功能开发中');
+    renderOfflineCacheView();
   }
+}
+
+function renderOfflineCacheView() {
+  const root = getRootEl();
+  if (!root) return;
+  const items = listOfflineCache();
+  if (!window.electronAPI?.offline) {
+    root.innerHTML =
+      '<p class="mine-history__empty">离线缓存仅支持 MFuns 桌面客户端</p>';
+    return;
+  }
+  if (items.length === 0) {
+    root.innerHTML = `
+      <div class="mine-offline">
+        <p class="mine-history__empty">暂无离线缓存</p>
+        <p class="mine-watchlater__hint">在视频页互动栏点击「缓存」下载到本机</p>
+      </div>`;
+    return;
+  }
+
+  root.innerHTML = `
+    <div class="mine-offline">
+      <header class="mine-watchlater__head">
+        <p class="mine-watchlater__meta">共 ${items.length} 个视频 · 保存在本机</p>
+      </header>
+      <div class="content-grid mine-offline__grid">
+        ${items
+          .map(
+            (item) => `
+          <div class="mine-offline-card" data-offline-id="${escapeHtml(item.id)}">
+            ${renderVideoCard({
+              id: item.videoId,
+              type: 1,
+              title: item.title,
+              cover: item.cover,
+              author: item.author,
+              authorId: null,
+              authorAvatar: null,
+              views: 0,
+              comments: 0,
+              duration: null,
+              createdAt: item.downloadedAt,
+            })}
+            <div class="mine-offline-card__meta">
+              <span>${escapeHtml(item.partTitle)} · ${escapeHtml(item.qualityLabel)}</span>
+              <button type="button" class="mine-offline-card__remove" data-offline-remove="${escapeHtml(item.id)}" aria-label="删除缓存">
+                ${materialIcon('delete_outline')}
+              </button>
+            </div>
+          </div>`,
+          )
+          .join('')}
+      </div>
+    </div>`;
+
+  root.querySelectorAll('.mine-offline-card .video-card').forEach((card) => {
+    card.addEventListener('click', (event) => {
+      if (/** @type {HTMLElement} */ (event.target).closest('[data-offline-remove]')) return;
+      const wrap = card.closest('.mine-offline-card');
+      const entryId = wrap?.getAttribute('data-offline-id');
+      const entry = items.find((item) => item.id === entryId);
+      if (!entry) return;
+      void openContentDetail({
+        id: entry.videoId,
+        type: 1,
+        title: entry.title,
+        cover: entry.cover,
+        author: entry.author,
+        authorId: null,
+        authorAvatar: null,
+        views: 0,
+        comments: 0,
+        duration: null,
+        createdAt: entry.downloadedAt,
+      });
+    });
+  });
+
+  root.querySelectorAll('[data-offline-remove]').forEach((btn) => {
+    btn.addEventListener('click', async (event) => {
+      event.stopPropagation();
+      const id = btn.getAttribute('data-offline-remove');
+      const entry = items.find((item) => item.id === id);
+      if (!entry) return;
+      const confirmed = await confirmAction({
+        title: '删除离线缓存',
+        message: `确定删除「${entry.title}」的缓存文件？`,
+        confirmText: '删除',
+        variant: 'danger',
+      });
+      if (!confirmed) return;
+      await removeOfflineEntry(entry);
+      renderOfflineCacheView();
+      notify('已删除离线缓存');
+    });
+  });
 }
 
 function shouldPrefetchMore(container) {
@@ -851,6 +933,9 @@ export function refreshMinePage() {
   if (getCurrentPage() === 'mine' && activeTab === 'watchlater') {
     refreshWatchLaterView();
   }
+  if (getCurrentPage() === 'mine' && activeTab === 'offline') {
+    renderOfflineCacheView();
+  }
 }
 
 export function onMinePageEnter() {
@@ -879,20 +964,12 @@ export function onMinePageEnter() {
   if (activeTab === 'watchlater') {
     refreshWatchLaterView();
   }
+  if (activeTab === 'offline') {
+    renderOfflineCacheView();
+  }
 }
 
 export function bindMinePage() {
-  document.getElementById('mine-open-contribute')?.addEventListener('click', () => {
-    void import('./contribute-page.js').then((mod) => mod.openContributePage('submission'));
-  });
-
-  document.getElementById('mine-compose-feed')?.addEventListener('click', () => {
-    void import('./contribute-page.js').then((mod) => {
-      mod.openContributePage('feed');
-      mod.openFeedComposeView();
-    });
-  });
-
   document.getElementById('mine-open-follows')?.addEventListener('click', () => {
     const session = loadSession();
     const userId = session?.user?.id ?? session?.user?.user_id;
@@ -944,6 +1021,12 @@ export function bindMinePage() {
 
   window.addEventListener('mfuns:watch-later-changed', () => {
     refreshWatchLaterIfActive();
+  });
+
+  window.addEventListener('mfuns:offline-cache-changed', () => {
+    if (getCurrentPage() === 'mine' && activeTab === 'offline') {
+      renderOfflineCacheView();
+    }
   });
 
   window.addEventListener('mfuns:favorite-changed', () => {

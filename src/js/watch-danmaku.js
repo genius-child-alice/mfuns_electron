@@ -1,3 +1,4 @@
+import { loadAppSettings, saveAppSettings } from './app-preferences.js';
 import { notify } from './notice-ui.js';
 import { fetchDanmakuList, sendDanmaku } from './danmaku-api.js';
 import { DanmakuRenderer } from './danmaku-renderer.js';
@@ -37,7 +38,18 @@ export class WatchDanmaku {
     this.video = null;
 
     this.bindEvents();
+    this.applyAppSettings();
     this.syncToggleIcon(Boolean(this.renderer?.enabled));
+  }
+
+  applyAppSettings() {
+    const settings = loadAppSettings();
+    const percent = Math.round(settings.danmakuOpacity * 100);
+    if (this.opacityRange) this.opacityRange.value = String(percent);
+    this.renderer?.setOptions({ opacity: settings.danmakuOpacity });
+    this.renderer?.setEnabled(settings.danmakuEnabled);
+    this.toggleBtn?.classList.toggle('is-on', settings.danmakuEnabled);
+    this.syncToggleIcon(settings.danmakuEnabled);
   }
 
   /**
@@ -56,6 +68,7 @@ export class WatchDanmaku {
       e.stopPropagation();
       const next = !this.renderer?.enabled;
       this.renderer?.setEnabled(next);
+      saveAppSettings({ danmakuEnabled: next });
       if (next && this.video) this.renderer?.seek(this.video.currentTime);
       this.toggleBtn?.classList.toggle('is-on', next);
       this.syncToggleIcon(next);
@@ -84,6 +97,7 @@ export class WatchDanmaku {
     this.opacityRange?.addEventListener('input', () => {
       const value = Number(this.opacityRange?.value ?? 85) / 100;
       this.renderer?.setOptions({ opacity: value });
+      saveAppSettings({ danmakuOpacity: value });
     });
 
     this.scaleRange?.addEventListener('input', () => {

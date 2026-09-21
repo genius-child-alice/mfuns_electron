@@ -4,10 +4,22 @@ import {
   saveSession,
   userDisplayName,
 } from './auth.js';
-import { userAvatarMediaSrc } from './content-api.js';
+import { mediaSrcForCover, userAvatarMediaSrc } from './content-api.js';
 import { openLoginPanel, isLoggedIn } from './login-ui.js';
 import { notify } from './notice-ui.js';
+import { loadAppSettings, saveAppSettings } from './app-preferences.js';
+import { confirmAction } from './confirm-dialog.js';
 import {
+  clearOfflineCache,
+  fetchOfflineUsage,
+} from './offline-cache-store.js';
+import {
+  clearWatchLater,
+  resolveWatchLaterUserId,
+} from './watch-later-store.js';
+import {
+  fetchLevelSections,
+  fetchUserBackpack,
   fetchUserProfile,
   normalizeGenderValue,
   updateUserAvatar,
@@ -117,6 +129,164 @@ export function bindSettingsPage(options = {}) {
   });
 
   bindSettingsAnchorNav();
+  bindAppSettingsControls();
+}
+
+function formatBytes(bytes) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let value = bytes;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  return `${value.toFixed(unit === 0 ? 0 : 1)} ${units[unit]}`;
+}
+
+function syncAppSettingsForm() {
+  const settings = loadAppSettings();
+  const quality = document.getElementById('setting-default-quality');
+  if (quality instanceof HTMLSelectElement) quality.value = settings.defaultQuality;
+  const danmakuEnabled = document.getElementById('setting-danmaku-enabled');
+  if (danmakuEnabled instanceof HTMLInputElement) {
+    danmakuEnabled.checked = settings.danmakuEnabled;
+  }
+  const opacity = document.getElementById('setting-danmaku-opacity');
+  const opacityLabel = document.getElementById('setting-danmaku-opacity-label');
+  if (opacity instanceof HTMLInputElement) {
+    const percent = Math.round(settings.danmakuOpacity * 100);
+    opacity.value = String(percent);
+    if (opacityLabel) opacityLabel.textContent = `${percent}%`;
+  }
+  const autoLaunch = document.getElementById('setting-auto-launch');
+  if (autoLaunch instanceof HTMLInputElement) {
+    autoLaunch.checked = settings.autoLaunch;
+  }
+  void refreshOfflineUsageLabel();
+  void syncAutoLaunchFromSystem();
+}
+
+async function syncAutoLaunchFromSystem() {
+  const autoLaunch = document.getElementById('setting-auto-launch');
+  if (!(autoLaunch instanceof HTMLInputElement) || !window.electronAPI?.app?.getAutoLaunch) return;
+  const res = await window.electronAPI.app.getAutoLaunch();
+  if (res?.ok) {
+    autoLaunch.checked = Boolean(res.enabled);
+    saveAppSettings({ autoLaunch: autoLaunch.checked });
+  }
+}
+
+async function refreshOfflineUsageLabel() {
+  const el = document.getElementById('settings-offline-usage');
+  if (!el) return;
+  const usage = await fetchOfflineUsage();
+  el.textContent = `${usage.files} 个文件 · ${formatBytes(usage.bytes)}`;
+}
+
+function bindAppSettingsControls() {
+  document.getElementById('setting-default-quality')?.addEventListener('change', (event) => {
+    const value = /** @type {HTMLSelectElement} */ (event.currentTarget).value;
+    saveAppSettings({ defaultQuality: value });
+    notify('默认清晰度已保存');
+  });
+
+  document.getElementById('setting-danmaku-enabled')?.addEventListener('change', (event) => {
+    const checked = /** @type {HTMLInputElement} */ (event.currentTarget).checked;
+    saveAppSettings({ danmakuEnabled: checked });
+  });
+
+  document.getElementById('setting-danmaku-opacity')?.addEventListener('input', (event) => {
+    const input = /** @type {HTMLInputElement} */ (event.currentTarget);
+    const percent = Number(input.value);
+    saveAppSettings({ danmakuOpacity: percent / 100 });
+    const label = document.getElementById('setting-danmaku-opacity-label');
+    if (label) label.textContent = `${percent}%`;
+  });
+
+  document.getElementById('setting-auto-launch')?.addEventListener('change', async (event) => {
+    const checked = /** @type {HTMLInputElement} */ (event.currentTarget).checked;
+    saveAppSettings({ autoLaunch: checked });
+    if (window.electronAPI?.app?.setAutoLaunch) {
+      await window.electronAPI.app.setAutoLaunch(checked);
+    }
+  });
+
+  document.getElementById('btn-clear-offline-cache')?.addEventListener('click', () => {
+    void (async () => {
+      const confirmed = await confirmAction({
+        title: '清空离线缓存',
+        message: '将删除本机已下载的视频文件，确定继续？',
+        confirmText: '清空',
+        variant: 'danger',
+      });
+      if (!confirmed) return;
+      await clearOfflineCache();
+      await refreshOfflineUsageLabel();
+      notify('离线缓存已清空');
+    })();
+  });
+
+  document.getElementById('btn-clear-watch-later')?.addEventListener('click', () => {
+    void (async () => {
+      const confirmed = await confirmAction({
+        title: '清空稍后再看',
+        message: '确定清空当前账号/访客桶的稍后再看列表？',
+        confirmText: '清空',
+        variant: 'danger',
+      });
+      if (!confirmed) return;
+      clearWatchLater(resolveWatchLaterUserId());
+      notify('稍后再看已清空');
+    })();
+  });
+
+  void window.electronAPI?.app?.getVersion?.().then((version) => {
+    const el = document.getElementById('settings-app-version');
+    if (el && version) el.textContent = String(version);
+  });
+
+  syncAppSettingsForm();
+}
+
+async function refreshAccountExtra() {
+  const section = document.getElementById('settings-section-account-extra');
+  const anchor = document.querySelector('.settings-anchor__link[data-settings-anchor="account-extra"]');
+  const levelEl = document.getElementById('settings-level-sections');
+  const backpackEl = document.getElementById('settings-backpack-list');
+  if (!section || !levelEl || !backpackEl) return;
+
+  const loggedIn = isLoggedIn();
+  section.hidden = !loggedIn;
+  anchor?.closest('li')?.toggleAttribute('hidden', !loggedIn);
+  if (!loggedIn) return;
+
+  levelEl.textContent = '加载中…';
+  backpackEl.textContent = '加载中…';
+  try {
+    const [levels, backpack] = await Promise.all([
+      fetchLevelSections().catch(() => []),
+      fetchUserBackpack().catch(() => []),
+    ]);
+    levelEl.innerHTML =
+      levels.length > 0
+        ? `<ul class="settings-level-list">${levels
+            .map((item) => `<li>LV${item.levelId} · 经验 ${item.experience}</li>`)
+            .join('')}</ul>`
+        : '<p class="settings-muted">暂无等级数据</p>';
+    backpackEl.innerHTML =
+      backpack.length > 0
+        ? `<ul class="settings-backpack-list">${backpack
+            .map((item) => {
+              const icon = item.icon ? `<img src="${escapeHtml(mediaSrcForCover(item.icon) ?? '')}" alt="" />` : '';
+              return `<li class="settings-backpack-item">${icon}<span>${escapeHtml(item.name)} × ${item.count}</span></li>`;
+            })
+            .join('')}</ul>`
+        : '<p class="settings-muted">背包为空</p>';
+  } catch {
+    levelEl.innerHTML = '<p class="settings-muted">加载失败</p>';
+    backpackEl.innerHTML = '<p class="settings-muted">加载失败</p>';
+  }
 }
 
 async function refreshSessionUser() {
@@ -154,6 +324,10 @@ function renderAccountCard() {
 
   profileSection.hidden = !loggedIn;
   anchorProfile?.closest('li')?.toggleAttribute('hidden', !loggedIn);
+  document
+    .querySelector('.settings-anchor__link[data-settings-anchor="account-extra"]')
+    ?.closest('li')
+    ?.toggleAttribute('hidden', !loggedIn);
 
   if (!loggedIn) {
     card.innerHTML = `
@@ -240,8 +414,10 @@ let profileLoading = false;
 
 export async function refreshSettingsProfile() {
   renderAccountCard();
+  syncAppSettingsForm();
   if (!isLoggedIn()) {
     fillProfileForm(null);
+    void refreshAccountExtra();
     return;
   }
   if (profileLoading) return;
@@ -255,9 +431,11 @@ export async function refreshSettingsProfile() {
     }
     const profile = await fetchUserProfile(userId);
     fillProfileForm(profile);
+    void refreshAccountExtra();
   } catch (err) {
     console.error(err);
     fillProfileForm(null);
+    void refreshAccountExtra();
   } finally {
     profileLoading = false;
   }

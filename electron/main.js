@@ -1,9 +1,21 @@
 const { app, BrowserWindow, ipcMain, session, protocol, net } = require('electron');
+const fs = require('fs');
 const path = require('path');
+const { pathToFileURL } = require('url');
 
 protocol.registerSchemesAsPrivileged([
   {
     scheme: 'mfuns-media',
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      corsEnabled: true,
+      stream: true,
+    },
+  },
+  {
+    scheme: 'mfuns-offline',
     privileges: {
       standard: true,
       secure: true,
@@ -75,6 +87,32 @@ function installMfunsMediaReferer() {
       callback({ requestHeaders });
     },
   );
+}
+
+function offlineStorageDir() {
+  return path.join(app.getPath('userData'), 'offline');
+}
+
+async function installMfunsOfflineProtocol() {
+  protocol.handle('mfuns-offline', async (request) => {
+    let relPath = '';
+    try {
+      const parsed = new URL(request.url);
+      relPath = decodeURIComponent(parsed.searchParams.get('f') ?? '');
+    } catch {
+      return new Response('Bad request', { status: 400 });
+    }
+    if (!relPath || relPath.includes('..') || relPath.includes('\\')) {
+      return new Response('Forbidden path', { status: 403 });
+    }
+    const filePath = path.join(offlineStorageDir(), relPath);
+    try {
+      await fs.promises.access(filePath, fs.constants.R_OK);
+      return net.fetch(pathToFileURL(filePath).toString());
+    } catch {
+      return new Response('Not found', { status: 404 });
+    }
+  });
 }
 
 async function installMfunsMediaProtocol() {
@@ -208,8 +246,104 @@ ipcMain.on('in-app-browser:close', (event) => {
   BrowserWindow.fromWebContents(event.sender)?.close();
 });
 
+ipcMain.handle('offline:download', async (_event, payload) => {
+  const url = typeof payload?.url === 'string' ? payload.url.trim() : '';
+  const relPath = typeof payload?.relPath === 'string' ? payload.relPath.trim() : '';
+  if (!url || !relPath || relPath.includes('..') || relPath.includes('\\')) {
+    return { ok: false, error: '参数无效' };
+  }
+  if (!isAllowedMfunsMediaUrl(url)) {
+    return { ok: false, error: '不允许的下载地址' };
+  }
+  const dir = offlineStorageDir();
+  await fs.promises.mkdir(dir, { recursive: true });
+  const filePath = path.join(dir, relPath);
+  const headers = {
+    Referer: MFUNS_MEDIA_REFERER,
+    Accept: '*/*',
+    'User-Agent': mediaUserAgentForUrl(url),
+  };
+  try {
+    const res = await net.fetch(url, { headers });
+    if (!res.ok) return { ok: false, error: `下载失败 (${res.status})` };
+    const buf = Buffer.from(await res.arrayBuffer());
+    await fs.promises.writeFile(filePath, buf);
+    return { ok: true, size: buf.length, relPath };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : '下载失败' };
+  }
+});
+
+ipcMain.handle('offline:delete', async (_event, payload) => {
+  const relPath = typeof payload?.relPath === 'string' ? payload.relPath.trim() : '';
+  if (!relPath || relPath.includes('..') || relPath.includes('\\')) {
+    return { ok: false };
+  }
+  const filePath = path.join(offlineStorageDir(), relPath);
+  try {
+    await fs.promises.unlink(filePath);
+    return { ok: true };
+  } catch {
+    return { ok: false };
+  }
+});
+
+ipcMain.handle('offline:clearAll', async () => {
+  const dir = offlineStorageDir();
+  try {
+    const entries = await fs.promises.readdir(dir, { withFileTypes: true });
+    await Promise.all(
+      entries
+        .filter((entry) => entry.isFile())
+        .map((entry) => fs.promises.unlink(path.join(dir, entry.name)).catch(() => {})),
+    );
+    return { ok: true };
+  } catch {
+    return { ok: true };
+  }
+});
+
+ipcMain.handle('offline:getUsage', async () => {
+  const dir = offlineStorageDir();
+  try {
+    const entries = await fs.promises.readdir(dir, { withFileTypes: true });
+    let total = 0;
+    for (const entry of entries) {
+      if (!entry.isFile()) continue;
+      const stat = await fs.promises.stat(path.join(dir, entry.name));
+      total += stat.size;
+    }
+    return { ok: true, bytes: total, files: entries.filter((e) => e.isFile()).length };
+  } catch {
+    return { ok: true, bytes: 0, files: 0 };
+  }
+});
+
+ipcMain.handle('app:getVersion', () => app.getVersion());
+
+ipcMain.handle('app:setAutoLaunch', (_event, enabled) => {
+  try {
+    app.setLoginItemSettings({
+      openAtLogin: Boolean(enabled),
+      path: process.execPath,
+    });
+    return { ok: true };
+  } catch {
+    return { ok: false };
+  }
+});
+
+ipcMain.handle('app:getAutoLaunch', () => {
+  try {
+    return { ok: true, enabled: app.getLoginItemSettings().openAtLogin };
+  } catch {
+    return { ok: true, enabled: false };
+  }
+});
+
 app.whenReady().then(async () => {
   await installMfunsMediaProtocol();
+  await installMfunsOfflineProtocol();
   installMfunsMediaReferer();
   if (process.platform === 'darwin' && app.dock) {
     app.dock.setIcon(appIconPath);
