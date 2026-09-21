@@ -10,6 +10,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
     minimize: () => ipcRenderer.send('window:minimize'),
     maximize: () => ipcRenderer.send('window:maximize'),
     close: () => ipcRenderer.send('window:close'),
+    /**
+     * @param {(payload: { useTray: boolean }) => void} handler
+     */
+    onClosePrompt: (handler) => {
+      ipcRenderer.on('window:show-close-dialog', (_event, payload) => {
+        handler({
+          useTray: Boolean(payload?.useTray),
+        });
+      });
+    },
+    /**
+     * @param {'tray' | 'quit' | 'cancel'} choice
+     */
+    closeChoice: (choice) => ipcRenderer.send('window:close-choice', choice),
   },
   browser: {
     /**

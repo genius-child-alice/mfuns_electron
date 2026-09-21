@@ -1,0 +1,123 @@
+.close-app-dialog {
+  margin: auto;
+  padding: 0;
+  border: none;
+  width: min(380px, calc(100vw - 32px));
+  background: transparent;
+  color: var(--text-primary);
+}
+
+.close-app-dialog::backdrop {
+  background: rgb(0 0 0 / 52%);
+  backdrop-filter: blur(6px);
+}
+
+.close-app-dialog__card {
+  padding: 22px 22px 18px;
+  border-radius: 12px;
+  background: var(--bg-pane);
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 20px 60px rgb(0 0 0 / 40%);
+}
+
+.close-app-dialog__title {
+  margin: 0 0 10px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.close-app-dialog__message {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--text-secondary);
+}
+
+.close-app-dialog__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.close-app-dialog__row {
+  display: flex;
+  gap: 10px;
+}
+
+.close-app-dialog__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 11px 16px;
+  border-radius: var(--radius-md);
+  border: none;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    filter 0.15s ease;
+}
+
+.close-app-dialog__btn--inline {
+  flex: 1;
+}
+
+.close-app-dialog__btn-icon {
+  font-size: 18px;
+}
+
+.close-app-dialog__btn--primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.close-app-dialog__btn--primary:hover {
+  filter: brightness(1.06);
+}
+
+.close-app-dialog__btn--danger {
+  background: rgb(229 57 53 / 12%);
+  color: #e53935;
+  border: 1px solid rgb(229 57 53 / 28%);
+}
+
+.close-app-dialog__btn--danger:hover {
+  background: rgb(229 57 53 / 18%);
+}
+
+.close-app-dialog__row .close-app-dialog__btn--danger {
+  background: #e53935;
+  color: #fff;
+  border: none;
+}
+
+.close-app-dialog__row .close-app-dialog__btn--danger:hover {
+  filter: brightness(1.05);
+  background: #e53935;
+}
+
+.close-app-dialog__btn--ghost {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.close-app-dialog__btn--ghost:hover {
+  color: var(--text-primary);
+  background: var(--bg-subtle);
+}
+
+.close-app-dialog__row .close-app-dialog__btn--ghost {
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-subtle);
+}
+
+.close-app-dialog__row .close-app-dialog__btn--ghost:hover {
+  background: var(--bg-pane);
+}

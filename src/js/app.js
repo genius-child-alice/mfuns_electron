@@ -41,6 +41,7 @@ import {
 import { bindSettingsPage, refreshSettingsProfile } from './settings-page.js';
 import { bindMessagePage, openMessagePage } from './message-page.js';
 import { bindConfirmDialog } from './confirm-dialog.js';
+import { bindCloseAppDialog } from './close-app-dialog.js';
 import { registerOpenLoginHandler, requireLogin } from './login-ui.js';
 import { bindHomeFeed } from './home-feed.js';
 import { bindFeedPage } from './feed-page.js';
@@ -382,6 +383,14 @@ function renderShell() {
           <button type="button" class="confirm-dialog__cancel" id="confirm-dialog-cancel">取消</button>
           <button type="button" class="confirm-dialog__confirm" id="confirm-dialog-confirm">确定</button>
         </div>
+      </div>
+    </dialog>
+
+    <dialog class="close-app-dialog app-no-drag" id="close-app-dialog" aria-labelledby="close-app-dialog-title">
+      <div class="close-app-dialog__card">
+        <h2 class="close-app-dialog__title" id="close-app-dialog-title">关闭 MFuns</h2>
+        <p class="close-app-dialog__message">确定要关闭主界面吗？</p>
+        <div class="close-app-dialog__actions" id="close-app-dialog-actions"></div>
       </div>
     </dialog>
 
@@ -793,6 +802,7 @@ function bootApp() {
   bindImageViewer();
   bindCommentComposer();
   bindConfirmDialog();
+  bindCloseAppDialog();
   bindPromptDialog();
   bindMessagePage();
   void import('./contribute-page.js')

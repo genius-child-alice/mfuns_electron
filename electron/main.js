@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, session, protocol, net, Tray, Menu, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, session, protocol, net, Tray, Menu } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const { pathToFileURL } = require('url');
@@ -166,6 +166,8 @@ let mainWindow = null;
 let tray = null;
 let isQuitting = false;
 let closeDialogOpen = false;
+/** @type {((choice: string) => void) | null} */
+let pendingCloseChoice = null;
 
 function destroyTray() {
   tray?.destroy();
@@ -231,40 +233,33 @@ function ensureTray() {
   });
 }
 
+function waitForCloseChoice() {
+  return new Promise((resolve) => {
+    pendingCloseChoice = resolve;
+  });
+}
+
 async function promptAndClose() {
   if (closeDialogOpen || !mainWindow || isQuitting) return;
   closeDialogOpen = true;
   const settings = readDesktopSettings();
   const useTray = settings.closeAction === 'tray';
-  const buttons = useTray ? ['最小化到托盘', '退出 MFuns', '取消'] : ['退出 MFuns', '取消'];
-  const cancelId = buttons.length - 1;
   try {
-    const { response } = await dialog.showMessageBox(mainWindow, {
-      type: 'question',
-      title: 'MFuns',
-      message: '确定要关闭主界面吗？',
-      buttons,
-      cancelId,
-      noLink: true,
-    });
-    if (useTray) {
-      if (response === 0) {
-        hideMainWindowToTray();
-        return;
-      }
-      if (response === 1) {
-        isQuitting = true;
-        mainWindow.close();
-        return;
-      }
+    if (!mainWindow.webContents.isDestroyed()) {
+      mainWindow.webContents.send('window:show-close-dialog', { useTray });
+    }
+    const choice = await waitForCloseChoice();
+    if (choice === 'tray' && useTray) {
+      hideMainWindowToTray();
       return;
     }
-    if (response === 0) {
+    if (choice === 'quit') {
       isQuitting = true;
       mainWindow.close();
     }
   } finally {
     closeDialogOpen = false;
+    pendingCloseChoice = null;
   }
 }
 
@@ -376,6 +371,12 @@ ipcMain.on('window:maximize', () => {
   }
 });
 ipcMain.on('window:close', () => mainWindow?.close());
+
+ipcMain.on('window:close-choice', (_event, choice) => {
+  if (typeof choice !== 'string' || !pendingCloseChoice) return;
+  pendingCloseChoice(choice);
+  pendingCloseChoice = null;
+});
 
 ipcMain.handle('browser:open', (_event, payload) => {
   const url = typeof payload?.url === 'string' ? payload.url : '';
