@@ -377,7 +377,12 @@ function bindNavigation() {
   });
 
   document.querySelector('[data-sidebar-tool="upload"]')?.addEventListener('click', () => {
-    void import('./contribute-page.js').then((mod) => mod.openContributePage());
+    void import('./contribute-page.js')
+      .then((mod) => mod.openContributePage())
+      .catch((err) => {
+        console.error('创作中心模块加载失败', err);
+        alert('创作中心加载失败，请重启应用后重试');
+      });
   });
 
   document.querySelector('[data-sidebar-tool="message"]')?.addEventListener('click', () => {
@@ -673,7 +678,9 @@ function bootApp() {
   bindImageViewer();
   bindCommentComposer();
   bindMessagePage();
-  void import('./contribute-page.js').then((mod) => mod.bindContributePage());
+  void import('./contribute-page.js')
+    .then((mod) => mod.bindContributePage())
+    .catch((err) => console.error('创作中心模块加载失败', err));
   bindMinePage();
 }
 

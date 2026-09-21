@@ -295,8 +295,12 @@ export function contributePageHtml() {
                 <input type="file" class="contribute-hidden-input" id="contribute-feed-compose-image-file" accept="image/*" />
               </div>
               <div class="contribute-field">
-                <label for="contribute-feed-compose-tags">标签</label>
-                <input type="text" id="contribute-feed-compose-tags" placeholder="用逗号分隔，最多 10 个" />
+                <label>标签</label>
+                <div class="contribute-tag-editor">
+                  <div class="contribute-tags" id="contribute-feed-compose-tags"></div>
+                  <input type="text" id="contribute-feed-compose-tag-input" class="contribute-tag-editor__input" maxlength="24" placeholder="输入标签后按回车添加，最多 10 个" />
+                  <p class="contribute-field-hint">回车确认一个标签</p>
+                </div>
               </div>
               <p class="contribute-section-desc">动态发布后将出现在全站时间线</p>
             </form>
@@ -315,71 +319,85 @@ export function contributePageHtml() {
             </div>
           </header>
           <div class="contribute-subview__body">
-            <form class="contribute-form" id="contribute-editor-form" onsubmit="return false">
-              <div class="contribute-field">
-                <label for="contribute-editor-title-input">标题</label>
-                <input type="text" id="contribute-editor-title-input" maxlength="30" placeholder="请输入标题（最多 30 字）" />
-              </div>
-              <div class="contribute-field">
-                <label for="contribute-editor-category">分类</label>
-                <select id="contribute-editor-category">
-                  <option value="">请选择分类</option>
-                </select>
-              </div>
-              <div class="contribute-field">
-                <label>标签</label>
-                <div class="contribute-tags" id="contribute-editor-tags"></div>
-                <input type="text" id="contribute-editor-tag-input" placeholder="输入标签，逗号或回车分隔，最多 10 个" />
-              </div>
-              <div class="contribute-field">
-                <label>封面</label>
+            <form class="contribute-form contribute-editor-form" id="contribute-editor-form" onsubmit="return false">
+              <section class="contribute-editor-card" id="contribute-editor-video-only" hidden>
+                <header class="contribute-editor-card__head">
+                  <h3 class="contribute-editor-card__title">分P管理</h3>
+                  <button type="button" class="btn-accent contribute-editor-card__action" id="contribute-editor-add-part">
+                    ${materialIcon('add')}
+                    <span>添加分P</span>
+                  </button>
+                </header>
+                <div id="contribute-editor-video-parts"></div>
+                <p class="contribute-editor-upload-progress" id="contribute-editor-upload-progress" hidden></p>
+                <input type="file" class="contribute-hidden-input" id="contribute-editor-video-file" accept="video/*" />
+              </section>
+
+              <section class="contribute-editor-card">
+                <h3 class="contribute-editor-card__title">基本信息</h3>
+                <div class="contribute-editor-grid">
+                  <div class="contribute-field contribute-field--full">
+                    <label for="contribute-editor-title-input">标题</label>
+                    <input type="text" id="contribute-editor-title-input" maxlength="30" placeholder="请输入标题（最多 30 字）" />
+                  </div>
+                  <div class="contribute-field contribute-field--full">
+                    <label for="contribute-editor-category">分类</label>
+                    <select id="contribute-editor-category">
+                      <option value="">请选择分类</option>
+                    </select>
+                  </div>
+                </div>
+              </section>
+
+              <section class="contribute-editor-card" id="contribute-editor-content-card">
+                <header class="contribute-editor-card__head">
+                  <h3 class="contribute-editor-card__title" id="contribute-editor-content-label">正文</h3>
+                </header>
+                <div class="contribute-rich-editor app-no-drag" id="contribute-rich-editor">
+                  <div id="contribute-editor-quill" class="contribute-rich-editor__host"></div>
+                </div>
+              </section>
+
+              <section class="contribute-editor-card">
+                <h3 class="contribute-editor-card__title">标签</h3>
+                <div class="contribute-tag-editor">
+                  <div class="contribute-tags" id="contribute-editor-tags"></div>
+                  <input type="text" id="contribute-editor-tag-input" class="contribute-tag-editor__input" maxlength="24" placeholder="输入标签后按回车添加，最多 10 个" />
+                </div>
+              </section>
+
+              <section class="contribute-editor-card">
+                <h3 class="contribute-editor-card__title">封面</h3>
+                <input type="hidden" id="contribute-editor-cover" />
                 <div class="contribute-cover-row">
                   <div class="contribute-cover-preview" id="contribute-editor-cover-preview"></div>
                   <div class="contribute-cover-actions">
-                    <input type="hidden" id="contribute-editor-cover" />
-                    <label class="btn-accent" for="contribute-editor-cover-file">上传封面</label>
+                    <label class="btn-accent" for="contribute-editor-cover-file">
+                      ${materialIcon('photo_library')}
+                      <span>从相册选择封面</span>
+                    </label>
                     <input type="file" class="contribute-hidden-input" id="contribute-editor-cover-file" accept="image/*" />
+                    <p class="contribute-field-hint" id="contribute-editor-cover-hint">视频投稿必须上传封面</p>
                   </div>
                 </div>
-              </div>
-              <div class="contribute-field" id="contribute-editor-video-only" hidden>
-                <div class="contribute-video-parts">
-                  <div class="contribute-video-parts__head">
-                    <h3>分P管理</h3>
-                    <button type="button" class="btn-accent" id="contribute-editor-add-part">添加分P</button>
+              </section>
+
+              <section class="contribute-editor-card contribute-editor-card--footer">
+                <div class="contribute-editor-grid contribute-editor-grid--footer">
+                  <div class="contribute-field">
+                    <label for="contribute-editor-copyright">版权</label>
+                    <select id="contribute-editor-copyright">
+                      <option value="2">原创</option>
+                      <option value="1">转载</option>
+                      <option value="0">其他</option>
+                    </select>
                   </div>
-                  <div id="contribute-editor-video-parts"></div>
-                  <p class="contribute-editor-upload-progress" id="contribute-editor-upload-progress" hidden></p>
-                  <input type="file" class="contribute-hidden-input" id="contribute-editor-video-file" accept="video/*" />
-                </div>
-              </div>
-              <div class="contribute-field">
-                <label for="contribute-editor-content">正文 / 简介</label>
-                <div id="contribute-editor-article-only">
-                  <div class="contribute-editor-toolbar app-no-drag">
-                    <button type="button" id="contribute-editor-md-bold">粗体</button>
-                    <button type="button" id="contribute-editor-md-italic">斜体</button>
-                    <button type="button" id="contribute-editor-md-list">列表</button>
-                    <label for="contribute-editor-article-image-file">插入图片</label>
-                    <input type="file" class="contribute-hidden-input" id="contribute-editor-article-image-file" accept="image/*" />
-                    <button type="button" id="contribute-editor-toggle-preview">预览</button>
+                  <div class="contribute-draft-row" id="contribute-editor-draft-row">
+                    <input type="checkbox" id="contribute-editor-draft" />
+                    <label for="contribute-editor-draft">仅存草稿，不直接发布</label>
                   </div>
-                  <div class="contribute-editor-preview markdown-body" id="contribute-editor-preview" hidden></div>
                 </div>
-                <textarea id="contribute-editor-content" placeholder="文章使用 Markdown；视频投稿填写简介"></textarea>
-              </div>
-              <div class="contribute-field">
-                <label for="contribute-editor-copyright">版权</label>
-                <select id="contribute-editor-copyright">
-                  <option value="2">原创</option>
-                  <option value="1">转载</option>
-                  <option value="0">其他</option>
-                </select>
-              </div>
-              <div class="contribute-draft-row" id="contribute-editor-draft-row">
-                <input type="checkbox" id="contribute-editor-draft" />
-                <label for="contribute-editor-draft">仅存草稿，不直接发布</label>
-              </div>
+              </section>
             </form>
           </div>
         </div>

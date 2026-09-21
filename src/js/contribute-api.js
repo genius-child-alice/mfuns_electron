@@ -105,11 +105,23 @@ export function quillToPlainText(raw) {
 }
 
 /**
- * @param {string} text
+ * @param {string} textOrJson
  */
-export function encodeVideoContent(text) {
+export function encodeVideoContent(textOrJson) {
+  const value = `${textOrJson ?? ''}`.trim();
+  if (!value) return JSON.stringify({ ops: [{ insert: '\n' }] });
+  if (value.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(value);
+      if (parsed && typeof parsed === 'object' && Array.isArray(parsed.ops)) {
+        return value;
+      }
+    } catch {
+      /* fall through */
+    }
+  }
   return JSON.stringify({
-    ops: [{ insert: `${text}\n` }],
+    ops: [{ insert: `${value}\n` }],
   });
 }
 

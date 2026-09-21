@@ -2,7 +2,17 @@ import { materialIcon } from './icons.js';
 import { fetchCategories, mediaSrcForCover, resolveCoverUrl } from './content-api.js';
 import { requireLogin } from './login-ui.js';
 import { setPage } from './pages.js';
-import { normalizeRichContent, mountRichContent } from './rich-content.js';
+import { mountRichContent } from './rich-content.js';
+import {
+  ensureContributeRichEditor,
+  getArticleMarkdownFromEditor,
+  getVideoQuillJsonFromEditor,
+  isContributeRichEditorEmpty,
+  loadContributeRichEditorContent,
+  resetContributeRichEditor,
+  setContributeRichEditorImageUpload,
+  syncContributeRichEditorLayout,
+} from './rich-editor.js';
 import { uploadCommentImage } from './video-api.js';
 import {
   completeVideoUpload,
@@ -64,8 +74,6 @@ let editorSaving = false;
 let editorUploadingVideo = false;
 let editorUploadProgress = 0;
 let editorUploadingCover = false;
-let editorUploadingArticleImage = false;
-let editorShowPreview = false;
 let editorCopyright = 2;
 /** @type {number | null} */
 let editorCategoryId = null;
@@ -292,8 +300,6 @@ function resetEditorState() {
   editorUploadingVideo = false;
   editorUploadProgress = 0;
   editorUploadingCover = false;
-  editorUploadingArticleImage = false;
-  editorShowPreview = false;
   editorCopyright = editorType === 1 ? 0 : 2;
   editorCategoryId = null;
   editorTags = [];
@@ -313,13 +319,12 @@ async function openEditor(type, contributeId = null) {
   showView('editor');
 
   const titleEl = document.getElementById('contribute-editor-title-input');
-  const contentEl = document.getElementById('contribute-editor-content');
   const coverEl = document.getElementById('contribute-editor-cover');
   const tagInput = document.getElementById('contribute-editor-tag-input');
   const draftEl = document.getElementById('contribute-editor-draft');
   if (titleEl) titleEl.value = '';
-  if (contentEl) contentEl.value = '';
   if (coverEl) coverEl.value = '';
+  await resetContributeRichEditor();
   if (tagInput) tagInput.value = '';
   if (draftEl) draftEl.checked = false;
   const copyrightEl = document.getElementById('contribute-editor-copyright');
@@ -327,35 +332,28 @@ async function openEditor(type, contributeId = null) {
 
   const headingEl = document.getElementById('contribute-editor-heading');
   if (headingEl) {
-    headingEl.textContent = contributeId == null ? '发布投稿' : '编辑投稿';
+    if (contributeId == null) {
+      headingEl.textContent = type === 1 ? '发布视频' : '发布文章';
+    } else {
+      headingEl.textContent = type === 1 ? '编辑视频投稿' : '编辑文章投稿';
+    }
   }
-  document.getElementById('contribute-editor-article-only')?.toggleAttribute(
-    'hidden',
-    type !== 0,
-  );
-  document.getElementById('contribute-editor-video-only')?.toggleAttribute(
-    'hidden',
-    type !== 1,
-  );
-  document.getElementById('contribute-editor-draft-row')?.toggleAttribute(
-    'hidden',
-    type !== 0,
-  );
+  await syncEditorLayout(type);
+  await ensureContributeRichEditor();
 
   renderEditorTags();
   renderEditorCoverPreview();
   renderEditorVideoParts();
   renderEditorCategoryOptions();
-  renderEditorPreview();
 
   if (contributeId != null) {
     try {
       const detail = await fetchSubmissionDetail(contributeId);
       if (titleEl) titleEl.value = detail.title;
-      if (contentEl) {
-        contentEl.value =
-          type === 0 ? normalizeRichContent(detail.rawContent) : detail.content;
-      }
+      await loadContributeRichEditorContent(
+        detail.rawContent,
+        type === 0 ? 'article' : 'video',
+      );
       if (coverEl) coverEl.value = detail.cover;
       editorCategoryId = detail.categoryId;
       editorTags = detail.tags.slice(0, 10);
@@ -442,13 +440,21 @@ function renderEditorVideoParts() {
   }
 }
 
-function renderEditorPreview() {
-  const previewWrap = document.getElementById('contribute-editor-preview');
-  const contentEl = document.getElementById('contribute-editor-content');
-  if (!previewWrap || !contentEl) return;
-  previewWrap.hidden = !editorShowPreview || editorType !== 0;
-  if (!editorShowPreview || editorType !== 0) return;
-  mountRichContent(previewWrap, contentEl.value);
+/**
+ * @param {string} raw
+ * @returns {boolean}
+ */
+function addEditorTag(raw) {
+  const tag = raw.trim().replace(/^#+/, '');
+  if (!tag) return false;
+  if (editorTags.some((item) => item.toLowerCase() === tag.toLowerCase())) return false;
+  if (editorTags.length >= 10) {
+    alert('最多添加 10 个标签');
+    return false;
+  }
+  editorTags.push(tag);
+  renderEditorTags();
+  return true;
 }
 
 function commitTagInput() {
@@ -456,40 +462,19 @@ function commitTagInput() {
   if (!input) return;
   const raw = input.value.trim();
   if (!raw) return;
-  const parts = raw.split(/[,，\n]/);
-  let reachedLimit = false;
-  parts.forEach((value) => {
-    const tag = value.trim().replace(/^#+/, '');
-    if (!tag) return;
-    if (editorTags.some((item) => item.toLowerCase() === tag.toLowerCase())) return;
-    if (editorTags.length >= 10) {
-      reachedLimit = true;
-      return;
-    }
-    editorTags.push(tag);
-  });
-  input.value = '';
-  renderEditorTags();
-  if (reachedLimit) alert('最多添加 10 个标签');
+  if (addEditorTag(raw)) input.value = '';
 }
 
-/**
- * @param {HTMLTextAreaElement} textarea
- * @param {string} before
- * @param {string} after
- * @param {string} placeholder
- */
-function wrapSelection(textarea, before, after, placeholder) {
-  const start = textarea.selectionStart ?? textarea.value.length;
-  const end = textarea.selectionEnd ?? start;
-  const selected = textarea.value.slice(start, end);
-  const body = selected || placeholder;
-  const replacement = `${before}${body}${after}`;
-  textarea.value = textarea.value.slice(0, start) + replacement + textarea.value.slice(end);
-  const cursorStart = start + before.length;
-  textarea.selectionStart = cursorStart;
-  textarea.selectionEnd = selected ? cursorStart + body.length : cursorStart + body.length;
-  textarea.focus();
+async function syncEditorLayout(type) {
+  const isArticle = type === 0;
+  const isVideo = type === 1;
+  document.getElementById('contribute-editor-video-only')?.toggleAttribute('hidden', !isVideo);
+  document.getElementById('contribute-editor-draft-row')?.toggleAttribute('hidden', !isArticle);
+  const contentLabel = document.getElementById('contribute-editor-content-label');
+  const coverHint = document.getElementById('contribute-editor-cover-hint');
+  if (contentLabel) contentLabel.textContent = isArticle ? '正文' : '简介';
+  if (coverHint) coverHint.hidden = !isVideo;
+  await syncContributeRichEditorLayout(type);
 }
 
 async function uploadCoverFile(file) {
@@ -504,22 +489,6 @@ async function uploadCoverFile(file) {
     alert(err instanceof Error ? err.message : '封面上传失败');
   } finally {
     editorUploadingCover = false;
-  }
-}
-
-async function uploadArticleImageFile(file) {
-  if (editorUploadingArticleImage) return;
-  const textarea = document.getElementById('contribute-editor-content');
-  if (!textarea) return;
-  editorUploadingArticleImage = true;
-  try {
-    const path = await uploadCommentImage(file);
-    wrapSelection(textarea, '![', `](${absoluteMediaUrl(path)})`, '图片');
-    renderEditorPreview();
-  } catch (err) {
-    alert(err instanceof Error ? err.message : '正文图片上传失败');
-  } finally {
-    editorUploadingArticleImage = false;
   }
 }
 
@@ -576,7 +545,10 @@ async function saveEditor() {
   }
 
   const title = document.getElementById('contribute-editor-title-input')?.value.trim() ?? '';
-  const content = document.getElementById('contribute-editor-content')?.value.trim() ?? '';
+  const content =
+    editorType === 0
+      ? (await getArticleMarkdownFromEditor()).trim()
+      : await getVideoQuillJsonFromEditor();
   const cover = document.getElementById('contribute-editor-cover')?.value.trim() ?? '';
   const categorySelect = document.getElementById('contribute-editor-category');
   const categoryId = Number.parseInt(categorySelect?.value ?? '', 10);
@@ -594,7 +566,7 @@ async function saveEditor() {
     alert('请选择分类');
     return;
   }
-  if (editorType === 0 && !content) {
+  if (editorType === 0 && (await isContributeRichEditorEmpty())) {
     alert('请输入正文内容');
     return;
   }
@@ -744,10 +716,10 @@ function renderDetail() {
 
   const contentEl = document.getElementById('contribute-detail-content');
   if (contentEl) {
-    if (detailType === 0 && detail.rawContent) {
+    if (detail.rawContent) {
       mountRichContent(contentEl, detail.rawContent);
     } else {
-      contentEl.textContent = detail.content || '（暂无简介内容）';
+      contentEl.textContent = '（暂无内容）';
     }
   }
 }
@@ -895,12 +867,6 @@ export function bindContributePage() {
       input.value = '';
       if (file) void uploadCoverFile(file);
     }
-    if (target.id === 'contribute-editor-article-image-file') {
-      const input = /** @type {HTMLInputElement} */ (target);
-      const file = input.files?.[0];
-      input.value = '';
-      if (file) void uploadArticleImageFile(file);
-    }
   });
 
   document.querySelectorAll('[data-contribute-tab]').forEach((el) => {
@@ -932,15 +898,9 @@ export function bindContributePage() {
     if (detailContributeId != null) void confirmDelete(detailContributeId);
   });
 
-  document.getElementById('contribute-editor-toggle-preview')?.addEventListener('click', () => {
-    editorShowPreview = !editorShowPreview;
-    const btn = document.getElementById('contribute-editor-toggle-preview');
-    if (btn) btn.textContent = editorShowPreview ? '编辑' : '预览';
-    renderEditorPreview();
-  });
-
-  document.getElementById('contribute-editor-content')?.addEventListener('input', () => {
-    if (editorShowPreview) renderEditorPreview();
+  setContributeRichEditorImageUpload(async (file) => {
+    const path = await uploadCommentImage(file);
+    return absoluteMediaUrl(path);
   });
 
   document.getElementById('contribute-editor-tag-input')?.addEventListener('keydown', (event) => {
@@ -948,24 +908,6 @@ export function bindContributePage() {
       event.preventDefault();
       commitTagInput();
     }
-  });
-  document.getElementById('contribute-editor-tag-input')?.addEventListener('blur', commitTagInput);
-
-  document.getElementById('contribute-editor-md-bold')?.addEventListener('click', () => {
-    const textarea = document.getElementById('contribute-editor-content');
-    if (textarea) wrapSelection(textarea, '**', '**', '粗体');
-  });
-  document.getElementById('contribute-editor-md-italic')?.addEventListener('click', () => {
-    const textarea = document.getElementById('contribute-editor-content');
-    if (textarea) wrapSelection(textarea, '*', '*', '斜体');
-  });
-  document.getElementById('contribute-editor-md-list')?.addEventListener('click', () => {
-    const textarea = document.getElementById('contribute-editor-content');
-    if (!textarea) return;
-    const start = textarea.selectionStart ?? 0;
-    const lineStart = start === 0 ? 0 : textarea.value.lastIndexOf('\n', start - 1) + 1;
-    textarea.value = `${textarea.value.slice(0, lineStart)}- ${textarea.value.slice(lineStart)}`;
-    textarea.focus();
   });
 
   getRoot()?.addEventListener('click', (event) => {

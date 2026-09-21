@@ -19,6 +19,8 @@ let feedLoading = false;
 
 /** @type {string[]} */
 let composeImages = [];
+/** @type {string[]} */
+let composeTags = [];
 let composeUploading = false;
 let composePublishing = false;
 
@@ -69,13 +71,53 @@ function renderComposeImages() {
   }
 }
 
+function renderComposeTags() {
+  const wrap = document.getElementById('contribute-feed-compose-tags');
+  if (!wrap) return;
+  wrap.innerHTML = composeTags
+    .map(
+      (tag) => `
+      <span class="contribute-tag">
+        #${escapeHtml(tag)}
+        <button type="button" class="contribute-tag__remove" data-compose-tag-remove="${escapeHtml(tag)}" aria-label="移除标签">×</button>
+      </span>`,
+    )
+    .join('');
+}
+
+/**
+ * @param {string} raw
+ */
+function addComposeTag(raw) {
+  const tag = raw.trim().replace(/^#+/, '');
+  if (!tag) return false;
+  if (composeTags.some((item) => item.toLowerCase() === tag.toLowerCase())) return false;
+  if (composeTags.length >= 10) {
+    alert('最多添加 10 个标签');
+    return false;
+  }
+  composeTags.push(tag);
+  renderComposeTags();
+  return true;
+}
+
+function commitComposeTagInput() {
+  const input = document.getElementById('contribute-feed-compose-tag-input');
+  if (!input) return;
+  const raw = input.value.trim();
+  if (!raw) return;
+  if (addComposeTag(raw)) input.value = '';
+}
+
 function resetComposeForm() {
   const content = document.getElementById('contribute-feed-compose-content');
-  const tags = document.getElementById('contribute-feed-compose-tags');
+  const tagInput = document.getElementById('contribute-feed-compose-tag-input');
   if (content) content.value = '';
-  if (tags) tags.value = '';
+  if (tagInput) tagInput.value = '';
   composeImages = [];
+  composeTags = [];
   renderComposeImages();
+  renderComposeTags();
 }
 
 export function openFeedComposeView() {
@@ -184,18 +226,13 @@ async function publishFeed() {
     alert('说点什么吧');
     return;
   }
-  const tagsRaw = document.getElementById('contribute-feed-compose-tags')?.value ?? '';
-  const tags = tagsRaw
-    .split(/[,，]/)
-    .map((tag) => tag.trim().replace(/^#+/, ''))
-    .filter(Boolean)
-    .slice(0, 10);
+  commitComposeTagInput();
 
   composePublishing = true;
   const btn = document.getElementById('contribute-feed-compose-submit');
   if (btn) btn.disabled = true;
   try {
-    await createFeed({ content, images: composeImages, tags });
+    await createFeed({ content, images: composeImages, tags: composeTags });
     showViewFn('hub');
     await loadMyFeeds(true);
   } catch (err) {
@@ -253,6 +290,22 @@ export function bindContributeFeedSection(showView) {
   });
   document.getElementById('contribute-feed-compose-add-image')?.addEventListener('click', () => {
     document.getElementById('contribute-feed-compose-image-file')?.click();
+  });
+
+  document.getElementById('contribute-feed-compose-tag-input')?.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      commitComposeTagInput();
+    }
+  });
+
+  document.getElementById('contribute-feed-compose-view')?.addEventListener('click', (event) => {
+    const target = /** @type {HTMLElement} */ (event.target);
+    const removeTag = target.getAttribute('data-compose-tag-remove');
+    if (removeTag) {
+      composeTags = composeTags.filter((tag) => tag !== removeTag);
+      renderComposeTags();
+    }
   });
 
   document.getElementById('contribute-feed-compose-image-file')?.addEventListener('change', (event) => {

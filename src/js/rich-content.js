@@ -70,7 +70,7 @@ function formatQuillInline(text, attributes) {
 /**
  * @param {unknown} ops
  */
-function quillToMarkdown(ops) {
+export function quillOpsToMarkdown(ops) {
   /** @type {string[]} */
   const output = [];
   let line = '';
@@ -256,7 +256,7 @@ export function normalizeRichContent(source) {
         decoded && typeof decoded === 'object'
           ? /** @type {Record<string, unknown>} */ (decoded).ops
           : null;
-      if (Array.isArray(ops)) return quillToMarkdown(ops);
+      if (Array.isArray(ops)) return quillOpsToMarkdown(ops);
     } catch {
       /* fall through */
     }
@@ -264,7 +264,7 @@ export function normalizeRichContent(source) {
   if (value.startsWith('[')) {
     try {
       const ops = JSON.parse(value);
-      if (Array.isArray(ops)) return quillToMarkdown(ops);
+      if (Array.isArray(ops)) return quillOpsToMarkdown(ops);
     } catch {
       /* fall through */
     }
