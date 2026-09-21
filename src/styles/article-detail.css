@@ -152,7 +152,9 @@ button.article-read__author-name:hover {
 .article-read__stats {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 16px;
+  width: 100%;
   font-size: 0.85rem;
   color: var(--text-secondary);
 }
@@ -166,6 +168,16 @@ button.article-read__author-name:hover {
 .article-read__stat-icon {
   font-size: 16px;
   opacity: 0.75;
+}
+
+.article-read__no {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.article-read__time .article-read__no {
+  margin-left: 10px;
 }
 
 .article-read__content {

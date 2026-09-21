@@ -534,3 +534,16 @@ export async function fetchCategoryListPage(categoryId, page = 1, size = 20) {
   const items = parsePreviewList(data);
   return { items, hasNext: items.length >= size };
 }
+
+/**
+ * 详情页信息栏编号：视频 MV、文章 MA。
+ * @param {string | number | null | undefined} id
+ * @param {0 | 1} type
+ */
+export function formatContentArchiveNo(id, type) {
+  const raw = `${id ?? ''}`.trim();
+  if (!raw) return '';
+  if (type === 1) return `MV${raw}`;
+  if (type === 0) return `MA${raw}`;
+  return '';
+}

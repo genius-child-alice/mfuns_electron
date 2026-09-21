@@ -1,6 +1,6 @@
 import { notify } from './notice-ui.js';
 import { materialIcon, viewCountIcon } from './icons.js';
-import { mediaSrcForCover } from './content-api.js';
+import { mediaSrcForCover, formatContentArchiveNo } from './content-api.js';
 import { mountRichContent } from './rich-content.js';
 import { loadStickerUrlMap } from './emoji-pack.js';
 import { loadSession } from './auth.js';
@@ -210,8 +210,8 @@ function renderPage() {
             <span>${viewCountIcon('article-read__stat-icon')}${formatCount(preview.views)}阅读</span>
             ${
               dateLabel
-                ? `<span class="article-read__time">${materialIcon('schedule', 'article-read__stat-icon')}<time datetime="${escapeHtml(publishIso ?? '')}">${escapeHtml(dateLabel)}</time></span>`
-                : ''
+                ? `<span class="article-read__time">${materialIcon('schedule', 'article-read__stat-icon')}<time datetime="${escapeHtml(publishIso ?? '')}">${escapeHtml(dateLabel)}</time><span class="article-read__no">${escapeHtml(formatContentArchiveNo(preview.id, 0))}</span></span>`
+                : `<span class="article-read__no">${escapeHtml(formatContentArchiveNo(preview.id, 0))}</span>`
             }
           </div>
         </div>

@@ -1,6 +1,6 @@
 import { notify } from './notice-ui.js';
 import { materialIcon, viewCountIcon } from './icons.js';
-import { mediaSrcForCover } from './content-api.js';
+import { mediaSrcForCover, formatContentArchiveNo } from './content-api.js';
 import { destroyWatchPlayer, getWatchPlayer } from './watch-player.js';
 import { mountRichContent } from './rich-content.js';
 import { loadStickerUrlMap } from './emoji-pack.js';
@@ -324,6 +324,7 @@ function renderSidePanel() {
               ? `<span class="watch-video-meta__copyright">${escapeHtml(copyrightLabel)}</span>`
               : ''
           }
+          <span class="watch-video-meta__no">${escapeHtml(formatContentArchiveNo(preview.id, 1))}</span>
         </div>
 
         ${renderIntroToolbar()}

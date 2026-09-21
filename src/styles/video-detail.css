@@ -757,6 +757,7 @@ html[data-theme='dark'] .watch-side-scroll::-webkit-scrollbar-thumb {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 14px;
+  width: 100%;
   margin-bottom: 14px;
   font-size: 12px;
   color: var(--text-tertiary);
@@ -780,6 +781,14 @@ html[data-theme='dark'] .watch-side-scroll::-webkit-scrollbar-thumb {
   font-size: 12px;
   line-height: 1.4;
   color: var(--text-tertiary);
+}
+
+.watch-video-meta__no {
+  margin-left: auto;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
 }
 
 /* —— 互动条（点赞/投币/收藏/缓存/分享）—— */
