@@ -479,7 +479,39 @@ export async function fetchCategories() {
   /** @type {Map<number, CategoryNode>} */
   const unique = new Map();
   all.forEach((node) => unique.set(node.id, node));
-  return [...unique.values()].sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'));
+  return [...unique.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
+ * @param {CategoryNode[]} nodes
+ */
+function sortCategoryNodes(nodes) {
+  return [...nodes].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
+ * 一级大分区（接口约定 parent_id === 0）。
+ * @param {CategoryNode[]} all
+ */
+export function rootCategoryNodes(all) {
+  const roots = all.filter((node) => node.parentId === 0);
+  if (roots.length > 0) return sortCategoryNodes(roots);
+  const idSet = new Set(all.map((node) => node.id));
+  return sortCategoryNodes(
+    all.filter((node) => node.parentId == null || (!idSet.has(node.parentId) && node.parentId !== 0)),
+  );
+}
+
+/**
+ * 某大分区下的小分区；若无子节点则返回该大分区自身。
+ * @param {CategoryNode[]} all
+ * @param {number} parentId
+ */
+export function childCategoryNodes(all, parentId) {
+  const children = all.filter((node) => node.parentId === parentId);
+  if (children.length > 0) return sortCategoryNodes(children);
+  const self = all.find((node) => node.id === parentId);
+  return self ? [self] : [];
 }
 
 /**
@@ -489,4 +521,16 @@ export async function fetchCategories() {
 export async function fetchRecommendByCategory(categoryId, size = 20) {
   const data = await apiGet('/v1/recommend/get', { category: categoryId, size });
   return parsePreviewList(data);
+}
+
+/**
+ * 分区下完整稿件列表（分页），对应 legacy `GET /v1/category/list`。
+ * @param {number} categoryId
+ * @param {number} [page]
+ * @param {number} [size]
+ */
+export async function fetchCategoryListPage(categoryId, page = 1, size = 20) {
+  const data = await apiGet('/v1/category/list', { cid: categoryId, page, size });
+  const items = parsePreviewList(data);
+  return { items, hasNext: items.length >= size };
 }

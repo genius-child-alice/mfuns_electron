@@ -48,7 +48,8 @@ export function homePageHtml() {
   return `
     <div class="page-view page-view--home" data-page="home">
       <nav class="home-category-strip" id="home-category-strip" hidden aria-label="内容分区">
-        <div class="home-category-strip__scroll" id="home-category-list"></div>
+        <div class="home-category-strip__row home-category-strip__row--parent" id="home-category-parent-list" role="tablist" aria-label="大分区"></div>
+        <div class="home-category-strip__row home-category-strip__row--child" id="home-category-child-list" role="tablist" aria-label="小分区"></div>
       </nav>
       <p class="home-feed__status" id="home-feed-status" hidden role="status"></p>
       <div class="content-grid" id="home-feed-grid"></div>
@@ -342,11 +343,19 @@ export function contributePageHtml() {
                     <label for="contribute-editor-title-input">标题</label>
                     <input type="text" id="contribute-editor-title-input" maxlength="30" placeholder="请输入标题（最多 30 字）" />
                   </div>
-                  <div class="contribute-field contribute-field--full">
-                    <label for="contribute-editor-category">分类</label>
-                    <select id="contribute-editor-category">
-                      <option value="">请选择分类</option>
-                    </select>
+                  <div class="contribute-category-pickers contribute-field--full">
+                    <div class="contribute-field">
+                      <label for="contribute-editor-category-parent">大分区</label>
+                      <select id="contribute-editor-category-parent">
+                        <option value="">请选择大分区</option>
+                      </select>
+                    </div>
+                    <div class="contribute-field">
+                      <label for="contribute-editor-category">小分区</label>
+                      <select id="contribute-editor-category">
+                        <option value="">请选择小分区</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
               </section>

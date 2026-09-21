@@ -1,6 +1,12 @@
 import { confirmAction } from './confirm-dialog.js';
 import { materialIcon } from './icons.js';
-import { fetchCategories, mediaSrcForCover, resolveCoverUrl } from './content-api.js';
+import {
+  childCategoryNodes,
+  fetchCategories,
+  mediaSrcForCover,
+  resolveCoverUrl,
+  rootCategoryNodes,
+} from './content-api.js';
 import { requireLogin } from './login-ui.js';
 import { setPage } from './pages.js';
 import { mountRichContent } from './rich-content.js';
@@ -24,8 +30,6 @@ import {
   fetchSubmissionsPage,
   formatSubmissionTime,
   getVideoUploadAuth,
-  categoryDisplayName,
-  leafCategories,
   SUBMISSION_STATUS_FILTERS,
   submissionStatusLabel,
   updateArticleSubmission,
@@ -83,6 +87,9 @@ let editorUploadingCover = false;
 let editorCopyright = 2;
 /** @type {number | null} */
 let editorCategoryId = null;
+
+/** @type {number | null} */
+let editorParentCategoryId = null;
 /** @type {string[]} */
 let editorTags = [];
 /** @type {SubmissionVideoPart[]} */
@@ -345,6 +352,7 @@ function resetEditorState() {
   editorUploadingCover = false;
   editorCopyright = editorType === 1 ? 0 : 2;
   editorCategoryId = null;
+  editorParentCategoryId = null;
   editorTags = [];
   editorVideoParts = [];
   editorReplacingPartIndex = null;
@@ -430,16 +438,65 @@ async function openEditor(type, contributeId = null) {
   }
 }
 
+function syncEditorCategorySelectionFromId() {
+  const roots = rootCategoryNodes(categories);
+  if (editorCategoryId != null) {
+    const node = categories.find((entry) => entry.id === editorCategoryId);
+    if (node) {
+      if (node.parentId != null && node.parentId !== 0) {
+        editorParentCategoryId = node.parentId;
+      } else {
+        editorParentCategoryId = node.id;
+        const subs = childCategoryNodes(categories, node.id);
+        if (subs.length > 0 && subs[0].id !== node.id) {
+          editorCategoryId = subs[0].id;
+        }
+      }
+      return;
+    }
+  }
+  if (editorParentCategoryId == null && roots.length > 0) {
+    editorParentCategoryId = roots[0].id;
+  }
+  if (editorCategoryId == null && editorParentCategoryId != null) {
+    const subs = childCategoryNodes(categories, editorParentCategoryId);
+    editorCategoryId = subs[0]?.id ?? null;
+  }
+}
+
 function renderEditorCategoryOptions() {
-  const select = document.getElementById('contribute-editor-category');
-  if (!select) return;
-  const leaves = leafCategories(categories);
-  select.innerHTML =
-    '<option value="">请选择分类</option>' +
-    leaves
+  const parentSelect = document.getElementById('contribute-editor-category-parent');
+  const childSelect = document.getElementById('contribute-editor-category');
+  if (!parentSelect || !childSelect) return;
+
+  syncEditorCategorySelectionFromId();
+  const roots = rootCategoryNodes(categories);
+
+  if (roots.length === 0) {
+    parentSelect.innerHTML = '<option value="">暂无大分区</option>';
+    childSelect.innerHTML = '<option value="">暂无小分区</option>';
+    return;
+  }
+
+  parentSelect.innerHTML =
+    '<option value="">请选择大分区</option>' +
+    roots
       .map(
         (node) =>
-          `<option value="${node.id}"${editorCategoryId === node.id ? ' selected' : ''}>${escapeHtml(categoryDisplayName(categories, node))}</option>`,
+          `<option value="${node.id}"${editorParentCategoryId === node.id ? ' selected' : ''}>${escapeHtml(node.name)}</option>`,
+      )
+      .join('');
+
+  const subs =
+    editorParentCategoryId != null
+      ? childCategoryNodes(categories, editorParentCategoryId)
+      : [];
+  childSelect.innerHTML =
+    '<option value="">请选择小分区</option>' +
+    subs
+      .map(
+        (node) =>
+          `<option value="${node.id}"${editorCategoryId === node.id ? ' selected' : ''}>${escapeHtml(node.name)}</option>`,
       )
       .join('');
 }
@@ -729,7 +786,7 @@ async function saveEditor() {
     return;
   }
   if (!Number.isFinite(categoryId) || categoryId <= 0) {
-    alert('请选择分类');
+    alert('请选择小分区');
     return;
   }
   if (editorType === 0 && (await isContributeRichEditorEmpty())) {
@@ -1063,6 +1120,19 @@ export function bindContributePage() {
 
   getRoot()?.addEventListener('change', (event) => {
     const target = /** @type {HTMLElement} */ (event.target);
+    if (target.id === 'contribute-editor-category-parent') {
+      const value = Number.parseInt(
+        /** @type {HTMLSelectElement} */ (target).value,
+        10,
+      );
+      editorParentCategoryId = Number.isFinite(value) ? value : null;
+      const subs =
+        editorParentCategoryId != null
+          ? childCategoryNodes(categories, editorParentCategoryId)
+          : [];
+      editorCategoryId = subs[0]?.id ?? null;
+      renderEditorCategoryOptions();
+    }
     if (target.id === 'contribute-editor-category') {
       const value = Number.parseInt(
         /** @type {HTMLSelectElement} */ (target).value,

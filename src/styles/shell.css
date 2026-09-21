@@ -388,31 +388,46 @@ html[data-theme='dark'] .content::-webkit-scrollbar-corner {
 .home-category-strip {
   position: sticky;
   top: 0;
-  z-index: 3;
+  z-index: 5;
   flex-shrink: 0;
+  margin: 0;
   border-bottom: 1px solid var(--border-subtle);
   background: var(--bg-pane);
 }
 
-.home-category-strip__scroll {
+.home-category-strip__row {
   display: flex;
-  align-items: stretch;
-  gap: 4px;
-  padding: 0 12px;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 7px 14px;
   overflow-x: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--scrollbar-thumb, #949494) var(--scrollbar-track, transparent);
 }
 
+.home-category-strip__row--parent {
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.home-category-strip__row--child {
+  min-height: 42px;
+}
+
 .home-category-strip__item {
-  position: relative;
   flex-shrink: 0;
-  padding: 12px 14px 10px;
-  font-size: 14px;
-  font-weight: 500;
+  padding: 6px 14px;
+  border: none;
+  border-radius: 999px;
+  background: var(--bg-subtle);
   color: var(--text-secondary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
   white-space: nowrap;
-  background: none;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .home-category-strip__item:hover {
@@ -420,23 +435,13 @@ html[data-theme='dark'] .content::-webkit-scrollbar-corner {
 }
 
 .home-category-strip__item.is-active {
+  background: color-mix(in srgb, var(--accent) 15%, var(--bg-subtle));
   color: var(--accent);
-  font-weight: 600;
-}
-
-.home-category-strip__item.is-active::after {
-  content: '';
-  position: absolute;
-  left: 10px;
-  right: 10px;
-  bottom: 0;
-  height: 2px;
-  background: var(--accent);
-  border-radius: 2px 2px 0 0;
+  font-weight: 700;
 }
 
 .home-category-strip__hint {
-  padding: 12px 16px;
+  padding: 8px;
   font-size: 13px;
   color: var(--text-tertiary);
 }
@@ -454,6 +459,19 @@ html[data-theme='dark'] .content::-webkit-scrollbar-corner {
 .content.content--home .page-view--home:not([hidden]) {
   flex: 1;
   min-height: 0;
+}
+
+/* 分区 Tab：分区栏贴顶栏，列表区保留内边距 */
+.content.content--home.content--home-category {
+  padding: 0 0 48px;
+}
+
+.content.content--home.content--home-category .home-feed__status {
+  margin: 12px 20px;
+}
+
+.content.content--home.content--home-category .content-grid {
+  padding: 16px 20px 0;
 }
 
 .content-grid {

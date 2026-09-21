@@ -444,6 +444,12 @@
   grid-column: 1 / -1;
 }
 
+.contribute-category-pickers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
 .contribute-field-hint {
   margin: 6px 0 0;
   font-size: 12px;
@@ -618,6 +624,10 @@
 
 @media (max-width: 720px) {
   .contribute-editor-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .contribute-category-pickers {
     grid-template-columns: 1fr;
   }
 
