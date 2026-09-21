@@ -3,7 +3,13 @@ import { confirmAction } from './confirm-dialog.js';
 import { materialIcon } from './icons.js';
 import { requireLogin } from './login-ui.js';
 import { notify } from './notice-ui.js';
-import { setPage } from './pages.js';
+import {
+  getScrollTop,
+  navigateBack,
+  navigateReplace,
+  registerPageNavigation,
+  restoreScrollTop,
+} from './navigation.js';
 import { openUserSpace } from './user-space.js';
 import {
   fetchSignAccumulatedAwards,
@@ -230,8 +236,9 @@ function bindSignButton() {
 
 export function bindSignPage() {
   document.getElementById('sign-page-back')?.addEventListener('click', () => {
-    setPage('mine');
-    void import('./sign-ui.js').then((mod) => mod.refreshSignCard());
+    void navigateBack().then(() => {
+      void import('./sign-ui.js').then((mod) => mod.refreshSignCard());
+    });
   });
 
   document.getElementById('sign-page-body')?.addEventListener('click', async (event) => {
@@ -261,13 +268,26 @@ export function bindSignPage() {
       notify(err instanceof Error ? err.message : '补签失败', 'error');
     }
   });
+
+  registerPageNavigation('sign', {
+    capture: () => ({
+      bodyHtml: document.getElementById('sign-page-body')?.innerHTML ?? '',
+      scrollTop: getScrollTop('main-content'),
+    }),
+    restore: (state) => {
+      const body = document.getElementById('sign-page-body');
+      if (body) body.innerHTML = `${state.bodyHtml ?? ''}`;
+      restoreScrollTop('main-content', Number(state.scrollTop) || 0);
+    },
+    enter: () => onSignPageEnter(),
+  });
 }
 
 export async function onSignPageEnter() {
   const body = document.getElementById('sign-page-body');
   if (!body) return;
   if (!requireLogin()) {
-    setPage('mine');
+    void navigateReplace('mine');
     return;
   }
   body.innerHTML = `<p class="sign-page__status">${materialIcon('progress_activity', 'sign-page__spin')}加载签到信息…</p>`;

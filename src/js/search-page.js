@@ -1,6 +1,12 @@
 import { materialIcon } from './icons.js';
 import { openContentDetail, previewFromCard } from './content-nav.js';
-import { getCurrentPage, setPage } from './pages.js';
+import { getCurrentPage } from './pages.js';
+import {
+  getScrollTop,
+  navigateTo,
+  registerPageNavigation,
+  restoreScrollTop,
+} from './navigation.js';
 import { renderVideoCard } from './home-feed.js';
 import { mediaSrcForCover } from './content-api.js';
 import { searchResources, searchUsers } from './search-api.js';
@@ -438,21 +444,82 @@ export async function runSearch(page = 1) {
   await loadResourcePage(targetPage);
 }
 
+export function captureSearchPageState() {
+  return {
+    activeTab,
+    query,
+    resourceItems,
+    userItems,
+    resourcePage,
+    userPage,
+    resourceTotalPages,
+    userTotalPages,
+    resourceTotalCount,
+    userTotalCount,
+    resourceHasNext,
+    userHasNext,
+    resourceTotalExact,
+    userTotalExact,
+    resourceHtml: document.getElementById('search-page-resource')?.innerHTML ?? '',
+    usersHtml: document.getElementById('search-page-users')?.innerHTML ?? '',
+    usersHidden: document.getElementById('search-page-users')?.hidden ?? true,
+    scrollTop: getScrollTop('main-content'),
+  };
+}
+
+/**
+ * @param {ReturnType<typeof captureSearchPageState>} state
+ */
+export function restoreSearchPageState(state) {
+  activeTab = state.activeTab ?? 'all';
+  query = state.query ?? '';
+  resourceItems = state.resourceItems ?? [];
+  userItems = state.userItems ?? [];
+  resourcePage = state.resourcePage ?? 1;
+  userPage = state.userPage ?? 1;
+  resourceTotalPages = state.resourceTotalPages ?? 1;
+  userTotalPages = state.userTotalPages ?? 1;
+  resourceTotalCount = state.resourceTotalCount ?? null;
+  userTotalCount = state.userTotalCount ?? null;
+  resourceHasNext = state.resourceHasNext ?? false;
+  userHasNext = state.userHasNext ?? false;
+  resourceTotalExact = state.resourceTotalExact ?? false;
+  userTotalExact = state.userTotalExact ?? false;
+  loading = false;
+  syncTabs();
+  syncQueryHeading();
+  const searchInput = getTopbarSearchInput();
+  if (searchInput) searchInput.value = query;
+  const resourceEl = document.getElementById('search-page-resource');
+  if (resourceEl) resourceEl.innerHTML = state.resourceHtml ?? '';
+  const usersEl = document.getElementById('search-page-users');
+  if (usersEl) {
+    usersEl.innerHTML = state.usersHtml ?? '';
+    usersEl.hidden = state.usersHidden ?? true;
+  }
+  renderPagination();
+  restoreScrollTop('main-content', state.scrollTop ?? 0);
+}
+
+async function enterSearchPage(params) {
+  query = `${params.query ?? ''}`.trim();
+  if (!query) return;
+  activeTab = 'all';
+  resetLists();
+  syncTabs();
+  syncQueryHeading();
+  const searchInput = getTopbarSearchInput();
+  if (searchInput) searchInput.value = query;
+  await runSearch(1);
+}
+
 /**
  * @param {string} keyword
  */
 export function openSearch(keyword) {
   const trimmed = `${keyword ?? ''}`.trim();
   if (!trimmed) return;
-  query = trimmed;
-  activeTab = 'all';
-  resetLists();
-  syncTabs();
-  setPage('search');
-  syncQueryHeading();
-  const searchInput = getTopbarSearchInput();
-  if (searchInput) searchInput.value = query;
-  void runSearch(1);
+  void navigateTo('search', { query: trimmed });
 }
 
 function onTabClick(event) {
@@ -550,5 +617,13 @@ export function bindSearchPage() {
     if (getCurrentPage() === 'search' && query.trim()) {
       void runSearch(currentPageNumber());
     }
+  });
+
+  registerPageNavigation('search', {
+    capture: () => captureSearchPageState(),
+    restore: (state) => {
+      restoreSearchPageState(/** @type {ReturnType<typeof captureSearchPageState>} */ (state));
+    },
+    enter: (params) => enterSearchPage(params),
   });
 }

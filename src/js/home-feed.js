@@ -10,6 +10,7 @@ import {
   rootCategoryNodes,
 } from './content-api.js';
 import { openContentDetail, previewFromCard } from './content-nav.js';
+import { getScrollTop, registerPageNavigation, restoreScrollTop } from './navigation.js';
 
 /** @typedef {'recommend' | 'hot' | 'category'} HomeTabId */
 
@@ -541,6 +542,62 @@ export function getActiveHomeTab() {
   return activeHomeTab;
 }
 
+function syncTopbarHomeTabs() {
+  document.querySelectorAll('[data-tab]').forEach((tab) => {
+    const id = tab.getAttribute('data-tab');
+    tab.classList.toggle('is-active', id === activeHomeTab);
+  });
+}
+
+export function captureHomeFeedState() {
+  return {
+    activeHomeTab,
+    shownItems,
+    hasMore,
+    recommendRequestSize,
+    hotFilteredCache,
+    hotShownCount,
+    categories,
+    categoriesLoaded,
+    selectedParentCategoryId,
+    selectedCategoryId,
+    categoryPage,
+    loading,
+    scrollTop: getScrollTop('main-content'),
+  };
+}
+
+/**
+ * @param {ReturnType<typeof captureHomeFeedState>} state
+ */
+export function restoreHomeFeedState(state) {
+  activeHomeTab = state.activeHomeTab ?? 'recommend';
+  shownItems = state.shownItems ?? [];
+  hasMore = state.hasMore ?? true;
+  recommendRequestSize = state.recommendRequestSize ?? PAGE_SIZE;
+  hotFilteredCache = state.hotFilteredCache ?? null;
+  hotShownCount = state.hotShownCount ?? 0;
+  categories = state.categories ?? [];
+  categoriesLoaded = state.categoriesLoaded ?? false;
+  selectedParentCategoryId = state.selectedParentCategoryId ?? null;
+  selectedCategoryId = state.selectedCategoryId ?? null;
+  categoryPage = state.categoryPage ?? 1;
+  loading = false;
+
+  syncTopbarHomeTabs();
+  syncCategoryStripVisible();
+  if (categoriesLoaded && categories.length > 0) {
+    renderCategoryStrip();
+  }
+  if (shownItems.length === 0) {
+    setGridHtml('<p class="home-feed__empty">暂无内容</p>');
+  } else {
+    setGridHtml(shownItems.map((item) => renderVideoCard(item)).join(''));
+  }
+  restoreScrollTop('main-content', state.scrollTop ?? 0);
+  schedulePrefetchCheck();
+}
+
 export function bindHomeFeed() {
   document.querySelectorAll('[data-tab]').forEach((tab) => {
     tab.addEventListener('click', () => {
@@ -579,4 +636,18 @@ export function bindHomeFeed() {
 
   syncCategoryStripVisible();
   loadHomeFeed('recommend');
+
+  registerPageNavigation('home', {
+    capture: () => captureHomeFeedState(),
+    restore: (state) => {
+      restoreHomeFeedState(/** @type {ReturnType<typeof captureHomeFeedState>} */ (state));
+    },
+    enter: async () => {
+      syncCategoryStripVisible();
+      syncTopbarHomeTabs();
+      if (shownItems.length === 0) {
+        await loadHomeFeed(activeHomeTab || 'recommend');
+      }
+    },
+  });
 }

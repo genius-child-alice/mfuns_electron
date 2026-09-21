@@ -10,7 +10,12 @@ import {
   rootCategoryNodes,
 } from './content-api.js';
 import { requireLogin } from './login-ui.js';
-import { setPage } from './pages.js';
+import {
+  getScrollTop,
+  navigateTo,
+  registerPageNavigation,
+  restoreScrollTop,
+} from './navigation.js';
 import { mountRichContent } from './rich-content.js';
 import {
   ensureContributeRichEditor,
@@ -1080,16 +1085,74 @@ export function onContributePageEnter() {
   void onContributePageEnterInternal();
 }
 
+function captureContributePageState() {
+  return {
+    view,
+    hubSection,
+    listTab,
+    listStatusFilter,
+    listPage,
+    listHasMore,
+    items,
+    scrollTop: getScrollTop('main-content'),
+    submissionHtml: document.getElementById('contribute-submission-section')?.innerHTML ?? '',
+    feedHtml: document.getElementById('contribute-feed-section')?.innerHTML ?? '',
+    publishedHtml: document.getElementById('contribute-published-section')?.innerHTML ?? '',
+    editorHtml: document.getElementById('contribute-editor-view')?.innerHTML ?? '',
+    detailHtml: document.getElementById('contribute-detail-view')?.innerHTML ?? '',
+    feedComposeHtml: document.getElementById('contribute-feed-compose-view')?.innerHTML ?? '',
+  };
+}
+
+/**
+ * @param {ReturnType<typeof captureContributePageState>} state
+ */
+function restoreContributePageState(state) {
+  view = state.view ?? 'hub';
+  hubSection = state.hubSection ?? 'submission';
+  listTab = state.listTab ?? 0;
+  listStatusFilter = state.listStatusFilter ?? null;
+  listPage = state.listPage ?? 1;
+  listHasMore = state.listHasMore ?? true;
+  items = state.items ?? [];
+  showView(view);
+  document.querySelectorAll('[data-contribute-section]').forEach((el) => {
+    el.classList.toggle('is-active', el.getAttribute('data-contribute-section') === hubSection);
+  });
+  document.getElementById('contribute-submission-section')?.toggleAttribute('hidden', hubSection !== 'submission');
+  document.getElementById('contribute-feed-section')?.toggleAttribute('hidden', hubSection !== 'feed');
+  document.getElementById('contribute-published-section')?.toggleAttribute('hidden', hubSection !== 'published');
+  renderListTabs();
+  renderListStatusFilters();
+  const submission = document.getElementById('contribute-submission-section');
+  if (submission) submission.innerHTML = state.submissionHtml ?? '';
+  const feed = document.getElementById('contribute-feed-section');
+  if (feed) feed.innerHTML = state.feedHtml ?? '';
+  const published = document.getElementById('contribute-published-section');
+  if (published) published.innerHTML = state.publishedHtml ?? '';
+  const editor = document.getElementById('contribute-editor-view');
+  if (editor) editor.innerHTML = state.editorHtml ?? '';
+  const detail = document.getElementById('contribute-detail-view');
+  if (detail) detail.innerHTML = state.detailHtml ?? '';
+  const feedCompose = document.getElementById('contribute-feed-compose-view');
+  if (feedCompose) feedCompose.innerHTML = state.feedComposeHtml ?? '';
+  restoreScrollTop('main-content', state.scrollTop ?? 0);
+}
+
+async function enterContributePage(params) {
+  const section = params.section === 'feed' || params.section === 'published' ? params.section : 'submission';
+  hubSection = section;
+  view = 'hub';
+  showView('hub');
+  showHubSection(section);
+}
+
 /**
  * @param {'submission' | 'feed' | 'published'} [section]
  */
 export function openContributePage(section = 'submission') {
   if (!requireLogin()) return;
-  hubSection = section;
-  view = 'hub';
-  showView('hub');
-  showHubSection(section);
-  setPage('contribute');
+  void navigateTo('contribute', { section });
 }
 
 export { openFeedComposeView };
@@ -1308,5 +1371,13 @@ export function bindContributePage() {
       );
       document.getElementById('contribute-editor-video-file')?.click();
     }
+  });
+
+  registerPageNavigation('contribute', {
+    capture: () => captureContributePageState(),
+    restore: (state) => {
+      restoreContributePageState(/** @type {ReturnType<typeof captureContributePageState>} */ (state));
+    },
+    enter: (params) => enterContributePage(params),
   });
 }

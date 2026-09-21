@@ -4,7 +4,13 @@ import { mediaSrcForCover, formatContentArchiveNo } from './content-api.js';
 import { mountRichContent } from './rich-content.js';
 import { loadStickerUrlMap } from './emoji-pack.js';
 import { loadSession } from './auth.js';
-import { getCurrentPage, setPage } from './pages.js';
+import {
+  getScrollTop,
+  navigateBack,
+  navigateTo,
+  registerPageNavigation,
+  restoreScrollTop,
+} from './navigation.js';
 import { requireLogin } from './login-ui.js';
 import { fetchArticleDetail } from './article-api.js';
 import {
@@ -44,8 +50,6 @@ import {
 /** @typedef {import('./content-api.js').ContentPreview} ContentPreview */
 /** @typedef {import('./article-api.js').ArticleDetail} ArticleDetail */
 
-/** @type {import('./pages.js').PageId} */
-let returnPage = 'home';
 
 /** @type {ArticleDetail | null} */
 let currentDetail = null;
@@ -412,10 +416,8 @@ function setLoading(loading) {
 /**
  * @param {ContentPreview} preview
  */
-export async function openArticleDetail(preview) {
+async function loadArticlePage(preview) {
   if (preview.type !== 0) return;
-  returnPage = getCurrentPage();
-  setPage('article');
   document.getElementById('article-scroll')?.scrollTo(0, 0);
   favorited = false;
   favoriteListId = null;
@@ -519,8 +521,72 @@ export async function openArticleDetail(preview) {
   }
 }
 
+function captureArticlePageState() {
+  return {
+    hydrated: Boolean(currentDetail),
+    currentDetail,
+    liked,
+    likeCount,
+    disliked,
+    dislikeCount,
+    following,
+    authorFans,
+    authorTotalLikes,
+    favorited,
+    favoriteListId,
+    rewardCount,
+    favoriteCount,
+    watchLater,
+    commentItems,
+    collectionNavHtml,
+    canManageSeries,
+    rootHtml: getRoot()?.innerHTML ?? '',
+    scrollTop: getScrollTop('article-scroll') || getScrollTop('main-content'),
+  };
+}
+
+/**
+ * @param {ReturnType<typeof captureArticlePageState>} state
+ */
+function applyArticlePageState(state) {
+  currentDetail = state.currentDetail ?? null;
+  liked = state.liked ?? false;
+  likeCount = state.likeCount ?? 0;
+  disliked = state.disliked ?? false;
+  dislikeCount = state.dislikeCount ?? 0;
+  following = state.following ?? false;
+  authorFans = state.authorFans ?? 0;
+  authorTotalLikes = state.authorTotalLikes ?? 0;
+  favorited = state.favorited ?? false;
+  favoriteListId = state.favoriteListId ?? null;
+  rewardCount = state.rewardCount ?? 0;
+  favoriteCount = state.favoriteCount ?? 0;
+  watchLater = state.watchLater ?? false;
+  commentItems = state.commentItems ?? [];
+  collectionNavHtml = state.collectionNavHtml ?? '';
+  canManageSeries = state.canManageSeries ?? false;
+  commentReplyStore.clear();
+
+  const root = getRoot();
+  if (root && state.rootHtml) {
+    root.innerHTML = state.rootHtml;
+    mountAllCommentRichText(commentItems, commentReplyStore, {
+      bodyIdPrefix: COMMENT_BODY_PREFIX,
+      replyBodyIdPrefix: COMMENT_REPLY_PREFIX,
+    });
+  } else if (currentDetail) {
+    renderPage();
+  }
+  restoreScrollTop('article-scroll', state.scrollTop ?? 0);
+}
+
+export async function openArticleDetail(preview) {
+  if (preview.type !== 0) return;
+  await navigateTo('article', { preview });
+}
+
 export function closeArticleDetail() {
-  setPage(returnPage);
+  void navigateBack();
 }
 
 export function bindArticleDetail() {
@@ -562,5 +628,16 @@ export function bindArticleDetail() {
         renderPage();
       },
     });
+  });
+
+  registerPageNavigation('article', {
+    capture: () => captureArticlePageState(),
+    restore: (state) => {
+      applyArticlePageState(/** @type {ReturnType<typeof captureArticlePageState>} */ (state));
+    },
+    enter: async (params) => {
+      const preview = /** @type {ContentPreview | undefined} */ (params.preview);
+      if (preview) await loadArticlePage(preview);
+    },
   });
 }

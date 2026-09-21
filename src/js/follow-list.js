@@ -1,7 +1,14 @@
 import { materialIcon } from './icons.js';
 import { loadSession } from './auth.js';
 import { mediaSrcForCover } from './content-api.js';
-import { getCurrentPage, setPage } from './pages.js';
+import { getCurrentPage } from './pages.js';
+import {
+  getScrollTop,
+  navigateBack,
+  navigateTo,
+  registerPageNavigation,
+  restoreScrollTop,
+} from './navigation.js';
 import { fetchAllRelationList } from './user-profile-api.js';
 import { fetchFollowStatus } from './video-api.js';
 import { openUserSpace } from './user-space.js';
@@ -13,8 +20,6 @@ import { openUserSpace } from './user-space.js';
 
 /** @typedef {UserProfile & { viewerFollows: boolean, mutual: boolean }} RelationUser */
 
-/** @type {PageId} */
-let returnPage = 'space';
 
 /** @type {number} */
 let ownerUserId = 0;
@@ -176,6 +181,32 @@ async function loadList() {
   }
 }
 
+export function captureFollowListState() {
+  return {
+    ownerUserId,
+    listMode,
+    ownerDisplayName,
+    users,
+    gridHtml: document.getElementById('follow-list-grid')?.innerHTML ?? '',
+    scrollTop: getScrollTop('main-content'),
+  };
+}
+
+/**
+ * @param {ReturnType<typeof captureFollowListState>} state
+ */
+export function restoreFollowListState(state) {
+  ownerUserId = state.ownerUserId ?? 0;
+  listMode = state.listMode ?? 'follow';
+  ownerDisplayName = state.ownerDisplayName ?? '';
+  users = state.users ?? [];
+  loading = false;
+  renderList();
+  const grid = document.getElementById('follow-list-grid');
+  if (grid) grid.innerHTML = state.gridHtml ?? '';
+  restoreScrollTop('main-content', state.scrollTop ?? 0);
+}
+
 /**
  * @param {number} userId
  * @param {FollowListMode} mode
@@ -183,16 +214,15 @@ async function loadList() {
  */
 export function openFollowList(userId, mode, options = {}) {
   if (!Number.isFinite(userId) || userId <= 0) return;
-  returnPage = getCurrentPage();
-  ownerUserId = userId;
-  listMode = mode;
-  ownerDisplayName = options.ownerName?.trim() ?? '';
-  setPage('follow-list');
-  void loadList();
+  void navigateTo('follow-list', {
+    userId: Math.trunc(userId),
+    mode,
+    ownerName: options.ownerName?.trim() ?? '',
+  });
 }
 
 export function closeFollowList() {
-  setPage(returnPage);
+  void navigateBack();
 }
 
 function onListClick(event) {
@@ -210,4 +240,17 @@ export function bindFollowList() {
   document.getElementById('follow-list-back')?.addEventListener('click', closeFollowList);
 
   document.getElementById('follow-list-grid')?.addEventListener('click', onListClick);
+
+  registerPageNavigation('follow-list', {
+    capture: () => captureFollowListState(),
+    restore: (state) => {
+      restoreFollowListState(/** @type {ReturnType<typeof captureFollowListState>} */ (state));
+    },
+    enter: async (params) => {
+      ownerUserId = Math.trunc(Number(params.userId));
+      listMode = params.mode === 'fans' ? 'fans' : 'follow';
+      ownerDisplayName = `${params.ownerName ?? ''}`.trim();
+      await loadList();
+    },
+  });
 }

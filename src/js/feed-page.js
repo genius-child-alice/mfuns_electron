@@ -3,6 +3,7 @@ import { mediaSrcForCover } from './content-api.js';
 import { materialIcon } from './icons.js';
 import { isLoggedIn } from './login-ui.js';
 import { getCurrentPage } from './pages.js';
+import { getScrollTop, registerPageNavigation, restoreScrollTop } from './navigation.js';
 import {
   fetchAllFollowing,
   fetchFollowingFeeds,
@@ -286,6 +287,43 @@ export function onFeedPageEnter() {
   void loadFeedPage(true);
 }
 
+export function captureFeedPageState() {
+  const hintEl = document.getElementById('feed-page-hint');
+  return {
+    filterUserId,
+    feedStreamMode,
+    feedStartId,
+    globalPage,
+    hasMore,
+    loading: false,
+    listHtml: getListEl()?.innerHTML ?? '',
+    hintHtml: hintEl?.innerHTML ?? '',
+    hintHidden: hintEl?.hidden ?? true,
+    scrollTop: getScrollTop('feed-page-scroll') || getScrollTop('main-content'),
+  };
+}
+
+/**
+ * @param {ReturnType<typeof captureFeedPageState>} state
+ */
+export function restoreFeedPageState(state) {
+  filterUserId = state.filterUserId ?? null;
+  feedStreamMode = state.feedStreamMode ?? 'following';
+  feedStartId = state.feedStartId ?? -1;
+  globalPage = state.globalPage ?? 1;
+  hasMore = state.hasMore ?? true;
+  loading = false;
+  syncAsideActive();
+  const list = getListEl();
+  if (list) list.innerHTML = state.listHtml ?? '';
+  const hintEl = document.getElementById('feed-page-hint');
+  if (hintEl) {
+    hintEl.innerHTML = state.hintHtml ?? '';
+    hintEl.hidden = state.hintHidden ?? true;
+  }
+  restoreScrollTop(getScrollEl() ?? 'main-content', state.scrollTop ?? 0);
+}
+
 export function bindFeedPage() {
   if (asideBound) return;
   asideBound = true;
@@ -303,5 +341,15 @@ export function bindFeedPage() {
       mod.openContributePage('feed');
       mod.openFeedComposeView();
     });
+  });
+
+  registerPageNavigation('feed', {
+    capture: () => captureFeedPageState(),
+    restore: (state) => {
+      restoreFeedPageState(/** @type {ReturnType<typeof captureFeedPageState>} */ (state));
+    },
+    enter: () => {
+      onFeedPageEnter();
+    },
   });
 }

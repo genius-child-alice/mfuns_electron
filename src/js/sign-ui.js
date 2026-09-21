@@ -1,11 +1,11 @@
 import { materialIcon } from './icons.js';
 import { isLoggedIn, requireLogin } from './login-ui.js';
-import { setPage } from './pages.js';
+import { navigateTo } from './navigation.js';
 import { fetchSignAccumulatedAwards, fetchSignInfo } from './sign-api.js';
 
 export function openSignPage() {
   if (!requireLogin()) return;
-  setPage('sign');
+  void navigateTo('sign');
 }
 
 export async function refreshSignCard() {

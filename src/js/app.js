@@ -34,7 +34,6 @@ import {
   seriesPageHtml,
   messagePageHtml,
   contributePageHtml,
-  setPage,
   getCurrentPage,
   syncPagesAuthState,
 } from './pages.js';
@@ -42,6 +41,7 @@ import { bindSettingsPage, refreshSettingsProfile } from './settings-page.js';
 import { bindMessagePage, openMessagePage } from './message-page.js';
 import { bindConfirmDialog } from './confirm-dialog.js';
 import { bindCloseAppDialog } from './close-app-dialog.js';
+import { bindNavigationShortcuts, navigateTo } from './navigation.js';
 import { registerOpenLoginHandler, requireLogin } from './login-ui.js';
 import { bindHomeFeed } from './home-feed.js';
 import { bindFeedPage } from './feed-page.js';
@@ -91,9 +91,7 @@ const SIDEBAR_TOOLS = [
 ];
 
 function goToSettingsPage() {
-  setPage('settings');
-  syncSettingsForm();
-  void refreshSettingsProfile();
+  void navigateTo('settings');
 }
 
 function navIcon(name) {
@@ -465,7 +463,7 @@ function bindNavigation() {
     el.addEventListener('click', () => {
       const pageId = el.getAttribute('data-nav');
       if (pageId === 'home' || pageId === 'feed' || pageId === 'mine') {
-        setPage(pageId);
+        void navigateTo(pageId);
       }
     });
   });
@@ -474,7 +472,7 @@ function bindNavigation() {
 
   document.querySelector('.topbar__logo-link')?.addEventListener('click', (e) => {
     e.preventDefault();
-    setPage('home');
+    void navigateTo('home');
   });
 
   document.querySelectorAll('[data-tab]').forEach((el) => {
@@ -778,6 +776,7 @@ function bootApp() {
   renderShell();
   bindWindowControls();
   bindNavigation();
+  bindNavigationShortcuts();
   bindSettings();
   bindSettingsPage({ onUserUpdated: syncLoginUi });
   void refreshSettingsProfile();

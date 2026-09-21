@@ -8,7 +8,11 @@ import { mediaSrcForCover, userAvatarMediaSrc } from './content-api.js';
 import { openLoginPanel, isLoggedIn } from './login-ui.js';
 import { notify } from './notice-ui.js';
 import { loadAppSettings, saveAppSettings } from './app-preferences.js';
-import { confirmAction } from './confirm-dialog.js';
+import {
+  getScrollTop,
+  registerPageNavigation,
+  restoreScrollTop,
+} from './navigation.js';
 import {
   clearOfflineCache,
   fetchOfflineUsage,
@@ -140,6 +144,22 @@ export function bindSettingsPage(options = {}) {
   bindSettingsAnchorNav();
   bindAppSettingsControls();
   bindDesktopSettingsControls();
+
+  registerPageNavigation('settings', {
+    capture: () => ({
+      scrollTop: getScrollTop('.settings-page__main') || getScrollTop('main-content'),
+    }),
+    restore: (state) => {
+      restoreScrollTop(
+        document.querySelector('.settings-page__main') ?? 'main-content',
+        Number(state.scrollTop) || 0,
+      );
+    },
+    enter: () => {
+      syncAppSettingsForm();
+      void refreshSettingsProfile();
+    },
+  });
 }
 
 /** @returns {boolean} */

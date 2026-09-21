@@ -3,7 +3,14 @@ import { mediaSrcForCover } from './content-api.js';
 import { materialIcon } from './icons.js';
 import { requireLogin } from './login-ui.js';
 import { notify } from './notice-ui.js';
-import { getCurrentPage, setPage } from './pages.js';
+import { getCurrentPage } from './pages.js';
+import {
+  getScrollTop,
+  navigateBack,
+  navigateTo,
+  registerPageNavigation,
+  restoreScrollTop,
+} from './navigation.js';
 import {
   fetchSeriesInfo,
   fetchSeriesItems,
@@ -24,8 +31,6 @@ import {
 } from './series-ui.js';
 import { openUserSpace } from './user-space.js';
 
-/** @type {import('./pages.js').PageId} */
-let returnPage = 'home';
 
 /** @type {number} */
 let currentSeriesId = 0;
@@ -249,25 +254,45 @@ function onMainScroll() {
   }
 }
 
+export function captureSeriesPageState() {
+  return {
+    currentSeriesId,
+    currentInfo,
+    page,
+    hasMore,
+    shownItems,
+    bodyHtml: getBody()?.innerHTML ?? '',
+    scrollTop: getScrollTop('main-content'),
+  };
+}
+
+/**
+ * @param {ReturnType<typeof captureSeriesPageState>} state
+ */
+export function restoreSeriesPageState(state) {
+  currentSeriesId = state.currentSeriesId ?? 0;
+  currentInfo = state.currentInfo ?? null;
+  page = state.page ?? 1;
+  hasMore = state.hasMore ?? true;
+  shownItems = state.shownItems ?? [];
+  loading = false;
+  syncTitle();
+  const body = getBody();
+  if (body) body.innerHTML = state.bodyHtml ?? '';
+  restoreScrollTop('main-content', state.scrollTop ?? 0);
+}
+
 /**
  * @param {number} seriesId
  */
 export function openSeriesPage(seriesId) {
   const id = Math.trunc(seriesId);
   if (!Number.isFinite(id) || id <= 0) return;
-  const currentPage = getCurrentPage();
-  if (currentPage !== 'series') {
-    returnPage = currentPage;
-  }
-  currentSeriesId = id;
-  currentInfo = null;
-  setPage('series');
-  document.getElementById('main-content')?.scrollTo(0, 0);
-  void reloadSeries();
+  void navigateTo('series', { seriesId: id });
 }
 
 export function closeSeriesPage() {
-  setPage(returnPage);
+  void navigateBack();
 }
 
 export function onSeriesPageEnter() {
@@ -294,6 +319,21 @@ export function bindSeriesPage() {
       }),
     });
   }
+
+  registerPageNavigation('series', {
+    capture: () => captureSeriesPageState(),
+    restore: (state) => {
+      restoreSeriesPageState(/** @type {ReturnType<typeof captureSeriesPageState>} */ (state));
+    },
+    enter: async (params) => {
+      const id = Math.trunc(Number(params.seriesId));
+      if (!Number.isFinite(id) || id <= 0) return;
+      currentSeriesId = id;
+      currentInfo = null;
+      document.getElementById('main-content')?.scrollTo(0, 0);
+      await reloadSeries();
+    },
+  });
 }
 
 export { seriesCreateButtonHtml, bindSeriesFolderList };

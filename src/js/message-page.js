@@ -4,7 +4,13 @@ import { mediaSrcForCover, userAvatarMediaSrc } from './content-api.js';
 import { loadStickerUrlMap } from './emoji-pack.js';
 import { materialIcon } from './icons.js';
 import { isLoggedIn, requireLogin } from './login-ui.js';
-import { getCurrentPage, setPage } from './pages.js';
+import { getCurrentPage } from './pages.js';
+import {
+  getScrollTop,
+  navigateTo,
+  registerPageNavigation,
+  restoreScrollTop,
+} from './navigation.js';
 import {
   fetchConversationList,
   fetchMessageRecords,
@@ -659,7 +665,7 @@ export function onMessagePageEnter() {
 
 export function openMessagePage() {
   if (!requireLogin()) return;
-  setPage('message');
+  void navigateTo('message', {});
 }
 
 /**
@@ -668,10 +674,11 @@ export function openMessagePage() {
  */
 export function openMessageThread(userId, options = {}) {
   if (!requireLogin()) return;
-  pendingPeerId = userId;
-  pendingPeerName = options.name ?? '';
-  pendingPeerAvatar = options.avatar ?? '';
-  setPage('message');
+  void navigateTo('message', {
+    peerId: userId,
+    peerName: options.name ?? '',
+    peerAvatar: options.avatar ?? '',
+  });
 }
 
 export function bindMessagePage() {
@@ -764,4 +771,51 @@ export function bindMessagePage() {
 
   bindNotifyPage();
   startUnreadPolling();
+
+  registerPageNavigation('message', {
+    capture: () => ({
+      activeTab,
+      activePeer,
+      conversations,
+      convPage,
+      convHasMore,
+      records,
+      nextCursor,
+      recordsHasMore,
+      convListHtml: document.getElementById('message-conv-list')?.innerHTML ?? '',
+      threadListHtml: getThreadList()?.innerHTML ?? '',
+      convScrollTop: getScrollTop(getConvScroll()),
+      threadScrollTop: getScrollTop(getThreadScroll()),
+    }),
+    restore: (state) => {
+      activeTab = state.activeTab === 'notify' ? 'notify' : 'dm';
+      activePeer = state.activePeer ?? null;
+      conversations = state.conversations ?? [];
+      convPage = Number(state.convPage) || 1;
+      convHasMore = state.convHasMore !== false;
+      records = state.records ?? [];
+      nextCursor = state.nextCursor ?? null;
+      recordsHasMore = state.recordsHasMore !== false;
+      setActiveTab(activeTab);
+      const convList = document.getElementById('message-conv-list');
+      if (convList) convList.innerHTML = `${state.convListHtml ?? ''}`;
+      const threadList = getThreadList();
+      if (threadList) threadList.innerHTML = `${state.threadListHtml ?? ''}`;
+      restoreScrollTop(getConvScroll(), Number(state.convScrollTop) || 0);
+      restoreScrollTop(getThreadScroll(), Number(state.threadScrollTop) || 0);
+      startUnreadPolling();
+    },
+    enter: async (params) => {
+      if (params.peerId != null) {
+        pendingPeerId = Math.trunc(Number(params.peerId));
+        pendingPeerName = `${params.peerName ?? ''}`;
+        pendingPeerAvatar = `${params.peerAvatar ?? ''}`;
+      } else {
+        pendingPeerId = null;
+        pendingPeerName = '';
+        pendingPeerAvatar = '';
+      }
+      await onMessagePageEnterInternal();
+    },
+  });
 }

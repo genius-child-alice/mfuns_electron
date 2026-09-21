@@ -1,6 +1,13 @@
 import { materialIcon } from './icons.js';
 import { openContentDetail, previewFromCard } from './content-nav.js';
-import { getCurrentPage, setPage } from './pages.js';
+import { getCurrentPage } from './pages.js';
+import {
+  getScrollTop,
+  navigateBack,
+  navigateTo,
+  registerPageNavigation,
+  restoreScrollTop,
+} from './navigation.js';
 import { renderVideoCard } from './home-feed.js';
 import {
   fetchTagArticles,
@@ -17,9 +24,6 @@ const SCROLL_PREFETCH_MIN_PX = 480;
 let activeTab = 'latest';
 
 let tagName = '';
-
-/** @type {import('./pages.js').PageId} */
-let returnPage = 'home';
 
 let loading = false;
 
@@ -288,31 +292,54 @@ function onResultsClick(event) {
   void openContentDetail(preview);
 }
 
+export function captureTagPageState() {
+  return {
+    tagName,
+    activeTab,
+    shownItems,
+    articleItems,
+    videoItems,
+    articleCursor,
+    videoCursor,
+    articleHasMore,
+    videoHasMore,
+    gridHtml: document.getElementById('tag-page-grid')?.innerHTML ?? '',
+    scrollTop: getScrollTop('main-content'),
+  };
+}
+
+/**
+ * @param {ReturnType<typeof captureTagPageState>} state
+ */
+export function restoreTagPageState(state) {
+  tagName = state.tagName ?? '';
+  activeTab = state.activeTab ?? 'latest';
+  shownItems = state.shownItems ?? [];
+  articleItems = state.articleItems ?? [];
+  videoItems = state.videoItems ?? [];
+  articleCursor = state.articleCursor ?? null;
+  videoCursor = state.videoCursor ?? null;
+  articleHasMore = state.articleHasMore ?? true;
+  videoHasMore = state.videoHasMore ?? true;
+  loading = false;
+  syncHeading();
+  syncTabs();
+  const grid = document.getElementById('tag-page-grid');
+  if (grid) grid.innerHTML = state.gridHtml ?? '';
+  restoreScrollTop('main-content', state.scrollTop ?? 0);
+}
+
 /**
  * @param {string} tag
  */
 export function openTagPlaza(tag) {
   const trimmed = `${tag ?? ''}`.trim();
   if (!trimmed) return;
-
-  const currentPage = getCurrentPage();
-  if (currentPage !== 'tag') {
-    returnPage = currentPage;
-  }
-
-  tagName = trimmed;
-  activeTab = 'latest';
-  resetState();
-  syncHeading();
-  syncTabs();
-  setPage('tag');
-  setStatus('');
-  document.getElementById('main-content')?.scrollTo(0, 0);
-  void reloadTab();
+  void navigateTo('tag', { tag: trimmed });
 }
 
 export function closeTagPlaza() {
-  setPage(returnPage);
+  void navigateBack();
 }
 
 export function onTagPageEnter() {
@@ -334,5 +361,23 @@ export function bindTagPage() {
     if (getCurrentPage() === 'tag' && tagName) {
       void reloadTab();
     }
+  });
+
+  registerPageNavigation('tag', {
+    capture: () => captureTagPageState(),
+    restore: (state) => {
+      restoreTagPageState(/** @type {ReturnType<typeof captureTagPageState>} */ (state));
+    },
+    enter: async (params) => {
+      tagName = `${params.tag ?? ''}`.trim();
+      if (!tagName) return;
+      activeTab = 'latest';
+      resetState();
+      syncHeading();
+      syncTabs();
+      setStatus('');
+      document.getElementById('main-content')?.scrollTo(0, 0);
+      await reloadTab();
+    },
   });
 }

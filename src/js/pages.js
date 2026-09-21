@@ -1052,8 +1052,9 @@ export function getCurrentPage() {
   return currentPage;
 }
 
-/** @param {PageId} pageId */
-export function setPage(pageId) {
+/** @param {PageId} pageId @param {{ skipEnter?: boolean }} [options] */
+export function setPage(pageId, options = {}) {
+  const { skipEnter = false } = options;
   if (currentPage === 'watch' && pageId !== 'watch') {
     destroyWatchPlayer();
   }
@@ -1113,6 +1114,8 @@ export function setPage(pageId) {
     );
 
   syncPagesAuthState();
+
+  if (skipEnter) return;
 
   if (pageId === 'search') {
     void import('./search-page.js').then((mod) => mod.onSearchPageEnter());

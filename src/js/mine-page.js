@@ -6,6 +6,7 @@ import { formatVideoDuration, mediaSrcForCover } from './content-api.js';
 import { fetchHistoryPage } from './history-api.js';
 import { isLoggedIn } from './login-ui.js';
 import { getCurrentPage } from './pages.js';
+import { getScrollTop, registerPageNavigation, restoreScrollTop } from './navigation.js';
 import { openContentDetail, previewFromCard } from './content-nav.js';
 import { fetchMineDashboard } from './user-profile-api.js';
 import {
@@ -1082,6 +1083,58 @@ export function onMinePageEnter() {
   }
 }
 
+export function captureMinePageState() {
+  return {
+    activeTab,
+    searchQuery,
+    allHistoryItems,
+    nextStartTime,
+    hasMore,
+    favoriteFolders,
+    activeFavoriteFolderId,
+    activeFavoriteFolderName,
+    favoriteItems,
+    favoriteNextLastId,
+    favoriteItemsHasMore,
+    subscribedSeries,
+    subscribedPage,
+    subscribedHasMore,
+    bodyHtml: document.getElementById('mine-page-body')?.innerHTML ?? '',
+    searchInputValue: getHistorySearchInput()?.value ?? '',
+    scrollTop: getScrollTop('main-content'),
+  };
+}
+
+/**
+ * @param {ReturnType<typeof captureMinePageState>} state
+ */
+export function restoreMinePageState(state) {
+  activeTab = state.activeTab ?? 'history';
+  searchQuery = state.searchQuery ?? '';
+  allHistoryItems = state.allHistoryItems ?? [];
+  nextStartTime = state.nextStartTime ?? null;
+  hasMore = state.hasMore ?? true;
+  favoriteFolders = state.favoriteFolders ?? [];
+  activeFavoriteFolderId = state.activeFavoriteFolderId ?? null;
+  activeFavoriteFolderName = state.activeFavoriteFolderName ?? '';
+  favoriteItems = state.favoriteItems ?? [];
+  favoriteNextLastId = state.favoriteNextLastId ?? null;
+  favoriteItemsHasMore = state.favoriteItemsHasMore ?? true;
+  subscribedSeries = state.subscribedSeries ?? [];
+  subscribedPage = state.subscribedPage ?? 1;
+  subscribedHasMore = state.subscribedHasMore ?? true;
+  loading = false;
+  favoriteLoading = false;
+  subscribedLoading = false;
+  syncTabUi();
+  syncMineGuestLayout();
+  const body = document.getElementById('mine-page-body');
+  if (body) body.innerHTML = state.bodyHtml ?? '';
+  const searchInput = getHistorySearchInput();
+  if (searchInput) searchInput.value = state.searchInputValue ?? '';
+  restoreScrollTop('main-content', state.scrollTop ?? 0);
+}
+
 export function bindMinePage() {
   document.getElementById('mine-open-follows')?.addEventListener('click', () => {
     const session = loadSession();
@@ -1162,4 +1215,14 @@ export function bindMinePage() {
 
   syncTabUi();
   syncMineGuestLayout();
+
+  registerPageNavigation('mine', {
+    capture: () => captureMinePageState(),
+    restore: (state) => {
+      restoreMinePageState(/** @type {ReturnType<typeof captureMinePageState>} */ (state));
+    },
+    enter: () => {
+      onMinePageEnter();
+    },
+  });
 }

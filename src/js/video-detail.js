@@ -1,11 +1,17 @@
 import { notify } from './notice-ui.js';
 import { materialIcon, viewCountIcon } from './icons.js';
 import { mediaSrcForCover, formatContentArchiveNo } from './content-api.js';
-import { destroyWatchPlayer, getWatchPlayer } from './watch-player.js';
+import { getWatchPlayer } from './watch-player.js';
 import { mountRichContent } from './rich-content.js';
 import { loadStickerUrlMap } from './emoji-pack.js';
 import { loadSession } from './auth.js';
-import { getCurrentPage, setPage } from './pages.js';
+import {
+  getScrollTop,
+  navigateBack,
+  navigateTo,
+  registerPageNavigation,
+  restoreScrollTop,
+} from './navigation.js';
 import { requireLogin } from './login-ui.js';
 import {
   fetchCommentList,
@@ -54,8 +60,6 @@ import {
 /** @typedef {import('./video-api.js').VideoDetail} VideoDetail */
 /** @typedef {import('./video-api.js').VideoPart} VideoPart */
 
-/** @type {import('./pages.js').PageId} */
-let returnPage = 'home';
 
 /** @type {VideoDetail | null} */
 let currentDetail = null;
@@ -633,13 +637,8 @@ function setLoading(loading) {
 /**
  * @param {ContentPreview} preview
  */
-export async function openVideoDetail(preview) {
+async function loadWatchPage(preview) {
   if (preview.type !== 1) return;
-  const currentPage = getCurrentPage();
-  if (currentPage !== 'watch') {
-    returnPage = currentPage;
-  }
-  setPage('watch');
   activePartIndex = 0;
   activeTab = 'intro';
   descExpanded = false;
@@ -691,7 +690,7 @@ export async function openVideoDetail(preview) {
     if (parts.length > 0) {
       getWatchPlayer()?.load({
         parts,
-        partIndex: 0,
+        partIndex: activePartIndex,
         videoId: detail.preview.id,
         poster: poster ?? undefined,
         onPartChange: () => {
@@ -781,10 +780,98 @@ export async function openVideoDetail(preview) {
   }
 }
 
+function captureWatchPageState() {
+  return {
+    hydrated: Boolean(currentDetail),
+    currentDetail,
+    currentParts,
+    activePartIndex,
+    activeTab,
+    liked,
+    likeCount,
+    disliked,
+    dislikeCount,
+    following,
+    authorFans,
+    authorTotalLikes,
+    descExpanded,
+    favorited,
+    favoriteListId,
+    rewardCount,
+    favoriteCount,
+    watchLater,
+    offlineCached,
+    offlineDownloading,
+    relatedItems,
+    commentItems,
+    collectionNavHtml,
+    canManageSeries,
+    scrollTop: getScrollTop('main-content'),
+  };
+}
+
+/**
+ * @param {ReturnType<typeof captureWatchPageState>} state
+ */
+function applyWatchPageState(state) {
+  currentDetail = state.currentDetail ?? null;
+  currentParts = state.currentParts ?? [];
+  activePartIndex = state.activePartIndex ?? 0;
+  activeTab = state.activeTab ?? 'intro';
+  liked = state.liked ?? false;
+  likeCount = state.likeCount ?? 0;
+  disliked = state.disliked ?? false;
+  dislikeCount = state.dislikeCount ?? 0;
+  following = state.following ?? false;
+  authorFans = state.authorFans ?? 0;
+  authorTotalLikes = state.authorTotalLikes ?? 0;
+  descExpanded = state.descExpanded ?? false;
+  favorited = state.favorited ?? false;
+  favoriteListId = state.favoriteListId ?? null;
+  rewardCount = state.rewardCount ?? 0;
+  favoriteCount = state.favoriteCount ?? 0;
+  watchLater = state.watchLater ?? false;
+  offlineCached = state.offlineCached ?? false;
+  offlineDownloading = state.offlineDownloading ?? false;
+  relatedItems = state.relatedItems ?? [];
+  commentItems = state.commentItems ?? [];
+  collectionNavHtml = state.collectionNavHtml ?? '';
+  canManageSeries = state.canManageSeries ?? false;
+  commentReplyStore.clear();
+
+  if (currentDetail && currentParts.length > 0) {
+    const poster = currentDetail.preview.cover ? mediaSrcForCover(currentDetail.preview.cover) : null;
+    getWatchPlayer()?.load({
+      parts: currentParts,
+      partIndex: activePartIndex,
+      videoId: currentDetail.preview.id,
+      poster: poster ?? undefined,
+      onPartChange: () => {
+        const wp = getWatchPlayer();
+        if (!wp) return;
+        activePartIndex = wp.partIndex;
+        updatePartsActiveState(activePartIndex);
+      },
+    });
+  }
+
+  renderSidePanel();
+  refreshCommentsUi();
+  restoreScrollTop('main-content', state.scrollTop ?? 0);
+}
+
+/**
+ * @param {ContentPreview} preview
+ */
+export async function openVideoDetail(preview) {
+  if (preview.type !== 1) return;
+  await navigateTo('watch', { preview });
+}
+
 export function closeVideoDetail() {
-  destroyWatchPlayer();
-  setPage(returnPage);
-  void import('./mine-page.js').then((mod) => mod.refreshWatchLaterIfActive());
+  void navigateBack().then((ok) => {
+    if (ok) void import('./mine-page.js').then((mod) => mod.refreshWatchLaterIfActive());
+  });
 }
 
 export function bindVideoDetail() {
@@ -842,5 +929,16 @@ export function bindVideoDetail() {
       currentDetail.danmakuCount = count;
       renderSidePanel();
     }
+  });
+
+  registerPageNavigation('watch', {
+    capture: () => captureWatchPageState(),
+    restore: (state) => {
+      applyWatchPageState(/** @type {ReturnType<typeof captureWatchPageState>} */ (state));
+    },
+    enter: async (params) => {
+      const preview = /** @type {ContentPreview | undefined} */ (params.preview);
+      if (preview) await loadWatchPage(preview);
+    },
   });
 }

@@ -3,7 +3,14 @@ import { notify } from './notice-ui.js';
 import { loadSession } from './auth.js';
 import { mediaSrcForCover } from './content-api.js';
 import { renderVideoCard } from './home-feed.js';
-import { getCurrentPage, setPage } from './pages.js';
+import { getCurrentPage } from './pages.js';
+import {
+  getScrollTop,
+  navigateBack,
+  navigateTo,
+  registerPageNavigation,
+  restoreScrollTop,
+} from './navigation.js';
 import { requireLogin } from './login-ui.js';
 import { openContentDetail, previewFromCard } from './content-nav.js';
 import { fetchFollowStatus, setFollow } from './video-api.js';
@@ -42,9 +49,6 @@ const FEED_DOM_PREFIX = 'user-space-feed';
 /** @typedef {import('./user-profile-api.js').UserProfile} UserProfile */
 /** @typedef {import('./pages.js').PageId} PageId */
 /** @typedef {'feed' | 'article' | 'video' | 'favorite' | 'series'} SpaceTabId */
-
-/** @type {PageId} */
-let returnPage = 'mine';
 
 /** @type {number} */
 let currentUserId = 0;
@@ -673,17 +677,65 @@ async function loadUserSpace(userId) {
   }
 }
 
+export function captureUserSpaceState() {
+  return {
+    currentUserId,
+    currentProfile,
+    activeTab,
+    loading: false,
+    hasMore,
+    listCursor,
+    feedStartId,
+    following,
+    favoriteFolders,
+    activeFavoriteFolderId,
+    activeFavoriteFolderName,
+    favoriteNextLastId,
+    favoriteItems,
+    seriesListPage,
+    seriesItems,
+    profileHtml: document.getElementById('user-space-profile')?.innerHTML ?? '',
+    bodyHtml: document.getElementById('user-space-body')?.innerHTML ?? '',
+    barTitle: document.getElementById('user-space-bar-title')?.textContent ?? '',
+    scrollTop: getScrollTop('user-space-scroll') || getScrollTop('main-content'),
+  };
+}
+
+/**
+ * @param {ReturnType<typeof captureUserSpaceState>} state
+ */
+export function restoreUserSpaceState(state) {
+  currentUserId = state.currentUserId ?? 0;
+  currentProfile = state.currentProfile ?? null;
+  activeTab = state.activeTab ?? 'video';
+  loading = false;
+  hasMore = state.hasMore ?? true;
+  listCursor = state.listCursor ?? 0;
+  feedStartId = state.feedStartId ?? -1;
+  following = state.following ?? false;
+  favoriteFolders = state.favoriteFolders ?? [];
+  activeFavoriteFolderId = state.activeFavoriteFolderId ?? null;
+  activeFavoriteFolderName = state.activeFavoriteFolderName ?? '';
+  favoriteNextLastId = state.favoriteNextLastId ?? null;
+  favoriteItems = state.favoriteItems ?? [];
+  seriesListPage = state.seriesListPage ?? 1;
+  seriesItems = state.seriesItems ?? [];
+  syncTabsUi();
+  const profile = document.getElementById('user-space-profile');
+  if (profile) profile.innerHTML = state.profileHtml ?? '';
+  const body = document.getElementById('user-space-body');
+  if (body) body.innerHTML = state.bodyHtml ?? '';
+  const barTitle = document.getElementById('user-space-bar-title');
+  if (barTitle && state.barTitle) barTitle.textContent = state.barTitle;
+  restoreScrollTop(getScrollEl() ?? 'main-content', state.scrollTop ?? 0);
+}
+
 /**
  * @param {number} userId
  */
 export function openUserSpace(userId) {
   if (!Number.isFinite(userId) || userId <= 0) return;
-  returnPage = getCurrentPage();
-  activeTab = 'video';
-  favoriteFolders = [];
-  resetFavoriteListState();
-  setPage('space');
-  void loadUserSpace(userId);
+  void navigateTo('space', { userId: Math.trunc(userId) });
 }
 
 export function openMySpace() {
@@ -701,7 +753,7 @@ export function openMySpace() {
 }
 
 export function closeUserSpace() {
-  setPage(returnPage);
+  void navigateBack();
 }
 
 function onSpaceScroll() {
@@ -792,5 +844,20 @@ export function bindUserSpace() {
     } else {
       void loadFavoriteFirstPage().then(() => mountFavoriteFolderListActions());
     }
+  });
+
+  registerPageNavigation('space', {
+    capture: () => captureUserSpaceState(),
+    restore: (state) => {
+      restoreUserSpaceState(/** @type {ReturnType<typeof captureUserSpaceState>} */ (state));
+    },
+    enter: async (params) => {
+      const userId = Number(params.userId);
+      if (!Number.isFinite(userId) || userId <= 0) return;
+      activeTab = 'video';
+      favoriteFolders = [];
+      resetFavoriteListState();
+      await loadUserSpace(userId);
+    },
   });
 }
