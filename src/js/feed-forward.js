@@ -1,3 +1,4 @@
+import { confirmAction } from './confirm-dialog.js';
 import { materialIcon } from './icons.js';
 import { mediaSrcForCover } from './content-api.js';
 import { requireLogin } from './login-ui.js';
@@ -48,6 +49,12 @@ async function submitForward() {
     alert('说点什么吧');
     return;
   }
+  const confirmed = await confirmAction({
+    title: '转发到动态',
+    message: '确定将这条内容转发到动态吗？转发后将出现在全站时间线。',
+    confirmText: '转发',
+  });
+  if (!confirmed) return;
   publishing = true;
   const btn = document.getElementById('feed-forward-submit');
   if (btn) btn.disabled = true;

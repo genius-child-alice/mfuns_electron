@@ -2,7 +2,7 @@ import { apiGet, apiPostJson, resolveCoverUrl } from './content-api.js';
 
 /** @typedef {{ id: number, resourceId: number | null, title: string, status: number, createdAt: Date | null, cover: string }} SubmissionItem */
 /** @typedef {{ type: string, content: unknown, title: string, meta: Record<string, unknown>, extra: Record<string, unknown> }} SubmissionVideoPart */
-/** @typedef {{ id: number, resourceId: number | null, title: string, content: string, status: number, categoryId: number | null, tags: string[], cover: string, rawContent: string, contentFormat: string, videos: SubmissionVideoPart[] }} SubmissionDetail */
+/** @typedef {{ id: number, resourceId: number | null, title: string, content: string, status: number, categoryId: number | null, tags: string[], cover: string, rawContent: string, contentFormat: string, videos: SubmissionVideoPart[], copyright: number | null, draft: boolean, rejectReason: string, publishTime: Date | null }} SubmissionDetail */
 /** @typedef {{ videoId: string, accessKeyId: string, accessKeySecret: string, securityToken: string, endpoint: string, bucket: string, objectKey: string }} VideoUploadAuth */
 /** @typedef {{ items: SubmissionItem[], hasMore: boolean, total: number | null }} SubmissionItemsPage */
 
@@ -212,24 +212,61 @@ function parseSubmissionItemsPage(data, page, size) {
 }
 
 /**
+ * @param {unknown} value
+ * @returns {string}
+ */
+function pickRejectReason(...values) {
+  for (const value of values) {
+    const text = `${value ?? ''}`.trim();
+    if (text) return text;
+  }
+  return '';
+}
+
+/**
  * @param {unknown} data
  * @returns {SubmissionDetail}
  */
 function parseSubmissionDetail(data) {
   const root = asMap(data);
   const source = Object.keys(asMap(root.contribute)).length ? asMap(root.contribute) : root;
+  const resource = asMap(source.resource ?? root.resource);
   const rawContent = `${source.content ?? source.summary ?? ''}`;
   const contentFormat = `${source.content_format ?? ''}`;
   const content =
     contentFormat === 'markdown' || !rawContent.startsWith('{')
       ? rawContent
       : quillToPlainText(rawContent);
+  const status = asInt(source.status) ?? 0;
+  const copyright = asInt(source.copyright ?? resource.copyright);
+  const draftRaw = source.draft;
+  const draft =
+    draftRaw === true ||
+    draftRaw === 1 ||
+    `${draftRaw}` === '1' ||
+    (draftRaw == null && status === 0);
+  const publishTime = asDate(
+    source.publish_time ??
+      source.publish_at ??
+      resource.publish_time ??
+      root.publish_time,
+  );
+  const rejectReason = pickRejectReason(
+    source.reject_reason,
+    source.reject_msg,
+    source.reason,
+    source.audit_reason,
+    source.audit_msg,
+    resource.reject_reason,
+    resource.reason,
+    root.reject_reason,
+  );
   return {
     id: asInt(source.id) ?? 0,
     resourceId: asInt(source.resource_id),
     title: `${source.title ?? ''}`,
     content,
-    status: asInt(source.status) ?? 0,
+    status,
     categoryId: asInt(source.category_id ?? source.cid),
     tags: toTags(source.tags),
     cover: coverUrl(source.cover),
@@ -238,6 +275,10 @@ function parseSubmissionDetail(data) {
     videos: parseSubmissionVideos(
       source.videos ?? source.video ?? root.videos ?? root.video,
     ),
+    copyright,
+    draft,
+    rejectReason,
+    publishTime,
   };
 }
 
@@ -279,11 +320,25 @@ export function parseVideoUploadAuth(data) {
  * @param {number} type 0=article, 1=video
  * @param {number} [page]
  * @param {number} [size]
+ * @param {number | null} [status]
  */
-export async function fetchSubmissionsPage(type, page = 1, size = 20) {
-  const data = await apiGet('/v1/contribute/list', { type, page, size });
+export async function fetchSubmissionsPage(type, page = 1, size = 20, status = null) {
+  const query = { type, page, size };
+  if (status != null) query.status = status;
+  const data = await apiGet('/v1/contribute/list', query);
   return parseSubmissionItemsPage(data, page, size);
 }
+
+/** @type {{ id: string, label: string, status: number | null }[]} */
+export const SUBMISSION_STATUS_FILTERS = [
+  { id: 'all', label: '全部', status: null },
+  { id: 'draft', label: '草稿', status: 0 },
+  { id: 'review', label: '审核中', status: 2 },
+  { id: 'published', label: '已发布', status: 1 },
+  { id: 'rejected', label: '驳回', status: 3 },
+  { id: 'rejected-edit', label: '待修改', status: 4 },
+  { id: 'scheduled', label: '定时', status: 5 },
+];
 
 /**
  * @param {number} type
@@ -354,6 +409,14 @@ export async function completeVideoUpload(videoId) {
 /**
  * @param {object} params
  */
+/**
+ * @param {Date | null | undefined} value
+ */
+function publishTimePayload(value) {
+  if (!value || Number.isNaN(value.getTime())) return {};
+  return { publish_time: Math.floor(value.getTime() / 1000) };
+}
+
 export async function createArticleSubmission(params) {
   const {
     title,
@@ -363,6 +426,7 @@ export async function createArticleSubmission(params) {
     copyright = 2,
     cover = '',
     draft = false,
+    publishTime = null,
   } = params;
   await apiPostJson('/v1/contribute/article/create', {
     cid: categoryId,
@@ -373,6 +437,7 @@ export async function createArticleSubmission(params) {
     draft,
     ...(tags.length ? { tags: tags.join(',') } : {}),
     ...(cover ? { cover } : {}),
+    ...publishTimePayload(publishTime),
   });
 }
 
@@ -389,6 +454,7 @@ export async function updateArticleSubmission(params) {
     copyright = 2,
     cover = '',
     draft = false,
+    publishTime = null,
   } = params;
   await apiPostJson('/v1/contribute/article/update', {
     contribute_id: contributeId,
@@ -400,6 +466,7 @@ export async function updateArticleSubmission(params) {
     draft,
     ...(tags.length ? { tags: tags.join(',') } : {}),
     ...(cover ? { cover } : {}),
+    ...publishTimePayload(publishTime),
   });
 }
 
@@ -415,6 +482,7 @@ export async function createVideoSubmission(params) {
     tags = [],
     copyright = 0,
     cover = '',
+    publishTime = null,
   } = params;
   await apiPostJson('/v1/contribute/video/create', {
     cid: categoryId,
@@ -424,6 +492,7 @@ export async function createVideoSubmission(params) {
     video: JSON.stringify(videos.map(videoPartToJson)),
     copyright,
     ...(tags.length ? { tags: tags.join(',') } : {}),
+    ...publishTimePayload(publishTime),
   });
 }
 
@@ -440,6 +509,7 @@ export async function updateVideoSubmission(params) {
     tags = [],
     copyright = 0,
     cover = '',
+    publishTime = null,
   } = params;
   await apiPostJson('/v1/contribute/video/update', {
     contribute_id: contributeId,
@@ -450,6 +520,7 @@ export async function updateVideoSubmission(params) {
     copyright,
     ...(tags.length ? { tags: tags.join(',') } : {}),
     ...(cover ? { cover } : {}),
+    ...publishTimePayload(publishTime),
   });
 }
 
@@ -472,6 +543,16 @@ export function leafCategories(categories) {
   );
   const leaves = categories.filter((node) => !parentIds.has(node.id));
   return leaves.length ? leaves : categories;
+}
+
+/**
+ * @param {import('./content-api.js').CategoryNode[]} categories
+ * @param {import('./content-api.js').CategoryNode} node
+ */
+export function categoryDisplayName(categories, node) {
+  if (!node.parentId) return node.name;
+  const parent = categories.find((item) => item.id === node.parentId);
+  return parent ? `${parent.name} · ${node.name}` : node.name;
 }
 
 /**

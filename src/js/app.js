@@ -35,6 +35,7 @@ import {
   syncPagesAuthState,
 } from './pages.js';
 import { bindMessagePage, openMessagePage } from './message-page.js';
+import { bindConfirmDialog } from './confirm-dialog.js';
 import { registerOpenLoginHandler, requireLogin } from './login-ui.js';
 import { bindHomeFeed } from './home-feed.js';
 import { bindFeedPage } from './feed-page.js';
@@ -319,6 +320,17 @@ function renderShell() {
             <button type="submit" class="btn-accent favorite-folder-create__submit" id="favorite-folder-form-submit">创建</button>
           </div>
         </form>
+      </div>
+    </dialog>
+
+    <dialog class="confirm-dialog app-no-drag" id="confirm-dialog" aria-labelledby="confirm-dialog-title">
+      <div class="confirm-dialog__card">
+        <h2 class="confirm-dialog__title" id="confirm-dialog-title">请确认</h2>
+        <p class="confirm-dialog__message" id="confirm-dialog-message"></p>
+        <div class="confirm-dialog__actions">
+          <button type="button" class="confirm-dialog__cancel" id="confirm-dialog-cancel">取消</button>
+          <button type="button" class="confirm-dialog__confirm" id="confirm-dialog-confirm">确定</button>
+        </div>
       </div>
     </dialog>
 
@@ -677,6 +689,7 @@ function bootApp() {
   bindTagPage();
   bindImageViewer();
   bindCommentComposer();
+  bindConfirmDialog();
   bindMessagePage();
   void import('./contribute-page.js')
     .then((mod) => mod.bindContributePage())

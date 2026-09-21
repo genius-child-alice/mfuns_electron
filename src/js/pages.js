@@ -237,6 +237,7 @@ export function contributePageHtml() {
                   <span>发布投稿</span>
                 </button>
               </div>
+              <div class="contribute-status-filters" id="contribute-status-filters" role="tablist" aria-label="投稿状态筛选"></div>
               <div class="contribute-list-scroll" id="contribute-list-scroll">
                 <div class="contribute-list" id="contribute-list"></div>
               </div>
@@ -283,10 +284,12 @@ export function contributePageHtml() {
             </div>
           </header>
           <div class="contribute-subview__body">
-            <form class="contribute-form" onsubmit="return false">
+            <form class="contribute-form contribute-editor-card" onsubmit="return false">
               <div class="contribute-field">
-                <label for="contribute-feed-compose-content">正文</label>
-                <textarea id="contribute-feed-compose-content" rows="8" placeholder="分享此刻的想法…"></textarea>
+                <label for="feed-compose-quill">正文</label>
+                <div class="contribute-rich-editor contribute-rich-editor--feed app-no-drag" id="feed-compose-rich-editor">
+                  <div id="feed-compose-quill" class="contribute-rich-editor__host"></div>
+                </div>
               </div>
               <div class="contribute-field">
                 <label>图片（最多 9 张）</label>
@@ -299,7 +302,6 @@ export function contributePageHtml() {
                 <div class="contribute-tag-editor">
                   <div class="contribute-tags" id="contribute-feed-compose-tags"></div>
                   <input type="text" id="contribute-feed-compose-tag-input" class="contribute-tag-editor__input" maxlength="24" placeholder="输入标签后按回车添加，最多 10 个" />
-                  <p class="contribute-field-hint">回车确认一个标签</p>
                 </div>
               </div>
               <p class="contribute-section-desc">动态发布后将出现在全站时间线</p>
@@ -315,7 +317,7 @@ export function contributePageHtml() {
             </button>
             <h2 class="contribute-subview__heading" id="contribute-editor-heading">发布投稿</h2>
             <div class="contribute-subview__actions">
-              <button type="button" class="btn-accent" id="contribute-editor-save">保存</button>
+              <button type="button" class="btn-accent" id="contribute-editor-save">发布投稿</button>
             </div>
           </header>
           <div class="contribute-subview__body">
@@ -396,6 +398,11 @@ export function contributePageHtml() {
                     <input type="checkbox" id="contribute-editor-draft" />
                     <label for="contribute-editor-draft">仅存草稿，不直接发布</label>
                   </div>
+                  <div class="contribute-schedule-row" id="contribute-editor-schedule-row">
+                    <input type="checkbox" id="contribute-editor-schedule-enabled" />
+                    <label for="contribute-editor-schedule-enabled">定时发布</label>
+                    <input type="datetime-local" id="contribute-editor-schedule-time" class="contribute-schedule-row__time" hidden />
+                  </div>
                 </div>
               </section>
             </form>
@@ -410,8 +417,8 @@ export function contributePageHtml() {
             </button>
             <h2 class="contribute-subview__heading">投稿详情</h2>
             <div class="contribute-subview__actions">
-              <button type="button" class="contribute-subview__back" id="contribute-detail-edit">编辑</button>
-              <button type="button" class="contribute-subview__back contribute-card__action--danger" id="contribute-detail-delete">删除</button>
+              <button type="button" class="contribute-btn contribute-btn--ghost" id="contribute-detail-edit">编辑</button>
+              <button type="button" class="contribute-btn contribute-btn--danger" id="contribute-detail-delete">删除</button>
             </div>
           </header>
           <div class="contribute-subview__body" id="contribute-detail-body"></div>

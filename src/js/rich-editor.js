@@ -1,20 +1,28 @@
 import { marked } from '../../node_modules/marked/lib/marked.esm.js';
 import { normalizeRichContent, quillOpsToMarkdown } from './rich-content.js';
 
-/** @typedef {'article' | 'video'} EditorContentMode */
+/** @typedef {'article' | 'video' | 'feed'} EditorContentMode */
 /** @typedef {import('../vendor/quill.mjs').default} QuillCtor */
 
-/** @type {QuillCtor | null} */
-let QuillClass = null;
-
-/** @type {import('../vendor/quill.mjs').default | null} */
-let quillInstance = null;
+/** @typedef {{
+ *   containerId: string,
+ *   wrapId: string | null,
+ *   placeholder: string,
+ *   compact: boolean,
+ *   quill: import('../vendor/quill.mjs').default | null,
+ * }} RichEditorSlot */
 
 /** @type {Promise<QuillCtor> | null} */
 let quillLoadPromise = null;
 
-/** @type {((file: File) => Promise<string>) | null} */
-let imageUploadHandler = null;
+/** @type {QuillCtor | null} */
+let QuillClass = null;
+
+/** @type {Map<string, RichEditorSlot>} */
+const editorSlots = new Map();
+
+/** @type {Map<string, (file: File) => Promise<string>>} */
+const imageUploadHandlers = new Map();
 
 const TOOLBAR_OPTIONS = [
   [{ header: [2, 3, false] }],
@@ -24,6 +32,39 @@ const TOOLBAR_OPTIONS = [
   ['link', 'image'],
   ['clean'],
 ];
+
+const FEED_TOOLBAR_OPTIONS = [
+  ['bold', 'italic', 'underline'],
+  [{ list: 'ordered' }, { list: 'bullet' }],
+  ['link', 'image'],
+  ['clean'],
+];
+
+/**
+ * @param {string} editorKey
+ * @param {{ containerId: string, wrapId?: string | null, placeholder?: string, compact?: boolean }} config
+ */
+function registerEditorSlot(editorKey, config) {
+  editorSlots.set(editorKey, {
+    containerId: config.containerId,
+    wrapId: config.wrapId ?? null,
+    placeholder: config.placeholder ?? '请输入内容',
+    compact: config.compact === true,
+    quill: null,
+  });
+}
+
+registerEditorSlot('contribute', {
+  containerId: 'contribute-editor-quill',
+  wrapId: 'contribute-rich-editor',
+  placeholder: '请输入正文内容',
+});
+registerEditorSlot('feed', {
+  containerId: 'feed-compose-quill',
+  wrapId: 'feed-compose-rich-editor',
+  placeholder: '分享此刻的想法…',
+  compact: true,
+});
 
 /**
  * @returns {Promise<QuillCtor>}
@@ -45,27 +86,36 @@ function loadQuillClass() {
 }
 
 /**
+ * @param {string} editorKey
  * @param {(file: File) => Promise<string>} handler
  */
+export function setRichEditorImageUpload(editorKey, handler) {
+  imageUploadHandlers.set(editorKey, handler);
+}
+
+/** @deprecated Use setRichEditorImageUpload('contribute', handler) */
 export function setContributeRichEditorImageUpload(handler) {
-  imageUploadHandler = handler;
+  setRichEditorImageUpload('contribute', handler);
 }
 
 /**
- * @returns {import('../vendor/quill.mjs').default | null}
+ * @param {string} editorKey
+ * @returns {RichEditorSlot | null}
  */
-export function getContributeRichEditor() {
-  return quillInstance;
+function getSlot(editorKey) {
+  return editorSlots.get(editorKey) ?? null;
 }
 
 /**
  * @param {InstanceType<QuillCtor>} quill
+ * @param {string} editorKey
  */
-function bindImageHandler(quill) {
+function bindImageHandler(quill, editorKey) {
   const toolbar = quill.getModule('toolbar');
   if (!toolbar || typeof toolbar.addHandler !== 'function') return;
   toolbar.addHandler('image', () => {
-    if (!imageUploadHandler) return;
+    const handler = imageUploadHandlers.get(editorKey);
+    if (!handler) return;
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
@@ -73,7 +123,7 @@ function bindImageHandler(quill) {
       const file = input.files?.[0];
       if (!file) return;
       try {
-        const url = await imageUploadHandler(file);
+        const url = await handler(file);
         const range = quill.getSelection(true);
         const index = range?.index ?? quill.getLength();
         quill.insertEmbed(index, 'image', url, 'user');
@@ -87,30 +137,35 @@ function bindImageHandler(quill) {
 }
 
 /**
+ * @param {string} [editorKey]
  * @returns {Promise<import('../vendor/quill.mjs').default | null>}
  */
-export async function ensureContributeRichEditor() {
-  const container = document.getElementById('contribute-editor-quill');
-  if (!container) return null;
+export async function ensureRichEditor(editorKey = 'contribute') {
+  const slot = getSlot(editorKey);
+  const container = slot ? document.getElementById(slot.containerId) : null;
+  if (!slot || !container) return null;
 
   const Quill = await loadQuillClass();
 
-  if (!quillInstance) {
-    quillInstance = new Quill(container, {
+  if (!slot.quill) {
+    slot.quill = new Quill(container, {
       theme: 'snow',
       modules: {
         toolbar: {
-          container: TOOLBAR_OPTIONS,
+          container: editorKey === 'feed' ? FEED_TOOLBAR_OPTIONS : TOOLBAR_OPTIONS,
           handlers: {},
         },
       },
-      placeholder: '请输入正文内容',
+      placeholder: slot.placeholder,
     });
-    bindImageHandler(quillInstance);
+    bindImageHandler(slot.quill, editorKey);
   }
 
-  return quillInstance;
+  return slot.quill;
 }
+
+/** @deprecated */
+export const ensureContributeRichEditor = () => ensureRichEditor('contribute');
 
 /**
  * @param {InstanceType<QuillCtor>} quill
@@ -129,9 +184,10 @@ function loadMarkdownIntoQuill(quill, markdown) {
 /**
  * @param {string | null | undefined} source
  * @param {EditorContentMode} mode
+ * @param {string} [editorKey]
  */
-export async function loadContributeRichEditorContent(source, mode) {
-  const quill = await ensureContributeRichEditor();
+export async function loadRichEditorContent(source, mode, editorKey = 'contribute') {
+  const quill = await ensureRichEditor(editorKey);
   if (!quill) return;
 
   const value = `${source ?? ''}`.trim();
@@ -139,7 +195,7 @@ export async function loadContributeRichEditorContent(source, mode) {
 
   if (!value) return;
 
-  if (mode === 'video' || (value.startsWith('{') && value.includes('"ops"'))) {
+  if (mode === 'video' || mode === 'feed' || (value.startsWith('{') && value.includes('"ops"'))) {
     try {
       const parsed = JSON.parse(value);
       const ops = parsed?.ops ?? (Array.isArray(parsed) ? parsed : null);
@@ -160,30 +216,44 @@ export async function loadContributeRichEditorContent(source, mode) {
   quill.setText(value);
 }
 
+/** @deprecated */
+export const loadContributeRichEditorContent = (source, mode) =>
+  loadRichEditorContent(source, mode, 'contribute');
+
 /**
  * @param {0 | 1} type
  */
 export async function syncContributeRichEditorLayout(type) {
-  const wrap = document.getElementById('contribute-rich-editor');
-  const quill = await ensureContributeRichEditor();
-  if (!wrap || !quill) return;
+  const slot = getSlot('contribute');
+  const wrap = slot?.wrapId ? document.getElementById(slot.wrapId) : null;
+  const quill = await ensureRichEditor('contribute');
+  if (!wrap || !quill || !slot) return;
 
   const isVideo = type === 1;
   wrap.classList.toggle('contribute-rich-editor--compact', isVideo);
-  quill.root.setAttribute('data-placeholder', isVideo ? '视频简介' : '请输入正文内容');
+  const placeholder = isVideo ? '视频简介' : '请输入正文内容';
+  slot.placeholder = placeholder;
+  quill.root.setAttribute('data-placeholder', placeholder);
 }
 
-export async function resetContributeRichEditor() {
-  const quill = await ensureContributeRichEditor();
+/**
+ * @param {string} [editorKey]
+ */
+export async function resetRichEditor(editorKey = 'contribute') {
+  const quill = await ensureRichEditor(editorKey);
   if (!quill) return;
   quill.setText('');
 }
 
+/** @deprecated */
+export const resetContributeRichEditor = () => resetRichEditor('contribute');
+
 /**
+ * @param {string} [editorKey]
  * @returns {Promise<boolean>}
  */
-export async function isContributeRichEditorEmpty() {
-  const quill = await ensureContributeRichEditor();
+export async function isRichEditorEmpty(editorKey = 'contribute') {
+  const quill = await ensureRichEditor(editorKey);
   if (!quill) return true;
   const text = quill.getText().replace(/\n/g, '').trim();
   if (text) return false;
@@ -195,23 +265,31 @@ export async function isContributeRichEditorEmpty() {
   });
 }
 
+/** @deprecated */
+export const isContributeRichEditorEmpty = () => isRichEditorEmpty('contribute');
+
 /**
+ * @param {string} [editorKey]
  * @returns {Promise<string>}
  */
-export async function getArticleMarkdownFromEditor() {
-  const quill = await ensureContributeRichEditor();
+export async function getArticleMarkdownFromEditor(editorKey = 'contribute') {
+  const quill = await ensureRichEditor(editorKey);
   if (!quill) return '';
   return quillOpsToMarkdown(quill.getContents().ops);
 }
 
 /**
+ * @param {string} [editorKey]
  * @returns {Promise<string>}
  */
-export async function getVideoQuillJsonFromEditor() {
-  const quill = await ensureContributeRichEditor();
+export async function getQuillJsonFromEditor(editorKey = 'contribute') {
+  const quill = await ensureRichEditor(editorKey);
   if (!quill) return JSON.stringify({ ops: [{ insert: '\n' }] });
   const contents = quill.getContents();
   const ops = contents.ops ?? [];
   if (ops.length === 0) return JSON.stringify({ ops: [{ insert: '\n' }] });
   return JSON.stringify(contents);
 }
+
+/** @deprecated */
+export const getVideoQuillJsonFromEditor = () => getQuillJsonFromEditor('contribute');

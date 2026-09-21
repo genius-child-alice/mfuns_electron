@@ -8,9 +8,12 @@ import { messageQuillJson } from './message-quill.js';
  * @param {string[]} [params.tags]
  */
 export async function createFeed(params) {
-  const { content, images = [], tags = [] } = params;
+  const { content, contentJson, images = [], tags = [] } = params;
+  const quillContent =
+    contentJson ??
+    (content ? messageQuillJson([{ text: content }], []) : JSON.stringify({ ops: [{ insert: '\n' }] }));
   await apiPostJson('/v1/feeds/create', {
-    content: messageQuillJson([{ text: content }], []),
+    content: quillContent,
     images: JSON.stringify(images),
     ...(tags.length ? { tags: tags.join(',') } : {}),
   });

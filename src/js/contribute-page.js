@@ -1,3 +1,4 @@
+import { confirmAction } from './confirm-dialog.js';
 import { materialIcon } from './icons.js';
 import { fetchCategories, mediaSrcForCover, resolveCoverUrl } from './content-api.js';
 import { requireLogin } from './login-ui.js';
@@ -10,7 +11,7 @@ import {
   isContributeRichEditorEmpty,
   loadContributeRichEditorContent,
   resetContributeRichEditor,
-  setContributeRichEditorImageUpload,
+  setRichEditorImageUpload,
   syncContributeRichEditorLayout,
 } from './rich-editor.js';
 import { uploadCommentImage } from './video-api.js';
@@ -23,7 +24,9 @@ import {
   fetchSubmissionsPage,
   formatSubmissionTime,
   getVideoUploadAuth,
+  categoryDisplayName,
   leafCategories,
+  SUBMISSION_STATUS_FILTERS,
   submissionStatusLabel,
   updateArticleSubmission,
   updateVideoSubmission,
@@ -47,6 +50,9 @@ const PAGE_SIZE = 20;
 
 /** @type {0 | 1} */
 let listTab = 0;
+
+/** @type {number | null} */
+let listStatusFilter = null;
 
 /** @type {'hub' | 'editor' | 'detail' | 'feed-compose'} */
 let view = 'hub';
@@ -152,6 +158,43 @@ function renderListTabs() {
   });
 }
 
+function renderListStatusFilters() {
+  const wrap = document.getElementById('contribute-status-filters');
+  if (!wrap) return;
+  wrap.innerHTML = SUBMISSION_STATUS_FILTERS.map(
+    (filter) => `
+      <button
+        type="button"
+        class="contribute-status-filter${listStatusFilter === filter.status ? ' is-active' : ''}"
+        data-contribute-status="${filter.status ?? ''}"
+        role="tab"
+        aria-selected="${listStatusFilter === filter.status ? 'true' : 'false'}"
+      >${escapeHtml(filter.label)}</button>`,
+  ).join('');
+}
+
+/**
+ * @param {number} status
+ */
+function submissionStatusClass(status) {
+  switch (status) {
+    case 0:
+      return 'contribute-card__status--draft';
+    case 1:
+      return 'contribute-card__status--published';
+    case 2:
+      return 'contribute-card__status--review';
+    case 3:
+      return 'contribute-card__status--rejected';
+    case 4:
+      return 'contribute-card__status--rejected-edit';
+    case 5:
+      return 'contribute-card__status--scheduled';
+    default:
+      return '';
+  }
+}
+
 /**
  * @param {SubmissionItem} item
  */
@@ -171,7 +214,7 @@ function renderSubmissionCard(item) {
         <span class="contribute-card__body">
           <h3 class="contribute-card__title">${escapeHtml(item.title || '未命名投稿')}</h3>
           <span class="contribute-card__meta">
-            <span class="contribute-card__status">${escapeHtml(submissionStatusLabel(item.status))}</span>
+            <span class="contribute-card__status ${submissionStatusClass(item.status)}">${escapeHtml(submissionStatusLabel(item.status))}</span>
             ${timeText ? `<span class="contribute-card__time">${escapeHtml(timeText)}</span>` : ''}
           </span>
         </span>
@@ -243,7 +286,7 @@ async function loadListFirstPage() {
   renderListBody();
 
   try {
-    const result = await fetchSubmissionsPage(type, 1, PAGE_SIZE);
+    const result = await fetchSubmissionsPage(type, 1, PAGE_SIZE, listStatusFilter);
     if (generation !== listGeneration || type !== listTab) return;
     items = result.items;
     listPage = 2;
@@ -269,7 +312,7 @@ async function loadListMore() {
   renderListBody();
 
   try {
-    const result = await fetchSubmissionsPage(type, page, PAGE_SIZE);
+    const result = await fetchSubmissionsPage(type, page, PAGE_SIZE, listStatusFilter);
     if (generation !== listGeneration || type !== listTab) return;
     const known = new Set(items.map((item) => item.id));
     items = [...items, ...result.items.filter((item) => !known.has(item.id))];
@@ -327,6 +370,13 @@ async function openEditor(type, contributeId = null) {
   await resetContributeRichEditor();
   if (tagInput) tagInput.value = '';
   if (draftEl) draftEl.checked = false;
+  const scheduleEnabledEl = document.getElementById('contribute-editor-schedule-enabled');
+  const scheduleTimeEl = document.getElementById('contribute-editor-schedule-time');
+  if (scheduleEnabledEl) scheduleEnabledEl.checked = false;
+  if (scheduleTimeEl) {
+    scheduleTimeEl.value = '';
+    scheduleTimeEl.hidden = true;
+  }
   const copyrightEl = document.getElementById('contribute-editor-copyright');
   if (copyrightEl) copyrightEl.value = String(editorCopyright);
 
@@ -340,6 +390,7 @@ async function openEditor(type, contributeId = null) {
   }
   await syncEditorLayout(type);
   await ensureContributeRichEditor();
+  syncEditorSaveButtonLabel();
 
   renderEditorTags();
   renderEditorCoverPreview();
@@ -358,12 +409,23 @@ async function openEditor(type, contributeId = null) {
       editorCategoryId = detail.categoryId;
       editorTags = detail.tags.slice(0, 10);
       editorVideoParts = detail.videos.slice();
+      if (detail.copyright != null) {
+        editorCopyright = detail.copyright;
+        if (copyrightEl) copyrightEl.value = String(detail.copyright);
+      }
+      if (draftEl) draftEl.checked = detail.draft;
+      if (detail.publishTime && scheduleEnabledEl && scheduleTimeEl) {
+        scheduleEnabledEl.checked = true;
+        scheduleTimeEl.hidden = false;
+        scheduleTimeEl.value = toDatetimeLocalValue(detail.publishTime);
+      }
       renderEditorTags();
       renderEditorCoverPreview();
       renderEditorVideoParts();
       renderEditorCategoryOptions();
-    } catch {
-      /* allow editing with empty fields */
+      syncScheduleUi();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '加载投稿详情失败');
     }
   }
 }
@@ -377,7 +439,7 @@ function renderEditorCategoryOptions() {
     leaves
       .map(
         (node) =>
-          `<option value="${node.id}"${editorCategoryId === node.id ? ' selected' : ''}>${escapeHtml(node.name)}</option>`,
+          `<option value="${node.id}"${editorCategoryId === node.id ? ' selected' : ''}>${escapeHtml(categoryDisplayName(categories, node))}</option>`,
       )
       .join('');
 }
@@ -423,6 +485,8 @@ function renderEditorVideoParts() {
           <span>${escapeHtml(part.title || '未命名分P')}</span>
         </div>
         <div class="contribute-video-part__actions">
+          <button type="button" data-action="move-part-up" data-index="${index}"${index === 0 ? ' disabled' : ''} title="上移">↑</button>
+          <button type="button" data-action="move-part-down" data-index="${index}"${index === editorVideoParts.length - 1 ? ' disabled' : ''} title="下移">↓</button>
           <button type="button" data-action="rename-part" data-index="${index}">改名</button>
           <button type="button" data-action="replace-part" data-index="${index}">重传</button>
           <button type="button" data-action="remove-part" data-index="${index}">删除</button>
@@ -465,6 +529,105 @@ function commitTagInput() {
   if (addEditorTag(raw)) input.value = '';
 }
 
+/**
+ * @param {Date} value
+ */
+function toDatetimeLocalValue(value) {
+  const two = (n) => String(n).padStart(2, '0');
+  return `${value.getFullYear()}-${two(value.getMonth() + 1)}-${two(value.getDate())}T${two(value.getHours())}:${two(value.getMinutes())}`;
+}
+
+/**
+ * @param {Date | null | undefined} value
+ */
+function formatDetailDateTime(value) {
+  if (!value) return '';
+  const two = (n) => String(n).padStart(2, '0');
+  return `${value.getFullYear()}-${two(value.getMonth() + 1)}-${two(value.getDate())} ${two(value.getHours())}:${two(value.getMinutes())}`;
+}
+
+function syncEditorSaveButtonLabel() {
+  const saveBtn = document.getElementById('contribute-editor-save');
+  if (!saveBtn) return;
+  const draftChecked = document.getElementById('contribute-editor-draft')?.checked ?? false;
+  const scheduleChecked =
+    document.getElementById('contribute-editor-schedule-enabled')?.checked ?? false;
+  if (draftChecked) {
+    saveBtn.textContent = '保存草稿';
+    return;
+  }
+  if (scheduleChecked) {
+    saveBtn.textContent = '定时发布';
+    return;
+  }
+  saveBtn.textContent = editorContributeId == null ? '发布投稿' : '保存投稿';
+}
+
+function syncScheduleUi() {
+  const draftEl = document.getElementById('contribute-editor-draft');
+  const scheduleEnabledEl = document.getElementById('contribute-editor-schedule-enabled');
+  const scheduleTimeEl = document.getElementById('contribute-editor-schedule-time');
+  const draftChecked = draftEl?.checked ?? false;
+  const scheduleChecked = scheduleEnabledEl?.checked ?? false;
+  if (scheduleTimeEl) scheduleTimeEl.hidden = !scheduleChecked;
+  if (draftEl) draftEl.disabled = scheduleChecked;
+  if (scheduleEnabledEl) scheduleEnabledEl.disabled = draftChecked;
+  syncEditorSaveButtonLabel();
+}
+
+/**
+ * @returns {{ title: string, message: string, confirmText: string }}
+ */
+function getEditorSaveConfirmCopy() {
+  const draftChecked = document.getElementById('contribute-editor-draft')?.checked ?? false;
+  const scheduleChecked =
+    document.getElementById('contribute-editor-schedule-enabled')?.checked ?? false;
+  const typeLabel = editorType === 1 ? '视频' : '文章';
+  if (draftChecked) {
+    return {
+      title: '保存草稿',
+      message: `确定将当前${typeLabel}投稿保存为草稿吗？`,
+      confirmText: '保存草稿',
+    };
+  }
+  if (scheduleChecked) {
+    return {
+      title: '定时发布',
+      message: `确定按设定时间提交${typeLabel}定时发布吗？`,
+      confirmText: '确认定时',
+    };
+  }
+  return {
+    title: editorContributeId == null ? '发布投稿' : '保存投稿',
+    message: `确定提交${typeLabel}投稿吗？提交后将进入审核流程。`,
+    confirmText: editorContributeId == null ? '发布' : '保存',
+  };
+}
+
+/**
+ * @returns {Date | null | undefined} undefined means validation failed
+ */
+function readEditorPublishTime() {
+  const scheduleEnabledEl = document.getElementById('contribute-editor-schedule-enabled');
+  const scheduleTimeEl = document.getElementById('contribute-editor-schedule-time');
+  if (!scheduleEnabledEl?.checked) return null;
+  const raw = scheduleTimeEl?.value?.trim() ?? '';
+  if (!raw) {
+    alert('请选择定时发布时间');
+    return undefined;
+  }
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) {
+    alert('定时发布时间无效');
+    return undefined;
+  }
+  if (date.getTime() <= Date.now()) {
+    alert('定时发布时间必须晚于当前时间');
+    return undefined;
+  }
+  return date;
+}
+
 async function syncEditorLayout(type) {
   const isArticle = type === 0;
   const isVideo = type === 1;
@@ -474,6 +637,7 @@ async function syncEditorLayout(type) {
   const coverHint = document.getElementById('contribute-editor-cover-hint');
   if (contentLabel) contentLabel.textContent = isArticle ? '正文' : '简介';
   if (coverHint) coverHint.hidden = !isVideo;
+  syncScheduleUi();
   await syncContributeRichEditorLayout(type);
 }
 
@@ -557,6 +721,8 @@ async function saveEditor() {
     document.getElementById('contribute-editor-copyright')?.value ?? `${editorCopyright}`,
     10,
   );
+  const publishTime = readEditorPublishTime();
+  if (publishTime === undefined) return;
 
   if (!title) {
     alert('请输入标题');
@@ -580,6 +746,15 @@ async function saveEditor() {
   }
 
   commitTagInput();
+
+  const confirmCopy = getEditorSaveConfirmCopy();
+  const confirmed = await confirmAction({
+    title: confirmCopy.title,
+    message: confirmCopy.message,
+    confirmText: confirmCopy.confirmText,
+  });
+  if (!confirmed) return;
+
   editorSaving = true;
   const saveBtn = document.getElementById('contribute-editor-save');
   if (saveBtn) saveBtn.disabled = true;
@@ -595,6 +770,7 @@ async function saveEditor() {
           cover,
           draft,
           copyright,
+          publishTime,
         });
       } else {
         await updateArticleSubmission({
@@ -606,6 +782,7 @@ async function saveEditor() {
           cover,
           draft,
           copyright,
+          publishTime,
         });
       }
     } else if (editorContributeId == null) {
@@ -617,6 +794,7 @@ async function saveEditor() {
         tags: editorTags,
         cover,
         copyright,
+        publishTime,
       });
     } else {
       await updateVideoSubmission({
@@ -628,6 +806,7 @@ async function saveEditor() {
         tags: editorTags,
         cover,
         copyright,
+        publishTime,
       });
     }
     showView('hub');
@@ -689,12 +868,23 @@ function renderDetail() {
 
   const detail = detailData;
   const coverSrc = detail.cover ? mediaSrcForCover(detail.cover) : '';
+  const publishTimeText = detail.publishTime ? formatDetailDateTime(detail.publishTime) : '';
   body.innerHTML = `
     <div class="contribute-detail">
       <div class="contribute-detail__status-row">
-        <span class="contribute-card__status">${escapeHtml(submissionStatusLabel(detail.status))}</span>
+        <span class="contribute-card__status ${submissionStatusClass(detail.status)}">${escapeHtml(submissionStatusLabel(detail.status))}</span>
         ${detail.resourceId != null ? `<span class="contribute-detail__resource">资源 ID ${detail.resourceId}</span>` : ''}
       </div>
+      ${
+        detail.rejectReason
+          ? `<div class="contribute-detail__reject" role="alert"><strong>驳回原因：</strong>${escapeHtml(detail.rejectReason)}</div>`
+          : ''
+      }
+      ${
+        publishTimeText
+          ? `<p class="contribute-detail__schedule">定时发布时间：${escapeHtml(publishTimeText)}</p>`
+          : ''
+      }
       <h2 class="contribute-detail__title">${escapeHtml(detail.title || '未命名投稿')}</h2>
       ${
         detail.tags.length
@@ -729,8 +919,14 @@ function renderDetail() {
  */
 async function confirmDelete(contributeId) {
   const item = items.find((entry) => entry.id === contributeId);
-  const title = item?.title || '该投稿';
-  if (!window.confirm(`确定删除投稿「${title}」吗？删除后无法恢复。`)) return;
+  const title = item?.title || detailData?.title || '该投稿';
+  const confirmed = await confirmAction({
+    title: '删除投稿',
+    message: `确定删除投稿「${title}」吗？删除后无法恢复。`,
+    confirmText: '删除',
+    variant: 'danger',
+  });
+  if (!confirmed) return;
   try {
     await deleteSubmission(listTab, contributeId);
     if (view === 'detail') {
@@ -755,6 +951,7 @@ async function ensureCategories() {
 
 async function onContributePageEnterInternal() {
   renderListTabs();
+  renderListStatusFilters();
   if (view === 'hub') {
     showHubSection(hubSection);
   }
@@ -839,10 +1036,28 @@ export function bindContributePage() {
     if (action === 'remove-part') {
       const index = Number.parseInt(actionEl.getAttribute('data-index') ?? '', 10);
       if (!Number.isFinite(index)) return;
-      if (!window.confirm('保存后该分P将从投稿中移除，已直传的视频不会立即从媒体库删除。')) return;
-      editorVideoParts.splice(index, 1);
-      renderEditorVideoParts();
+      void (async () => {
+        const partConfirmed = await confirmAction({
+          title: '删除分P',
+          message: '保存后该分P将从投稿中移除，已直传的视频不会立即从媒体库删除。',
+          confirmText: '删除',
+          variant: 'danger',
+        });
+        if (!partConfirmed) return;
+        editorVideoParts.splice(index, 1);
+        renderEditorVideoParts();
+      })();
       return;
+    }
+    if (action === 'move-part-up' || action === 'move-part-down') {
+      const index = Number.parseInt(actionEl.getAttribute('data-index') ?? '', 10);
+      if (!Number.isFinite(index)) return;
+      const offset = action === 'move-part-up' ? -1 : 1;
+      const nextIndex = index + offset;
+      if (nextIndex < 0 || nextIndex >= editorVideoParts.length) return;
+      const [part] = editorVideoParts.splice(index, 1);
+      editorVideoParts.splice(nextIndex, 0, part);
+      renderEditorVideoParts();
     }
   });
 
@@ -866,6 +1081,9 @@ export function bindContributePage() {
       const file = input.files?.[0];
       input.value = '';
       if (file) void uploadCoverFile(file);
+    }
+    if (target.id === 'contribute-editor-draft' || target.id === 'contribute-editor-schedule-enabled') {
+      syncScheduleUi();
     }
   });
 
@@ -898,9 +1116,21 @@ export function bindContributePage() {
     if (detailContributeId != null) void confirmDelete(detailContributeId);
   });
 
-  setContributeRichEditorImageUpload(async (file) => {
+  setRichEditorImageUpload('contribute', async (file) => {
     const path = await uploadCommentImage(file);
     return absoluteMediaUrl(path);
+  });
+
+  document.getElementById('contribute-status-filters')?.addEventListener('click', (event) => {
+    const target = /** @type {HTMLElement} */ (event.target);
+    const btn = target.closest('[data-contribute-status]');
+    if (!btn) return;
+    const raw = btn.getAttribute('data-contribute-status') ?? '';
+    const nextStatus = raw === '' ? null : Number.parseInt(raw, 10);
+    if (nextStatus === listStatusFilter || (raw === '' && listStatusFilter == null)) return;
+    listStatusFilter = raw === '' || !Number.isFinite(nextStatus) ? null : nextStatus;
+    renderListStatusFilters();
+    void loadListFirstPage();
   });
 
   document.getElementById('contribute-editor-tag-input')?.addEventListener('keydown', (event) => {

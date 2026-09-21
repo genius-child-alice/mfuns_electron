@@ -1,10 +1,18 @@
+import { confirmAction } from './confirm-dialog.js';
 import { loadSession } from './auth.js';
-import { mediaSrcForCover } from './content-api.js';
+import { mediaSrcForCover, resolveCoverUrl } from './content-api.js';
 import { createFeed, deleteFeed } from './feed-api.js';
 import { openFeedDetail } from './feed-detail.js';
 import { materialIcon } from './icons.js';
 import { quillToText } from './message-quill.js';
 import { mountRichContent } from './rich-content.js';
+import {
+  ensureRichEditor,
+  getQuillJsonFromEditor,
+  isRichEditorEmpty,
+  resetRichEditor,
+  setRichEditorImageUpload,
+} from './rich-editor.js';
 import { fetchUserFeeds } from './user-profile-api.js';
 import { uploadCommentImage } from './video-api.js';
 import { formatFeedDate } from './timeline-feed-ui.js';
@@ -16,6 +24,8 @@ let feedItems = [];
 let feedStartId = -1;
 let feedHasMore = true;
 let feedLoading = false;
+/** @type {unknown} */
+let feedLoadError = null;
 
 /** @type {string[]} */
 let composeImages = [];
@@ -28,6 +38,14 @@ let bound = false;
 
 /** @type {(view: string) => void} */
 let showViewFn = () => {};
+
+/**
+ * @param {string} path
+ */
+function absoluteMediaUrl(path) {
+  const resolved = resolveCoverUrl(path);
+  return resolved ?? path;
+}
 
 /**
  * @param {Record<string, unknown> | null | undefined} user
@@ -109,19 +127,19 @@ function commitComposeTagInput() {
   if (addComposeTag(raw)) input.value = '';
 }
 
-function resetComposeForm() {
-  const content = document.getElementById('contribute-feed-compose-content');
+async function resetComposeForm() {
   const tagInput = document.getElementById('contribute-feed-compose-tag-input');
-  if (content) content.value = '';
   if (tagInput) tagInput.value = '';
   composeImages = [];
   composeTags = [];
   renderComposeImages();
   renderComposeTags();
+  await resetRichEditor('feed');
 }
 
-export function openFeedComposeView() {
-  resetComposeForm();
+export async function openFeedComposeView() {
+  await resetComposeForm();
+  await ensureRichEditor('feed');
   showViewFn('feed-compose');
 }
 
@@ -132,6 +150,16 @@ function renderFeedList() {
 
   if (feedLoading && feedItems.length === 0) {
     listEl.innerHTML = '<p class="contribute-empty">加载中…</p>';
+    footerEl.hidden = true;
+    return;
+  }
+
+  if (feedLoadError && feedItems.length === 0) {
+    listEl.innerHTML = `
+      <div class="contribute-empty">
+        <p>加载失败：${escapeHtml(feedLoadError instanceof Error ? feedLoadError.message : `${feedLoadError}`)}</p>
+        <button type="button" class="btn-accent" id="contribute-feed-retry">重试</button>
+      </div>`;
     footerEl.hidden = true;
     return;
   }
@@ -195,19 +223,19 @@ export async function loadMyFeeds(reset = true) {
     feedItems = [];
     feedStartId = -1;
     feedHasMore = true;
+    feedLoadError = null;
   }
   renderFeedList();
   try {
     const batch = await fetchUserFeeds(userId, feedStartId);
+    feedLoadError = null;
     if (reset) feedItems = batch;
     else feedItems = [...feedItems, ...batch];
     if (batch.length === 0) feedHasMore = false;
     else feedStartId = batch[batch.length - 1].id;
-  } catch {
-    if (feedItems.length === 0) {
-      const listEl = document.getElementById('contribute-feed-list');
-      if (listEl) listEl.innerHTML = '<p class="contribute-empty">加载失败</p>';
-    }
+  } catch (err) {
+    feedLoadError = err;
+    if (feedItems.length === 0) feedItems = [];
   } finally {
     feedLoading = false;
     renderFeedList();
@@ -221,18 +249,25 @@ async function loadMoreFeeds() {
 
 async function publishFeed() {
   if (composePublishing) return;
-  const content = document.getElementById('contribute-feed-compose-content')?.value.trim() ?? '';
-  if (!content) {
+  if (await isRichEditorEmpty('feed')) {
     alert('说点什么吧');
     return;
   }
   commitComposeTagInput();
 
+  const confirmed = await confirmAction({
+    title: '发布动态',
+    message: '确定发布这条动态吗？发布后将出现在全站时间线。',
+    confirmText: '发布',
+  });
+  if (!confirmed) return;
+
   composePublishing = true;
   const btn = document.getElementById('contribute-feed-compose-submit');
   if (btn) btn.disabled = true;
   try {
-    await createFeed({ content, images: composeImages, tags: composeTags });
+    const contentJson = await getQuillJsonFromEditor('feed');
+    await createFeed({ contentJson, images: composeImages, tags: composeTags });
     showViewFn('hub');
     await loadMyFeeds(true);
   } catch (err) {
@@ -246,7 +281,13 @@ async function publishFeed() {
 async function removeFeed(feedId) {
   const item = feedItems.find((entry) => entry.id === feedId);
   const preview = item ? quillToText(item.rawContent).trim() || '该动态' : '该动态';
-  if (!window.confirm(`确定删除动态「${preview.slice(0, 40)}」吗？`)) return;
+  const confirmed = await confirmAction({
+    title: '删除动态',
+    message: `确定删除动态「${preview.slice(0, 40)}」吗？删除后无法恢复。`,
+    confirmText: '删除',
+    variant: 'danger',
+  });
+  if (!confirmed) return;
   try {
     await deleteFeed(feedId);
     feedItems = feedItems.filter((entry) => entry.id !== feedId);
@@ -279,8 +320,13 @@ export function bindContributeFeedSection(showView) {
   bound = true;
   showViewFn = showView;
 
+  setRichEditorImageUpload('feed', async (file) => {
+    const path = await uploadCommentImage(file);
+    return absoluteMediaUrl(path);
+  });
+
   document.getElementById('contribute-feed-compose-btn')?.addEventListener('click', () => {
-    openFeedComposeView();
+    void openFeedComposeView();
   });
   document.getElementById('contribute-feed-compose-back')?.addEventListener('click', () => {
     showViewFn('hub');
@@ -305,6 +351,12 @@ export function bindContributeFeedSection(showView) {
     if (removeTag) {
       composeTags = composeTags.filter((tag) => tag !== removeTag);
       renderComposeTags();
+      return;
+    }
+    const removePath = target.getAttribute('data-compose-image-remove');
+    if (removePath) {
+      composeImages = composeImages.filter((path) => path !== removePath);
+      renderComposeImages();
     }
   });
 
@@ -324,8 +376,9 @@ export function bindContributeFeedSection(showView) {
   const section = document.getElementById('contribute-feed-section');
   section?.addEventListener('click', (event) => {
     const target = /** @type {HTMLElement} */ (event.target);
-    if (target.id === 'contribute-feed-compose-first') {
-      openFeedComposeView();
+    if (target.id === 'contribute-feed-compose-first' || target.id === 'contribute-feed-retry') {
+      if (target.id === 'contribute-feed-retry') void loadMyFeeds(true);
+      else openFeedComposeView();
       return;
     }
     const actionEl = target.closest('[data-action]');
@@ -340,16 +393,6 @@ export function bindContributeFeedSection(showView) {
       void removeFeed(id);
     }
   });
-
-  section?.addEventListener('click', (event) => {
-    const target = /** @type {HTMLElement} */ (event.target);
-    const removePath = target.getAttribute('data-compose-image-remove');
-    if (removePath) {
-      composeImages = composeImages.filter((path) => path !== removePath);
-      renderComposeImages();
-    }
-  });
-
 }
 
 export function onContributeFeedSectionEnter() {

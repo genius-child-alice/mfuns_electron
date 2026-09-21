@@ -72,6 +72,8 @@ html[data-theme='light'] {
   --window-close-hover: #e81123;
   --window-close-fg-hover: #ffffff;
   --topbar-bg: var(--bg-elevated);
+  --contribute-chrome-bg: var(--bg-sidebar);
+  --contribute-content-bg: var(--page-canvas);
 }
 
 html[data-theme='dark'] {
@@ -79,6 +81,8 @@ html[data-theme='dark'] {
   --bg-content: var(--bg-pane);
   --page-canvas: var(--bg-pane);
   --topbar-bg: var(--bg-pane);
+  --contribute-chrome-bg: var(--topbar-bg);
+  --contribute-content-bg: #121212;
   --bg-base: var(--bg-pane);
   --bg-sidebar: #1e1e1e;
   --bg-elevated: #232323;
