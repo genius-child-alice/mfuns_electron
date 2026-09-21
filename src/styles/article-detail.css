@@ -180,9 +180,18 @@ button.article-read__author-name:hover {
 }
 
 .article-interact {
+  width: 100%;
   margin-top: 28px;
   padding-top: 20px;
   border-top: 1px solid var(--border-subtle);
+}
+
+.article-interact.watch-interact-bar {
+  gap: 6px;
+}
+
+.article-interact .watch-interact-bar__item {
+  min-width: 56px;
 }
 
 .article-read__comments {

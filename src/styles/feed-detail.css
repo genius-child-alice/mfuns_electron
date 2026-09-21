@@ -23,6 +23,7 @@
   border: 1px solid var(--border-subtle);
   box-shadow: 0 24px 80px rgb(0 0 0 / 45%);
   overflow: hidden;
+  color: var(--text-primary);
 }
 
 .feed-detail__head-actions {
@@ -134,6 +135,17 @@ html[data-theme='dark'] .feed-detail__scroll::-webkit-scrollbar-corner {
 
 .feed-detail__post .user-space__feed-card__actions {
   pointer-events: none;
+}
+
+.feed-detail__post .user-space__feed-card__name,
+.feed-detail__post .user-space__feed-card__meta,
+.feed-detail__post .user-space__feed-card__text.markdown-body--feed,
+.feed-detail__post .user-space__feed-card__title.markdown-body--feed {
+  color: var(--text-primary);
+}
+
+.feed-detail__post .user-space__feed-video__bar {
+  color: var(--text-primary);
 }
 
 .feed-detail__tabs {

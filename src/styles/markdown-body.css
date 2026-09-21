@@ -174,3 +174,8 @@
   border-left-color: var(--border-subtle);
   background: var(--bg-subtle);
 }
+
+/* 动态详情等弹层内：抵消内容里残留的黑色内联字色 */
+html[data-theme='dark'] .feed-detail__post .markdown-body--feed [style*='color'] {
+  color: var(--text-primary) !important;
+}

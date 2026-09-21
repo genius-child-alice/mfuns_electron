@@ -27,6 +27,19 @@ function getDialog() {
   return /** @type {HTMLDialogElement | null} */ (document.getElementById('feed-forward-dialog'));
 }
 
+/**
+ * @param {string | null | undefined} coverSrc
+ * @param {number} resourceType
+ */
+function renderPreviewCover(coverSrc, resourceType) {
+  if (coverSrc) {
+    return `<img class="feed-forward-preview__cover" src="${escapeHtml(coverSrc)}" alt="" />`;
+  }
+  const icon =
+    resourceType === 1 ? 'play_circle' : resourceType === 0 ? 'article' : 'dynamic_feed';
+  return `<div class="feed-forward-preview__cover feed-forward-preview__cover--ph" aria-hidden="true">${materialIcon(icon)}</div>`;
+}
+
 function renderPreview() {
   const preview = document.getElementById('feed-forward-preview');
   if (!preview || !context) return;
@@ -34,7 +47,7 @@ function renderPreview() {
   const coverSrc = context.resourceCover ? mediaSrcForCover(context.resourceCover) : '';
   preview.innerHTML = `
     <div class="feed-forward-preview">
-      ${coverSrc ? `<img class="feed-forward-preview__cover" src="${escapeHtml(coverSrc)}" alt="" />` : ''}
+      ${renderPreviewCover(coverSrc, context.resourceType)}
       <div class="feed-forward-preview__body">
         <span class="feed-forward-preview__type">${escapeHtml(feedForwardTypeLabel(context.resourceType))}</span>
         <p class="feed-forward-preview__title">${escapeHtml(title)}</p>
