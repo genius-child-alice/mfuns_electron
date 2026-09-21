@@ -391,6 +391,10 @@
   min-width: 0;
 }
 
+.mine-favorite-folder-wrap--readonly .mine-favorite-folder {
+  flex: 1;
+}
+
 .mine-favorite-folder-wrap .mine-favorite-folder {
   flex: 1;
   min-width: 0;

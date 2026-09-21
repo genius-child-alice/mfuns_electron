@@ -117,6 +117,15 @@ export function parseFavoriteFolderList(data) {
 }
 
 /**
+ * @param {FavoriteFolder[]} folders
+ * @param {boolean} viewerIsOwner
+ */
+export function filterFavoriteFoldersForViewer(folders, viewerIsOwner) {
+  if (viewerIsOwner) return folders;
+  return folders.filter((folder) => folder.status === FAVORITE_FOLDER_STATUS.PUBLIC);
+}
+
+/**
  * @param {unknown} data
  * @returns {FavoriteItemsPage}
  */

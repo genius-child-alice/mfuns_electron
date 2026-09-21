@@ -21,7 +21,7 @@ import {
 import {
   fetchFavoriteFolderList,
   fetchFavoriteItemsPage,
-  resolveMineUserId,
+  filterFavoriteFoldersForViewer,
 } from './favorite-api.js';
 import {
   bindFavoriteFolderListActions,
@@ -268,12 +268,15 @@ function resetFavoriteListState() {
  * @param {import('./content-api.js').ContentPreview} item
  */
 function renderFavoriteItemCardHtml(item) {
-  return `
-    <div class="mine-favorite-item-card">
-      ${renderVideoCard(item)}
-      <button type="button" class="mine-favorite-item-card__remove" data-favorite-item-remove="${escapeHtml(item.id)}" data-favorite-item-type="${item.type}" aria-label="移出收藏夹" title="移出收藏夹">
+  const removeBtn = isSelfSpace()
+    ? `<button type="button" class="mine-favorite-item-card__remove" data-favorite-item-remove="${escapeHtml(item.id)}" data-favorite-item-type="${item.type}" aria-label="移出收藏夹" title="移出收藏夹">
         ${materialIcon('bookmark_remove')}
-      </button>
+      </button>`
+    : '';
+  return `
+    <div class="mine-favorite-item-card${isSelfSpace() ? '' : ' mine-favorite-item-card--readonly'}">
+      ${renderVideoCard(item)}
+      ${removeBtn}
     </div>`;
 }
 
@@ -282,6 +285,7 @@ function mountFavoriteFolderListActions() {
   if (!body || activeFavoriteFolderId != null) return;
   bindFavoriteFolderListActions(body, {
     folders: favoriteFolders,
+    manageable: isSelfSpace(),
     openAttr: 'data-space-favorite-folder',
     onOpen: (folder) => {
       activeFavoriteFolderId = folder.id;
@@ -304,18 +308,25 @@ function isSelfSpace() {
 
 /**
  * @param {import('./favorite-api.js').FavoriteFolder[]} folders
+ * @param {boolean} self
  */
-function renderFavoriteFoldersHtml(folders) {
-  const toolbar = `<div class="mine-favorite-folders__toolbar user-space__favorite-toolbar">${favoriteFolderCreateButtonHtml('mine-favorite-folders__create')}</div>`;
+function renderFavoriteFoldersHtml(folders, self) {
+  const toolbar = self
+    ? `<div class="mine-favorite-folders__toolbar user-space__favorite-toolbar">${favoriteFolderCreateButtonHtml('mine-favorite-folders__create')}</div>`
+    : '';
   if (folders.length === 0) {
-    return `${toolbar}<p class="user-space__empty">暂无收藏夹</p>`;
+    return `${toolbar}<p class="user-space__empty">${self ? '暂无收藏夹' : '暂无公开收藏夹'}</p>`;
   }
   return `
     <div class="mine-favorite-folders user-space__favorite-folders">
       ${toolbar}
       ${folders
         .map((folder) =>
-          favoriteFolderRowHtml(folder, { openAttr: 'data-space-favorite-folder', openValue: folder.id }),
+          favoriteFolderRowHtml(folder, {
+            openAttr: 'data-space-favorite-folder',
+            openValue: folder.id,
+            manageable: self,
+          }),
         )
         .join('')}
     </div>`;
@@ -346,13 +357,6 @@ function renderFavoriteItemsHtml(items) {
 }
 
 function syncTabsUi() {
-  const self = isSelfSpace();
-  const favTab = document.querySelector('[data-space-tab="favorite"]');
-  favTab?.toggleAttribute('hidden', !self);
-  if (!self && activeTab === 'favorite') {
-    activeTab = 'video';
-  }
-
   document.querySelectorAll('[data-space-tab]').forEach((btn) => {
     if (btn.hasAttribute('hidden')) return;
     btn.classList.toggle('is-active', btn.getAttribute('data-space-tab') === activeTab);
@@ -407,16 +411,19 @@ async function loadFirstPage() {
 }
 
 async function loadFavoriteFirstPage() {
-  const userId = resolveMineUserId(currentUserId);
-  if (userId == null) {
-    setBodyHtml('<p class="user-space__empty">请先登录</p>');
+  const userId = currentUserId;
+  if (userId == null || userId <= 0) {
+    setBodyHtml('<p class="user-space__empty">用户不存在</p>');
     hasMore = false;
     return;
   }
 
+  const self = isSelfSpace();
+
   if (activeFavoriteFolderId == null) {
-    favoriteFolders = await fetchFavoriteFolderList(userId);
-    setBodyHtml(renderFavoriteFoldersHtml(favoriteFolders));
+    const allFolders = await fetchFavoriteFolderList(userId);
+    favoriteFolders = filterFavoriteFoldersForViewer(allFolders, self);
+    setBodyHtml(renderFavoriteFoldersHtml(favoriteFolders, self));
     mountFavoriteFolderListActions();
     hasMore = false;
     return;
@@ -484,7 +491,7 @@ async function loadMore() {
 function emptyTextForTab(tab) {
   if (tab === 'feed') return 'TA 还没有发布动态';
   if (tab === 'article') return 'TA 还没有发布文章';
-  if (tab === 'favorite') return '暂无收藏夹';
+  if (tab === 'favorite') return isSelfSpace() ? '暂无收藏夹' : '暂无公开收藏夹';
   return 'TA 还没有发布视频';
 }
 
@@ -673,7 +680,6 @@ export function bindUserSpace() {
     btn.addEventListener('click', () => {
       const tab = btn.getAttribute('data-space-tab');
       if (tab !== 'feed' && tab !== 'article' && tab !== 'video' && tab !== 'favorite') return;
-      if (tab === 'favorite' && !isSelfSpace()) return;
       if (tab === activeTab) return;
       activeTab = /** @type {SpaceTabId} */ (tab);
       if (tab === 'favorite') {

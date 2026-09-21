@@ -701,7 +701,7 @@ export function spacePageHtml() {
             <button type="button" class="user-space__tab is-active" data-space-tab="video" role="tab">视频</button>
             <button type="button" class="user-space__tab" data-space-tab="feed" role="tab">动态</button>
             <button type="button" class="user-space__tab" data-space-tab="article" role="tab">文章</button>
-            <button type="button" class="user-space__tab" data-space-tab="favorite" role="tab" hidden>收藏</button>
+            <button type="button" class="user-space__tab" data-space-tab="favorite" role="tab">收藏</button>
           </nav>
           <div class="user-space__body" id="user-space-body"></div>
         </div>

@@ -86,15 +86,26 @@ function formatCount(n) {
 
 /**
  * @param {FavoriteFolder} folder
- * @param {{ openAttr: string, openValue: number }} options
+ * @param {{ openAttr: string, openValue: number, manageable?: boolean }} options
  */
 export function favoriteFolderRowHtml(folder, options) {
+  const manageable = options.manageable !== false;
   const statusTag =
-    folder.status !== FAVORITE_FOLDER_STATUS.PUBLIC
+    manageable && folder.status !== FAVORITE_FOLDER_STATUS.PUBLIC
       ? `<span class="mine-favorite-folder__status">${escapeHtml(favoriteFolderStatusLabel(folder.status))}</span>`
       : '';
+  const actionsHtml = manageable
+    ? `<div class="mine-favorite-folder__actions">
+        <button type="button" class="mine-favorite-folder__action" data-favorite-folder-edit="${folder.id}" aria-label="编辑收藏夹" title="编辑">
+          ${materialIcon('edit')}
+        </button>
+        <button type="button" class="mine-favorite-folder__action mine-favorite-folder__action--danger" data-favorite-folder-delete="${folder.id}" aria-label="删除收藏夹" title="删除">
+          ${materialIcon('delete_outline')}
+        </button>
+      </div>`
+    : '';
   return `
-    <div class="mine-favorite-folder-wrap">
+    <div class="mine-favorite-folder-wrap${manageable ? '' : ' mine-favorite-folder-wrap--readonly'}">
       <button type="button" class="mine-favorite-folder" ${options.openAttr}="${options.openValue}">
         <span class="mine-favorite-folder__icon">${materialIcon('folder')}</span>
         <span class="mine-favorite-folder__main">
@@ -111,14 +122,7 @@ export function favoriteFolderRowHtml(folder, options) {
         <span class="mine-favorite-folder__count">${formatCount(folder.count)}</span>
         ${materialIcon('chevron_right', 'mine-favorite-folder__chevron')}
       </button>
-      <div class="mine-favorite-folder__actions">
-        <button type="button" class="mine-favorite-folder__action" data-favorite-folder-edit="${folder.id}" aria-label="编辑收藏夹" title="编辑">
-          ${materialIcon('edit')}
-        </button>
-        <button type="button" class="mine-favorite-folder__action mine-favorite-folder__action--danger" data-favorite-folder-delete="${folder.id}" aria-label="删除收藏夹" title="删除">
-          ${materialIcon('delete_outline')}
-        </button>
-      </div>
+      ${actionsHtml}
     </div>`;
 }
 
@@ -448,14 +452,19 @@ export async function removeItemFromFavoriteFolder(listId, item, onComplete) {
  *   openAttr: string,
  *   onOpen: (folder: FavoriteFolder) => void,
  *   onRefresh: () => void,
+ *   manageable?: boolean,
  * }} options
  */
 export function bindFavoriteFolderListActions(root, options) {
-  root.querySelectorAll('[data-create-favorite-folder]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      openCreateFavoriteFolderDialog({ onCreated: options.onRefresh });
+  const manageable = options.manageable !== false;
+
+  if (manageable) {
+    root.querySelectorAll('[data-create-favorite-folder]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        openCreateFavoriteFolderDialog({ onCreated: options.onRefresh });
+      });
     });
-  });
+  }
 
   root.querySelectorAll(`[${options.openAttr}]`).forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -466,25 +475,27 @@ export function bindFavoriteFolderListActions(root, options) {
     });
   });
 
-  root.querySelectorAll('[data-favorite-folder-edit]').forEach((btn) => {
-    btn.addEventListener('click', (event) => {
-      event.stopPropagation();
-      const id = Number(btn.getAttribute('data-favorite-folder-edit'));
-      const folder = options.folders.find((entry) => entry.id === id);
-      if (!folder) return;
-      openEditFavoriteFolderDialog({ folder, onComplete: options.onRefresh });
+  if (manageable) {
+    root.querySelectorAll('[data-favorite-folder-edit]').forEach((btn) => {
+      btn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const id = Number(btn.getAttribute('data-favorite-folder-edit'));
+        const folder = options.folders.find((entry) => entry.id === id);
+        if (!folder) return;
+        openEditFavoriteFolderDialog({ folder, onComplete: options.onRefresh });
+      });
     });
-  });
 
-  root.querySelectorAll('[data-favorite-folder-delete]').forEach((btn) => {
-    btn.addEventListener('click', (event) => {
-      event.stopPropagation();
-      const id = Number(btn.getAttribute('data-favorite-folder-delete'));
-      const folder = options.folders.find((entry) => entry.id === id);
-      if (!folder) return;
-      void confirmDeleteFavoriteFolder(folder, options.onRefresh);
+    root.querySelectorAll('[data-favorite-folder-delete]').forEach((btn) => {
+      btn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const id = Number(btn.getAttribute('data-favorite-folder-delete'));
+        const folder = options.folders.find((entry) => entry.id === id);
+        if (!folder) return;
+        void confirmDeleteFavoriteFolder(folder, options.onRefresh);
+      });
     });
-  });
+  }
 }
 
 export function bindFavoritePicker() {
