@@ -1,6 +1,7 @@
 import { materialIcon } from './icons.js';
 import { notify } from './notice-ui.js';
 import { requireLogin } from './login-ui.js';
+import { confirmAction } from './confirm-dialog.js';
 import {
   addFavorite,
   createFavoriteFolder,
@@ -416,9 +417,16 @@ export async function confirmDeleteFavoriteFolder(folder, onComplete) {
   if (!requireLogin()) return;
   const message =
     folder.count > 0
-      ? `确定删除收藏夹「${folder.name}」？夹内的 ${folder.count} 个收藏将一并移除。`
-      : `确定删除收藏夹「${folder.name}」？`;
-  if (!confirm(message)) return;
+      ? `删除后，收藏夹「${folder.name}」及其中的 ${folder.count} 个收藏将无法恢复。`
+      : `删除后，收藏夹「${folder.name}」将无法恢复。`;
+  const confirmed = await confirmAction({
+    title: '删除收藏夹',
+    message,
+    confirmText: '删除',
+    cancelText: '取消',
+    variant: 'danger',
+  });
+  if (!confirmed) return;
   try {
     await deleteFavoriteFolder(folder.id);
     onComplete?.();
@@ -435,7 +443,14 @@ export async function confirmDeleteFavoriteFolder(folder, onComplete) {
  */
 export async function removeItemFromFavoriteFolder(listId, item, onComplete) {
   if (!requireLogin()) return;
-  if (!confirm(`从收藏夹移出「${item.title}」？`)) return;
+  const confirmed = await confirmAction({
+    title: '移出收藏',
+    message: `确定从当前收藏夹移出「${item.title}」？`,
+    confirmText: '移出',
+    cancelText: '取消',
+    variant: 'danger',
+  });
+  if (!confirmed) return;
   try {
     await removeFavorite(listId, item.id, item.type);
     onComplete?.();

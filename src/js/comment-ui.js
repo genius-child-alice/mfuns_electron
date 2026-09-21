@@ -11,6 +11,7 @@ import {
   setCommentReaction,
 } from './video-api.js';
 import { openCommentComposer } from './comment-composer.js';
+import { confirmAction } from './confirm-dialog.js';
 
 /** @typedef {import('./video-api.js').CommunityComment} CommunityComment */
 
@@ -435,7 +436,14 @@ async function loadCommentReplies(rootCommentId, replyStore, comments, opts = {}
 async function handleDeleteComment(commentId, rootCommentId, options) {
   if (!Number.isFinite(commentId) || commentId <= 0) return;
   if (!requireLogin()) return;
-  if (!confirm('确定删除这条评论？')) return;
+  const confirmed = await confirmAction({
+    title: '删除评论',
+    message: '删除后无法恢复，确定删除这条评论？',
+    confirmText: '删除',
+    cancelText: '取消',
+    variant: 'danger',
+  });
+  if (!confirmed) return;
 
   try {
     await deleteComment(commentId);
