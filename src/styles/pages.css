@@ -301,6 +301,10 @@ html[data-theme='light'] .content.content--mine {
   flex-direction: column;
 }
 
+html[data-theme='light'] .feed-page__stream {
+  background: var(--page-canvas);
+}
+
 .feed-page__scroll {
   flex: 1;
   min-height: 0;
