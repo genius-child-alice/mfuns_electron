@@ -1,3 +1,4 @@
+import { notify } from './notice-ui.js';
 import { confirmAction } from './confirm-dialog.js';
 import { materialIcon } from './icons.js';
 import { mediaSrcForCover } from './content-api.js';
@@ -46,7 +47,7 @@ async function submitForward() {
   const input = document.getElementById('feed-forward-content');
   const content = input?.value.trim() ?? '';
   if (!content) {
-    alert('说点什么吧');
+    notify('说点什么吧', 'warning');
     return;
   }
   const confirmed = await confirmAction({
@@ -65,9 +66,9 @@ async function submitForward() {
       resourceType: context.resourceType,
     });
     getDialog()?.close();
-    alert('已转发到动态');
+    notify('已转发到动态', 'success');
   } catch (err) {
-    alert(err instanceof Error ? err.message : '转发失败');
+    notify(err instanceof Error ? err.message : '转发失败', 'error');
   } finally {
     publishing = false;
     if (btn) btn.disabled = false;

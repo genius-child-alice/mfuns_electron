@@ -1,3 +1,4 @@
+import { notify } from './notice-ui.js';
 import { materialIcon } from './icons.js';
 import { requireLogin } from './login-ui.js';
 import { createComment, createCommentReply, uploadCommentImage } from './video-api.js';
@@ -227,7 +228,7 @@ async function handleImageFiles(files) {
     }
     renderImagePreviews();
   } catch (err) {
-    alert(err instanceof Error ? err.message : '图片上传失败');
+    notify(err instanceof Error ? err.message : '图片上传失败', 'error');
   } finally {
     if (submitBtn instanceof HTMLButtonElement) submitBtn.disabled = false;
     const fileInput = getFileInput();
@@ -276,7 +277,7 @@ async function submitComposer() {
 
   const text = input.value.trim();
   if (!text && imagePaths.length === 0) {
-    alert('请输入内容或添加图片');
+    notify('请输入内容或添加图片', 'warning');
     input.focus();
     return;
   }
@@ -293,7 +294,7 @@ async function submitComposer() {
     await context.onSuccess?.();
     closeCommentComposer();
   } catch (err) {
-    alert(err instanceof Error ? err.message : '发布失败');
+    notify(err instanceof Error ? err.message : '发布失败', 'error');
   } finally {
     if (submitBtn instanceof HTMLButtonElement) submitBtn.disabled = false;
   }

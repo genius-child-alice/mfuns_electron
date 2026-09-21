@@ -1,3 +1,4 @@
+import { notify } from './notice-ui.js';
 import { materialIcon, viewCountIcon } from './icons.js';
 import { mediaSrcForCover } from './content-api.js';
 import { destroyWatchPlayer, getWatchPlayer } from './watch-player.js';
@@ -21,6 +22,7 @@ import { fetchUserProfile } from './user-profile-api.js';
 import { resolveFavoriteStatus, resolveMineUserId } from './favorite-api.js';
 import { toggleResourceFavorite } from './favorite-ui.js';
 import { openRewardDialog } from './reward-ui.js';
+import { openShareDialog } from './share-ui.js';
 import { coinInteractLabel, favoriteInteractLabel } from './interact-bar-labels.js';
 import { isVideoInWatchLater, toggleVideoWatchLater } from './watch-later-store.js';
 import {
@@ -400,7 +402,7 @@ async function toggleVideoReaction(dislike) {
     dislikeCount = status.dislikes;
     renderSidePanel();
   } catch (err) {
-    alert(err instanceof Error ? err.message : '操作失败');
+    notify(err instanceof Error ? err.message : '操作失败', 'error');
   }
 }
 
@@ -483,7 +485,7 @@ function bindSidePanelEvents() {
       following = next;
       renderSidePanel();
     } catch (err) {
-      alert(err instanceof Error ? err.message : '关注失败');
+      notify(err instanceof Error ? err.message : '关注失败', 'error');
     }
   });
 
@@ -499,15 +501,12 @@ function bindSidePanelEvents() {
     });
   });
 
-  document.getElementById('watch-share-btn')?.addEventListener('click', async () => {
+  document.getElementById('watch-share-btn')?.addEventListener('click', () => {
     if (!currentDetail) return;
-    const url = `https://m.mfuns.net/video/${currentDetail.preview.id}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      alert('链接已复制');
-    } catch {
-      prompt('复制链接', url);
-    }
+    openShareDialog({
+      url: `https://m.mfuns.net/video/${currentDetail.preview.id}`,
+      subtitle: currentDetail.preview.title || '复制链接分享给好友',
+    });
   });
 
   document.getElementById('watch-desc-expand')?.addEventListener('click', () => {

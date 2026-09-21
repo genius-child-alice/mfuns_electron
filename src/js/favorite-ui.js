@@ -1,4 +1,5 @@
 import { materialIcon } from './icons.js';
+import { notify } from './notice-ui.js';
 import { requireLogin } from './login-ui.js';
 import {
   addFavorite,
@@ -188,7 +189,7 @@ async function togglePickerFolder(listId) {
     renderPickerList(pickerFolders, pickerMemberIds);
     await syncPickerChangeState();
   } catch (err) {
-    alert(err instanceof Error ? err.message : '操作失败');
+    notify(err instanceof Error ? err.message : '操作失败', 'error');
   } finally {
     setPickerLoading(false);
   }
@@ -347,7 +348,7 @@ async function submitFavoriteFolderForm(event) {
   if (!nameInput) return;
   const name = nameInput.value.trim();
   if (!name) {
-    alert('请填写收藏夹名称');
+    notify('请填写收藏夹名称', 'warning');
     nameInput.focus();
     return;
   }
@@ -364,7 +365,7 @@ async function submitFavoriteFolderForm(event) {
     getFolderFormDialog()?.close();
     notifyFavoriteChanged();
   } catch (err) {
-    alert(err instanceof Error ? err.message : '保存失败');
+    notify(err instanceof Error ? err.message : '保存失败', 'error');
   } finally {
     setFolderFormLoading(false);
   }
@@ -386,7 +387,7 @@ export async function confirmDeleteFavoriteFolder(folder, onComplete) {
     onComplete?.();
     notifyFavoriteChanged();
   } catch (err) {
-    alert(err instanceof Error ? err.message : '删除失败');
+    notify(err instanceof Error ? err.message : '删除失败', 'error');
   }
 }
 
@@ -403,7 +404,7 @@ export async function removeItemFromFavoriteFolder(listId, item, onComplete) {
     onComplete?.();
     notifyFavoriteChanged();
   } catch (err) {
-    alert(err instanceof Error ? err.message : '移出失败');
+    notify(err instanceof Error ? err.message : '移出失败', 'error');
   }
 }
 

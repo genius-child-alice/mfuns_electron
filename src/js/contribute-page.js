@@ -1,4 +1,6 @@
+import { notify } from './notice-ui.js';
 import { confirmAction } from './confirm-dialog.js';
+import { promptInput } from './prompt-dialog.js';
 import { materialIcon } from './icons.js';
 import {
   childCategoryNodes,
@@ -433,7 +435,7 @@ async function openEditor(type, contributeId = null) {
       renderEditorCategoryOptions();
       syncScheduleUi();
     } catch (err) {
-      alert(err instanceof Error ? err.message : '加载投稿详情失败');
+      notify(err instanceof Error ? err.message : '加载投稿详情失败', 'error');
     }
   }
 }
@@ -570,7 +572,7 @@ function addEditorTag(raw) {
   if (!tag) return false;
   if (editorTags.some((item) => item.toLowerCase() === tag.toLowerCase())) return false;
   if (editorTags.length >= 10) {
-    alert('最多添加 10 个标签');
+    notify('最多添加 10 个标签', 'warning');
     return false;
   }
   editorTags.push(tag);
@@ -670,16 +672,16 @@ function readEditorPublishTime() {
   if (!scheduleEnabledEl?.checked) return null;
   const raw = scheduleTimeEl?.value?.trim() ?? '';
   if (!raw) {
-    alert('请选择定时发布时间');
+    notify('请选择定时发布时间', 'warning');
     return undefined;
   }
   const date = new Date(raw);
   if (Number.isNaN(date.getTime())) {
-    alert('定时发布时间无效');
+    notify('定时发布时间无效', 'info');
     return undefined;
   }
   if (date.getTime() <= Date.now()) {
-    alert('定时发布时间必须晚于当前时间');
+    notify('定时发布时间必须晚于当前时间', 'warning');
     return undefined;
   }
   return date;
@@ -707,7 +709,7 @@ async function uploadCoverFile(file) {
     if (coverEl) coverEl.value = path;
     renderEditorCoverPreview();
   } catch (err) {
-    alert(err instanceof Error ? err.message : '封面上传失败');
+    notify(err instanceof Error ? err.message : '封面上传失败', 'error');
   } finally {
     editorUploadingCover = false;
   }
@@ -750,7 +752,7 @@ async function uploadVideoFile(file, replaceIndex = null) {
       editorVideoParts.push(part);
     }
   } catch (err) {
-    alert(err instanceof Error ? err.message : '视频上传失败');
+    notify(err instanceof Error ? err.message : '视频上传失败', 'error');
   } finally {
     editorUploadingVideo = false;
     editorReplacingPartIndex = null;
@@ -761,7 +763,7 @@ async function uploadVideoFile(file, replaceIndex = null) {
 async function saveEditor() {
   if (editorSaving) return;
   if (editorUploadingVideo) {
-    alert('请等待视频上传完成');
+    notify('请等待视频上传完成', 'warning');
     return;
   }
 
@@ -782,23 +784,23 @@ async function saveEditor() {
   if (publishTime === undefined) return;
 
   if (!title) {
-    alert('请输入标题');
+    notify('请输入标题', 'warning');
     return;
   }
   if (!Number.isFinite(categoryId) || categoryId <= 0) {
-    alert('请选择小分区');
+    notify('请选择小分区', 'warning');
     return;
   }
   if (editorType === 0 && (await isContributeRichEditorEmpty())) {
-    alert('请输入正文内容');
+    notify('请输入正文内容', 'warning');
     return;
   }
   if (editorType === 1 && editorVideoParts.length === 0) {
-    alert('请至少保留并上传一个分P');
+    notify('请至少保留并上传一个分P', 'warning');
     return;
   }
   if (editorType === 1 && editorContributeId == null && !cover) {
-    alert('视频投稿必须上传封面图');
+    notify('视频投稿必须上传封面图', 'warning');
     return;
   }
 
@@ -869,7 +871,7 @@ async function saveEditor() {
     showView('hub');
     await loadListFirstPage();
   } catch (err) {
-    alert(err instanceof Error ? err.message : '保存失败');
+    notify(err instanceof Error ? err.message : '保存失败', 'error');
   } finally {
     editorSaving = false;
     if (saveBtn) saveBtn.disabled = false;
@@ -991,7 +993,7 @@ async function confirmDelete(contributeId) {
     }
     await loadListFirstPage();
   } catch (err) {
-    alert(err instanceof Error ? err.message : '删除失败');
+    notify(err instanceof Error ? err.message : '删除失败', 'error');
   }
 }
 
@@ -1083,11 +1085,19 @@ export function bindContributePage() {
     if (action === 'rename-part') {
       const index = Number.parseInt(actionEl.getAttribute('data-index') ?? '', 10);
       if (!Number.isFinite(index) || index < 0 || index >= editorVideoParts.length) return;
-      const next = window.prompt('请输入分P标题', editorVideoParts[index].title);
-      if (!next?.trim()) return;
-      const old = editorVideoParts[index];
-      editorVideoParts[index] = { ...old, title: next.trim() };
-      renderEditorVideoParts();
+      void (async () => {
+        const next = await promptInput({
+          title: '分P标题',
+          label: '请输入分P标题',
+          defaultValue: editorVideoParts[index].title,
+          confirmText: '保存',
+          maxLength: 80,
+        });
+        if (!next) return;
+        const old = editorVideoParts[index];
+        editorVideoParts[index] = { ...old, title: next };
+        renderEditorVideoParts();
+      })();
       return;
     }
     if (action === 'remove-part') {

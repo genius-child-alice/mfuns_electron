@@ -1,4 +1,6 @@
+import { confirmAction } from './confirm-dialog.js';
 import { materialIcon } from './icons.js';
+import { notify } from './notice-ui.js';
 import { loadSession } from './auth.js';
 import { deleteFeed } from './feed-api.js';
 import { openFeedForward } from './feed-forward.js';
@@ -93,7 +95,7 @@ async function toggleFeedReaction(dislike) {
     dislikeCount = status.dislikes;
     renderFeedInteractBar();
   } catch (err) {
-    alert(err instanceof Error ? err.message : '操作失败');
+    notify(err instanceof Error ? err.message : '操作失败', 'error');
   }
 }
 
@@ -366,13 +368,20 @@ export function bindFeedDetail() {
 
   document.getElementById('feed-detail-delete-btn')?.addEventListener('click', () => {
     if (!currentDetail || !requireLogin()) return;
-    if (!window.confirm('确定删除这条动态吗？删除后无法恢复。')) return;
-    void deleteFeed(currentDetail.feed.id)
-      .then(() => {
-        closeFeedDetail();
-      })
-      .catch((err) => {
-        alert(err instanceof Error ? err.message : '删除失败');
+    void (async () => {
+      const confirmed = await confirmAction({
+        title: '删除动态',
+        message: '确定删除这条动态吗？删除后无法恢复。',
+        confirmText: '删除',
+        variant: 'danger',
       });
+      if (!confirmed) return;
+      try {
+        await deleteFeed(currentDetail.feed.id);
+        closeFeedDetail();
+      } catch (err) {
+        notify(err instanceof Error ? err.message : '删除失败', 'error');
+      }
+    })();
   });
 }

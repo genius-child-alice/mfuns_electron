@@ -1,4 +1,5 @@
 import { materialIcon, viewCountIcon } from './icons.js';
+import { notify } from './notice-ui.js';
 import { loadSession } from './auth.js';
 import { mediaSrcForCover } from './content-api.js';
 import { loadStickerUrlMap } from './emoji-pack.js';
@@ -284,7 +285,7 @@ async function handleFeedVideoFollow(btn) {
     btn.classList.add('is-followed');
   } catch (err) {
     btn.disabled = false;
-    alert(err instanceof Error ? err.message : '关注失败');
+    notify(err instanceof Error ? err.message : '关注失败', 'error');
   }
 }
 

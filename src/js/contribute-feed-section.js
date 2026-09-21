@@ -1,3 +1,4 @@
+import { notify } from './notice-ui.js';
 import { confirmAction } from './confirm-dialog.js';
 import { loadSession } from './auth.js';
 import { mediaSrcForCover, resolveCoverUrl } from './content-api.js';
@@ -111,7 +112,7 @@ function addComposeTag(raw) {
   if (!tag) return false;
   if (composeTags.some((item) => item.toLowerCase() === tag.toLowerCase())) return false;
   if (composeTags.length >= 10) {
-    alert('最多添加 10 个标签');
+    notify('最多添加 10 个标签', 'warning');
     return false;
   }
   composeTags.push(tag);
@@ -250,7 +251,7 @@ async function loadMoreFeeds() {
 async function publishFeed() {
   if (composePublishing) return;
   if (await isRichEditorEmpty('feed')) {
-    alert('说点什么吧');
+    notify('说点什么吧', 'warning');
     return;
   }
   commitComposeTagInput();
@@ -271,7 +272,7 @@ async function publishFeed() {
     showViewFn('hub');
     await loadMyFeeds(true);
   } catch (err) {
-    alert(err instanceof Error ? err.message : '发布失败');
+    notify(err instanceof Error ? err.message : '发布失败', 'error');
   } finally {
     composePublishing = false;
     if (btn) btn.disabled = false;
@@ -293,7 +294,7 @@ async function removeFeed(feedId) {
     feedItems = feedItems.filter((entry) => entry.id !== feedId);
     renderFeedList();
   } catch (err) {
-    alert(err instanceof Error ? err.message : '删除失败');
+    notify(err instanceof Error ? err.message : '删除失败', 'error');
   }
 }
 
@@ -305,7 +306,7 @@ async function addComposeImage(file) {
     const path = await uploadCommentImage(file);
     composeImages.push(path);
   } catch (err) {
-    alert(err instanceof Error ? err.message : '图片上传失败');
+    notify(err instanceof Error ? err.message : '图片上传失败', 'error');
   } finally {
     composeUploading = false;
     renderComposeImages();

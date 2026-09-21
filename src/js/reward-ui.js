@@ -1,3 +1,4 @@
+import { notify } from './notice-ui.js';
 import { requireLogin } from './login-ui.js';
 import { rewardResource } from './video-api.js';
 
@@ -46,9 +47,9 @@ async function submitReward(count) {
     rewardContext = null;
     getDialog()?.close();
     onSuccess?.(count);
-    alert(message);
+    notify(message?.trim() ? message : '投币成功', 'success');
   } catch (err) {
-    alert(err instanceof Error ? err.message : '投币失败');
+    notify(err instanceof Error ? err.message : '投币失败', 'error');
   } finally {
     setDialogLoading(false);
   }

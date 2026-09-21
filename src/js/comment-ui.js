@@ -1,3 +1,4 @@
+import { notify } from './notice-ui.js';
 import { materialIcon } from './icons.js';
 import { mediaSrcForCover } from './content-api.js';
 import { mountRichContent } from './rich-content.js';
@@ -374,7 +375,7 @@ async function toggleCommentReaction(commentId, btn, options, dislike) {
       syncCommentReactionUi(commentEl, item);
     }
   } catch (err) {
-    alert(err instanceof Error ? err.message : '操作失败');
+    notify(err instanceof Error ? err.message : '操作失败', 'error');
   } finally {
     btn.disabled = false;
     if (sibling instanceof HTMLButtonElement) sibling.disabled = false;
@@ -450,7 +451,7 @@ async function handleDeleteComment(commentId, rootCommentId, options) {
     }
     options.onRefresh();
   } catch (err) {
-    alert(err instanceof Error ? err.message : '删除失败');
+    notify(err instanceof Error ? err.message : '删除失败', 'error');
   }
 }
 

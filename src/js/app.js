@@ -6,6 +6,7 @@ import {
   setColorSchemeWithReveal,
 } from './theme.js';
 import { runSplash } from './splash.js';
+import { notify } from './notice-ui.js';
 import { materialIcon } from './icons.js';
 import {
   clearSession,
@@ -45,6 +46,8 @@ import { bindVideoDetail } from './video-detail.js';
 import { bindArticleDetail } from './article-detail.js';
 import { bindFavoritePicker } from './favorite-ui.js';
 import { bindRewardDialog } from './reward-ui.js';
+import { bindShareDialog, shareDialogHtml } from './share-ui.js';
+import { bindPromptDialog, promptDialogHtml } from './prompt-dialog.js';
 import { bindUserSpace } from './user-space.js';
 import { bindFollowList } from './follow-list.js';
 import { bindMinePage, refreshMinePage } from './mine-page.js';
@@ -361,6 +364,9 @@ function renderShell() {
       </div>
     </dialog>
 
+    ${shareDialogHtml()}
+    ${promptDialogHtml()}
+
   `;
 }
 
@@ -393,7 +399,7 @@ function bindNavigation() {
       .then((mod) => mod.openContributePage())
       .catch((err) => {
         console.error('创作中心模块加载失败', err);
-        alert('创作中心加载失败，请重启应用后重试');
+        notify('创作中心加载失败，请重启应用后重试', 'error');
       });
   });
 
@@ -683,6 +689,7 @@ function bootApp() {
   bindArticleDetail();
   bindFavoritePicker();
   bindRewardDialog();
+  bindShareDialog();
   bindUserSpace();
   bindFollowList();
   bindSearchPage();
@@ -690,6 +697,7 @@ function bootApp() {
   bindImageViewer();
   bindCommentComposer();
   bindConfirmDialog();
+  bindPromptDialog();
   bindMessagePage();
   void import('./contribute-page.js')
     .then((mod) => mod.bindContributePage())

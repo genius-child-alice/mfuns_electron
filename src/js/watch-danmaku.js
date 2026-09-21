@@ -1,3 +1,4 @@
+import { notify } from './notice-ui.js';
 import { fetchDanmakuList, sendDanmaku } from './danmaku-api.js';
 import { DanmakuRenderer } from './danmaku-renderer.js';
 import { materialIcon } from './icons.js';
@@ -173,7 +174,7 @@ export class WatchDanmaku {
         new CustomEvent('mfuns:danmaku-sent', { detail: { delta: 1 } }),
       );
     } catch (err) {
-      alert(err instanceof Error ? err.message : '弹幕发送失败');
+      notify(err instanceof Error ? err.message : '弹幕发送失败', 'error');
     }
   }
 

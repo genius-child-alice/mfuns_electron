@@ -1,3 +1,4 @@
+import { notify } from './notice-ui.js';
 import { marked } from '../../node_modules/marked/lib/marked.esm.js';
 import { normalizeRichContent, quillOpsToMarkdown } from './rich-content.js';
 
@@ -129,7 +130,7 @@ function bindImageHandler(quill, editorKey) {
         quill.insertEmbed(index, 'image', url, 'user');
         quill.setSelection(index + 1);
       } catch (err) {
-        alert(err instanceof Error ? err.message : '图片上传失败');
+        notify(err instanceof Error ? err.message : '图片上传失败', 'error');
       }
     };
     input.click();

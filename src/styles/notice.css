@@ -1,0 +1,112 @@
+.notice-toast-host {
+  position: fixed;
+  top: 52px;
+  right: 16px;
+  z-index: 10050;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  pointer-events: none;
+  max-width: min(400px, calc(100vw - 32px));
+}
+
+.notice-toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+  box-shadow: 0 12px 40px rgb(0 0 0 / 22%);
+  color: var(--text-primary);
+  pointer-events: auto;
+  animation: notice-toast-in 0.28s ease-out;
+  max-width: 100%;
+}
+
+.notice-toast--leaving {
+  animation: notice-toast-out 0.22s ease-in forwards;
+}
+
+@keyframes notice-toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(12px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes notice-toast-out {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+}
+
+.notice-toast__icon {
+  display: flex;
+  flex-shrink: 0;
+  line-height: 0;
+  margin-top: 1px;
+}
+
+.notice-toast__icon .material-symbols-outlined {
+  font-size: 22px;
+}
+
+.notice-toast--info .notice-toast__icon {
+  color: var(--accent);
+}
+
+.notice-toast--success .notice-toast__icon {
+  color: #2e7d32;
+}
+
+.notice-toast--warning .notice-toast__icon {
+  color: #e6a23c;
+}
+
+.notice-toast--error .notice-toast__icon {
+  color: #e53935;
+}
+
+.notice-toast__message {
+  flex: 1;
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.notice-toast__close {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin: -4px -6px -4px 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+}
+
+.notice-toast__close:hover {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+
+.notice-toast__close .material-symbols-outlined {
+  font-size: 18px;
+}

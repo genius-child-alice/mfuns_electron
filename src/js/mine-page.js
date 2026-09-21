@@ -1,4 +1,5 @@
 import { materialIcon } from './icons.js';
+import { notify } from './notice-ui.js';
 import { loadSession } from './auth.js';
 import { formatVideoDuration, mediaSrcForCover } from './content-api.js';
 import { fetchHistoryPage } from './history-api.js';
@@ -346,7 +347,7 @@ function renderHistoryView() {
   root.innerHTML = renderHistorySections(filtered);
   bindHistoryCardClicks(root);
   document.getElementById('mine-history-clear-btn')?.addEventListener('click', () => {
-    alert('服务端暂未开放清空历史接口');
+    notify('服务端暂未开放清空历史接口', 'warning');
   });
 }
 

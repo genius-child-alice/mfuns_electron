@@ -1,4 +1,5 @@
 import { materialIcon, viewCountIcon } from './icons.js';
+import { notify } from './notice-ui.js';
 import { loadSession } from './auth.js';
 import { mediaSrcForCover } from './content-api.js';
 import { renderVideoCard } from './home-feed.js';
@@ -214,7 +215,7 @@ async function toggleFollow() {
     following = next;
     renderProfileHeader(currentProfile);
   } catch (err) {
-    alert(err instanceof Error ? err.message : '操作失败');
+    notify(err instanceof Error ? err.message : '操作失败', 'error');
   } finally {
     followBusy = false;
   }
@@ -594,7 +595,7 @@ export function openMySpace() {
   }
   const userId = sessionUserId(session.user);
   if (!userId) {
-    alert('无法获取用户 ID，请重新登录');
+    notify('无法获取用户 ID，请重新登录', 'warning');
     return;
   }
   openUserSpace(userId);

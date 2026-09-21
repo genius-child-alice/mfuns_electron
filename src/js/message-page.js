@@ -1,3 +1,4 @@
+import { notify } from './notice-ui.js';
 import { loadSession } from './auth.js';
 import { mediaSrcForCover, userAvatarMediaSrc } from './content-api.js';
 import { loadStickerUrlMap } from './emoji-pack.js';
@@ -581,7 +582,7 @@ async function handleComposerImages(files) {
     }
     renderComposerImages();
   } catch (err) {
-    alert(err instanceof Error ? err.message : '图片上传失败');
+    notify(err instanceof Error ? err.message : '图片上传失败', 'error');
   } finally {
     if (submitBtn instanceof HTMLButtonElement) submitBtn.disabled = false;
     const fileInput = /** @type {HTMLInputElement | null} */ (document.getElementById('message-composer-file'));
@@ -607,7 +608,7 @@ async function submitMessage() {
     await reloadThread(true);
     void reloadConversations();
   } catch (err) {
-    alert(err instanceof Error ? err.message : '发送失败');
+    notify(err instanceof Error ? err.message : '发送失败', 'error');
   } finally {
     sending = false;
     if (submitBtn instanceof HTMLButtonElement) submitBtn.disabled = false;
