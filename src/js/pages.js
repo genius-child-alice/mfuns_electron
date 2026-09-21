@@ -65,12 +65,34 @@ export function searchPageHtml() {
         <nav class="search-page__tabs" id="search-page-tabs" aria-label="搜索分类">
           <button type="button" class="search-page__tab is-active" data-search-tab="all">综合</button>
           <button type="button" class="search-page__tab" data-search-tab="video">视频</button>
-          <button type="button" class="search-page__tab" data-search-tab="article">专栏</button>
+          <button type="button" class="search-page__tab" data-search-tab="article">文章</button>
           <button type="button" class="search-page__tab" data-search-tab="user">用户</button>
         </nav>
         <p class="home-feed__status" id="search-page-status" hidden role="status"></p>
         <div class="content-grid search-page__resource" id="search-page-resource"></div>
         <div class="search-page__users" id="search-page-users" hidden></div>
+        <nav class="search-page__pager" id="search-page-pager" hidden aria-label="搜索结果分页">
+          <div class="search-page__pager-main">
+            <button type="button" class="search-page__pager-link" id="search-page-prev" disabled>上一页</button>
+            <div class="search-page__pager-pages" id="search-page-pager-pages"></div>
+            <button type="button" class="search-page__pager-link" id="search-page-next" disabled>下一页</button>
+            <span class="search-page__pager-total" id="search-page-pager-total"></span>
+          </div>
+          <div class="search-page__pager-jump" id="search-page-pager-jump">
+            <span class="search-page__pager-jump-label">跳至</span>
+            <input
+              type="number"
+              class="search-page__pager-jump-input"
+              id="search-page-jump-input"
+              min="1"
+              step="1"
+              inputmode="numeric"
+              aria-label="页码"
+            />
+            <span class="search-page__pager-jump-label">页</span>
+            <button type="button" class="search-page__pager-jump-btn" id="search-page-jump-btn">确定</button>
+          </div>
+        </nav>
       </div>
     </div>`;
 }

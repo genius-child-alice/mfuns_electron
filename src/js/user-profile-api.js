@@ -493,15 +493,10 @@ export async function fetchAllFollowing(userId) {
 }
 
 /**
- * @param {string} keyword
- * @param {number} [page]
- * @param {number} [size]
- * @returns {Promise<UserProfile[]>}
+ * @param {unknown} data
+ * @returns {UserProfile[]}
  */
-export async function searchUsers(keyword, page = 1, size = 20) {
-  const user = `${keyword ?? ''}`.trim();
-  if (!user) return [];
-  const data = await apiGet('/v1/search/user', { user, page, size });
+export function userProfilesFromListData(data) {
   return toRawList(data)
     .map((item) => parseUserProfile(item))
     .filter((item) => item.id > 0);

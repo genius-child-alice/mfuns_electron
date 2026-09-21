@@ -321,6 +321,64 @@ export function parsePreviewList(data) {
 }
 
 /**
+ * 解析列表接口的分页元数据（`total`、`total_page` 等）。
+ * @param {unknown} data
+ * @param {number} page
+ * @param {number} size
+ * @param {number} itemCount
+ * @returns {{ total: number | null, totalPages: number, hasNext: boolean }}
+ */
+export function parseListPageMeta(data, page, size, itemCount) {
+  const root = data && typeof data === 'object' ? /** @type {Record<string, unknown>} */ (data) : {};
+  const pageInfo =
+    root.page_info && typeof root.page_info === 'object'
+      ? /** @type {Record<string, unknown>} */ (root.page_info)
+      : null;
+
+  const asInt = (value) => {
+    if (typeof value === 'number' && Number.isFinite(value)) return Math.trunc(value);
+    const n = Number.parseInt(`${value ?? ''}`, 10);
+    return Number.isFinite(n) ? n : null;
+  };
+
+  const total =
+    asInt(root.total ?? root.total_count ?? root.all_count ?? root.total_num) ??
+    asInt(pageInfo?.total ?? pageInfo?.total_count ?? pageInfo?.all_count) ??
+    null;
+
+  let totalPages =
+    asInt(root.total_page ?? root.page_count ?? root.last_page ?? root.max_page) ??
+    asInt(pageInfo?.total_page ?? pageInfo?.page_count ?? pageInfo?.last_page) ??
+    null;
+
+  if (itemCount === 0 && page > 1) {
+    const lastPage = Math.max(1, page - 1);
+    return {
+      total,
+      totalPages: totalPages != null ? Math.min(totalPages, lastPage) : lastPage,
+      hasNext: false,
+    };
+  }
+
+  if (totalPages == null && total != null && size > 0) {
+    totalPages = Math.max(1, Math.ceil(total / size));
+  }
+  if (totalPages == null && itemCount < size) {
+    totalPages = Math.max(1, page);
+  }
+  if (totalPages == null) {
+    totalPages = Math.max(1, page);
+  }
+
+  totalPages = Math.max(1, totalPages);
+  return {
+    total,
+    totalPages,
+    hasNext: page < totalPages,
+  };
+}
+
+/**
  * 首页混合推荐（category=-1），文档无分页，仅 size。
  * @param {number} [size]
  */

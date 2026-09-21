@@ -11,8 +11,9 @@ import { openUserSpace } from './user-space.js';
 /** @typedef {import('./content-api.js').ContentPreview} ContentPreview */
 
 const PAGE_SIZE = 20;
-const SCROLL_PREFETCH_MIN_PX = 560;
-const SCROLL_PREFETCH_VIEWPORT_RATIO = 1.5;
+
+/** 横屏：当前页两侧各展示的页码数量 */
+const PAGINATION_SIBLING_COUNT = 5;
 
 /** @type {SearchTabId} */
 let activeTab = 'all';
@@ -31,9 +32,23 @@ let resourcePage = 1;
 
 let userPage = 1;
 
-let hasMoreResources = true;
+let resourceTotalPages = 1;
 
-let hasMoreUsers = true;
+let userTotalPages = 1;
+
+/** @type {number | null} */
+let resourceTotalCount = null;
+
+/** @type {number | null} */
+let userTotalCount = null;
+
+let resourceHasNext = false;
+
+let userHasNext = false;
+
+let resourceTotalExact = false;
+
+let userTotalExact = false;
 
 let bound = false;
 
@@ -56,6 +71,96 @@ function escapeHtml(text) {
 
 function getTopbarSearchInput() {
   return /** @type {HTMLInputElement | null} */ (document.getElementById('topbar-search-input'));
+}
+
+function currentPageNumber() {
+  return activeTab === 'user' ? userPage : resourcePage;
+}
+
+function currentTotalPages() {
+  return activeTab === 'user' ? userTotalPages : resourceTotalPages;
+}
+
+function currentHasNext() {
+  return activeTab === 'user' ? userHasNext : resourceHasNext;
+}
+
+/**
+ * @param {'resource' | 'user'} kind
+ * @param {import('./search-api.js').SearchResourcePage | import('./search-api.js').SearchUserPage} result
+ * @param {number} page
+ */
+function applySearchPagination(kind, result, page) {
+  if (kind === 'resource') {
+    resourceHasNext = result.hasNext;
+    if (result.total != null) resourceTotalCount = result.total;
+    if (result.exactTotalPages) {
+      resourceTotalPages = result.totalPages;
+      resourceTotalExact = true;
+    } else if (!resourceTotalExact) {
+      resourceTotalPages = result.hasNext ? Math.max(resourceTotalPages, page) : page;
+    }
+  } else {
+    userHasNext = result.hasNext;
+    if (result.total != null) userTotalCount = result.total;
+    if (result.exactTotalPages) {
+      userTotalPages = result.totalPages;
+      userTotalExact = true;
+    } else if (!userTotalExact) {
+      userTotalPages = result.hasNext ? Math.max(userTotalPages, page) : page;
+    }
+  }
+}
+
+/**
+ * @param {'resource' | 'user'} kind
+ * @param {number} failedPage
+ */
+function shrinkTotalPagesAfterError(kind, failedPage) {
+  if (failedPage <= 1) return;
+  const last = failedPage - 1;
+  if (kind === 'resource') {
+    resourceTotalPages = Math.min(resourceTotalPages, last);
+    resourceTotalExact = true;
+    resourceHasNext = resourcePage < resourceTotalPages;
+  } else {
+    userTotalPages = Math.min(userTotalPages, last);
+    userTotalExact = true;
+    userHasNext = userPage < userTotalPages;
+  }
+}
+
+/**
+ * @param {number} current
+ * @param {number} total
+ * @returns {(number | 'ellipsis')[]}
+ */
+function buildPaginationItems(current, total) {
+  if (total <= 1) return [1];
+  const maxWithoutEllipsis = PAGINATION_SIBLING_COUNT * 2 + 5;
+  if (total <= maxWithoutEllipsis) {
+    return Array.from({ length: total }, (_, index) => index + 1);
+  }
+  const delta = PAGINATION_SIBLING_COUNT;
+  /** @type {number[]} */
+  const range = [];
+  for (let i = 1; i <= total; i += 1) {
+    if (i === 1 || i === total || (i >= current - delta && i <= current + delta)) {
+      range.push(i);
+    }
+  }
+  /** @type {(number | 'ellipsis')[]} */
+  const items = [];
+  let prev = 0;
+  for (const pageNum of range) {
+    if (prev) {
+      if (pageNum - prev === 2) items.push(prev + 1);
+      else if (pageNum - prev !== 1) items.push('ellipsis');
+    }
+    items.push(pageNum);
+    prev = pageNum;
+  }
+  return items;
 }
 
 function setStatus(message = '', isError = false) {
@@ -88,6 +193,103 @@ function syncTabs() {
   const isUser = activeTab === 'user';
   resourcePanel?.toggleAttribute('hidden', isUser);
   userPanel?.toggleAttribute('hidden', !isUser);
+}
+
+function scrollResultsToTop() {
+  const main = document.getElementById('main-content');
+  if (main) main.scrollTop = 0;
+}
+
+function getJumpInput() {
+  return /** @type {HTMLInputElement | null} */ (document.getElementById('search-page-jump-input'));
+}
+
+function clampJumpInputValue() {
+  const input = getJumpInput();
+  if (!input || input.value === '') return;
+  const totalPages = currentTotalPages();
+  const parsed = Number.parseInt(input.value, 10);
+  if (!Number.isFinite(parsed)) {
+    input.value = '';
+    return;
+  }
+  if (parsed < 1) input.value = '1';
+  else if (parsed > totalPages) input.value = String(totalPages);
+}
+
+function renderPagination() {
+  const pager = document.getElementById('search-page-pager');
+  const prevBtn = /** @type {HTMLButtonElement | null} */ (document.getElementById('search-page-prev'));
+  const nextBtn = /** @type {HTMLButtonElement | null} */ (document.getElementById('search-page-next'));
+  const pagesEl = document.getElementById('search-page-pager-pages');
+  const totalEl = document.getElementById('search-page-pager-total');
+  const jumpWrap = document.getElementById('search-page-pager-jump');
+  const jumpBtn = /** @type {HTMLButtonElement | null} */ (document.getElementById('search-page-jump-btn'));
+  if (!pager || !prevBtn || !nextBtn || !pagesEl) return;
+
+  const page = currentPageNumber();
+  const totalPages = currentTotalPages();
+  const hasNext = currentHasNext();
+  const hasResults = activeTab === 'user' ? userItems.length > 0 : resourceItems.length > 0;
+  const showPager = Boolean(query) && (hasResults || page > 1);
+
+  pager.hidden = !showPager;
+  prevBtn.disabled = loading || page <= 1;
+  nextBtn.disabled = loading || !hasNext;
+  if (jumpBtn) jumpBtn.disabled = loading || totalPages <= 1;
+
+  const pageItems = buildPaginationItems(page, totalPages);
+  pagesEl.innerHTML = pageItems
+    .map((item) => {
+      if (item === 'ellipsis') {
+        return '<span class="search-page__pager-ellipsis" aria-hidden="true">…</span>';
+      }
+      const active = item === page;
+      return `<button type="button" class="search-page__pager-num${active ? ' is-active' : ''}" data-search-page="${item}" ${active ? 'aria-current="page"' : ''} ${loading ? 'disabled' : ''}>${item}</button>`;
+    })
+    .join('');
+
+  if (totalEl) {
+    const exact = activeTab === 'user' ? userTotalExact : resourceTotalExact;
+    totalEl.textContent = exact ? `共 ${totalPages} 页` : `已加载至第 ${page} 页`;
+  }
+
+  const jumpInput = getJumpInput();
+  if (jumpInput) {
+    jumpInput.max = String(totalPages);
+    jumpInput.min = '1';
+    jumpInput.disabled = loading || totalPages <= 1;
+    jumpInput.setAttribute('aria-valuemax', String(totalPages));
+    clampJumpInputValue();
+  }
+  jumpWrap?.toggleAttribute('hidden', !showPager || totalPages <= 1);
+}
+
+function onJumpToPage() {
+  if (loading) return;
+  const input = getJumpInput();
+  if (!input) return;
+  const totalPages = currentTotalPages();
+  const raw = input.value.trim();
+  if (!raw) {
+    setStatus('请输入要跳转的页码', true);
+    input.focus();
+    return;
+  }
+  let target = Number.parseInt(raw, 10);
+  if (!Number.isFinite(target) || target < 1) {
+    setStatus('请输入有效页码', true);
+    input.focus();
+    return;
+  }
+  if (target > totalPages) {
+    setStatus(`页码不能大于总页数（${totalPages}）`, true);
+    input.value = String(totalPages);
+    target = totalPages;
+  }
+  setStatus('');
+  if (target === currentPageNumber()) return;
+  void runSearch(target);
 }
 
 function renderUserRow(user) {
@@ -127,6 +329,8 @@ function renderResults() {
       userList.innerHTML = userItems.map((user) => renderUserRow(user)).join('');
     }
   }
+
+  renderPagination();
 }
 
 function resetLists() {
@@ -134,52 +338,86 @@ function resetLists() {
   userItems = [];
   resourcePage = 1;
   userPage = 1;
-  hasMoreResources = true;
-  hasMoreUsers = true;
+  resourceTotalPages = 1;
+  userTotalPages = 1;
+  resourceTotalCount = null;
+  userTotalCount = null;
+  resourceHasNext = false;
+  userHasNext = false;
+  resourceTotalExact = false;
+  userTotalExact = false;
 }
 
-async function loadMoreResources() {
-  if (!query || loading || !hasMoreResources || activeTab === 'user') return;
+async function loadResourcePage(page) {
+  if (!query || loading || activeTab === 'user') return;
+  if (page < 1) return;
   loading = true;
+  renderPagination();
   setStatus('加载中…');
   try {
-    const batch = await searchResources(query, resourcePage, PAGE_SIZE, resourceTypeForTab(activeTab));
-    if (resourcePage === 1) resourceItems = batch;
-    else resourceItems = [...resourceItems, ...batch];
-    hasMoreResources = batch.length >= PAGE_SIZE;
-    if (batch.length > 0) resourcePage += 1;
+    const result = await searchResources(query, page, PAGE_SIZE, resourceTypeForTab(activeTab));
+    if (result.items.length === 0 && page > 1) {
+      resourceTotalPages = Math.max(1, page - 1);
+      resourceTotalExact = true;
+      resourceHasNext = false;
+      resourcePage = Math.min(resourcePage, resourceTotalPages);
+      setStatus('没有更多结果', true);
+      renderResults();
+      return;
+    }
+    resourceItems = result.items;
+    resourcePage = page;
+    applySearchPagination('resource', result, page);
     renderResults();
     setStatus('');
+    scrollResultsToTop();
   } catch (err) {
+    shrinkTotalPagesAfterError('resource', page);
     setStatus(err instanceof Error ? err.message : '搜索失败', true);
+    renderPagination();
   } finally {
     loading = false;
+    renderPagination();
   }
 }
 
-async function loadMoreUsers() {
-  if (!query || loading || !hasMoreUsers || activeTab !== 'user') return;
+async function loadUserPage(page) {
+  if (!query || loading || activeTab !== 'user') return;
+  if (page < 1) return;
   loading = true;
+  renderPagination();
   setStatus('加载中…');
   try {
-    const batch = await searchUsers(query, userPage, PAGE_SIZE);
-    if (userPage === 1) userItems = batch;
-    else userItems = [...userItems, ...batch];
-    hasMoreUsers = batch.length >= PAGE_SIZE;
-    if (batch.length > 0) userPage += 1;
+    const result = await searchUsers(query, page, PAGE_SIZE);
+    if (result.items.length === 0 && page > 1) {
+      userTotalPages = Math.max(1, page - 1);
+      userTotalExact = true;
+      userHasNext = false;
+      userPage = Math.min(userPage, userTotalPages);
+      setStatus('没有更多结果', true);
+      renderResults();
+      return;
+    }
+    userItems = result.items;
+    userPage = page;
+    applySearchPagination('user', result, page);
     renderResults();
     setStatus('');
+    scrollResultsToTop();
   } catch (err) {
+    shrinkTotalPagesAfterError('user', page);
     setStatus(err instanceof Error ? err.message : '搜索失败', true);
+    renderPagination();
   } finally {
     loading = false;
+    renderPagination();
   }
 }
 
 /**
- * @param {boolean} [reset]
+ * @param {number} [page]
  */
-export async function runSearch(reset = true) {
+export async function runSearch(page = 1) {
   const trimmed = query.trim();
   if (!trimmed) {
     setStatus('请输入搜索关键词', true);
@@ -187,23 +425,17 @@ export async function runSearch(reset = true) {
   }
   query = trimmed;
   syncQueryHeading();
-  getTopbarSearchInput()?.value = query;
+  const searchInput = getTopbarSearchInput();
+  if (searchInput) searchInput.value = query;
 
-  if (reset) {
-    resetLists();
-    renderResults();
-  }
+  const targetPage = Math.max(1, page);
 
   if (activeTab === 'user') {
-    if (reset || (hasMoreUsers && userItems.length === 0)) {
-      await loadMoreUsers();
-    }
+    await loadUserPage(targetPage);
     return;
   }
 
-  if (reset || (hasMoreResources && resourceItems.length === 0)) {
-    await loadMoreResources();
-  }
+  await loadResourcePage(targetPage);
 }
 
 /**
@@ -214,31 +446,13 @@ export function openSearch(keyword) {
   if (!trimmed) return;
   query = trimmed;
   activeTab = 'all';
+  resetLists();
   syncTabs();
   setPage('search');
   syncQueryHeading();
-  getTopbarSearchInput()?.value = query;
-  void runSearch(true);
-}
-
-function shouldPrefetchMore(container) {
-  const remaining = container.scrollHeight - container.scrollTop - container.clientHeight;
-  const threshold = Math.max(
-    SCROLL_PREFETCH_MIN_PX,
-    container.clientHeight * SCROLL_PREFETCH_VIEWPORT_RATIO,
-  );
-  return remaining <= threshold;
-}
-
-function onMainScroll() {
-  if (getCurrentPage() !== 'search' || loading) return;
-  const main = document.getElementById('main-content');
-  if (!main || !shouldPrefetchMore(main)) return;
-  if (activeTab === 'user') {
-    if (hasMoreUsers) void loadMoreUsers();
-  } else if (hasMoreResources) {
-    void loadMoreResources();
-  }
+  const searchInput = getTopbarSearchInput();
+  if (searchInput) searchInput.value = query;
+  void runSearch(1);
 }
 
 function onTabClick(event) {
@@ -248,8 +462,35 @@ function onTabClick(event) {
   if (tab !== 'all' && tab !== 'video' && tab !== 'article' && tab !== 'user') return;
   if (tab === activeTab) return;
   activeTab = tab;
+  resetLists();
   syncTabs();
-  void runSearch(true);
+  renderResults();
+  void runSearch(1);
+}
+
+function onPagerClick(event) {
+  const target = /** @type {HTMLElement} */ (event.target);
+  if (loading) return;
+
+  const pageBtn = target.closest('[data-search-page]');
+  if (pageBtn instanceof HTMLElement) {
+    const num = Number.parseInt(pageBtn.getAttribute('data-search-page') ?? '', 10);
+    if (!Number.isFinite(num) || num < 1 || num === currentPageNumber()) return;
+    void runSearch(num);
+    return;
+  }
+
+  if (target.closest('#search-page-prev')) {
+    const page = currentPageNumber();
+    if (page <= 1) return;
+    void runSearch(page - 1);
+    return;
+  }
+  if (target.closest('#search-page-next')) {
+    const page = currentPageNumber();
+    if (!currentHasNext()) return;
+    void runSearch(page + 1);
+  }
 }
 
 function onResultsClick(event) {
@@ -272,12 +513,16 @@ function onTopbarSearchKeydown(event) {
   if (event.key !== 'Enter') return;
   event.preventDefault();
   const input = getTopbarSearchInput();
-  openSearch(input?.value ?? '');
+  const keyword = input?.value ?? '';
+  query = keyword;
+  resetLists();
+  openSearch(keyword);
 }
 
 export function onSearchPageEnter() {
   syncTabs();
   syncQueryHeading();
+  renderPagination();
 }
 
 export function bindSearchPage() {
@@ -287,16 +532,23 @@ export function bindSearchPage() {
   getTopbarSearchInput()?.addEventListener('keydown', onTopbarSearchKeydown);
 
   document.getElementById('search-page-tabs')?.addEventListener('click', onTabClick);
+  document.getElementById('search-page-pager')?.addEventListener('click', onPagerClick);
   document.getElementById('search-page-resource')?.addEventListener('click', onResultsClick);
   document.getElementById('search-page-users')?.addEventListener('click', onResultsClick);
 
-  document.getElementById('main-content')?.addEventListener('scroll', onMainScroll, {
-    passive: true,
+  document.getElementById('search-page-jump-btn')?.addEventListener('click', onJumpToPage);
+  getJumpInput()?.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      onJumpToPage();
+    }
   });
+  getJumpInput()?.addEventListener('blur', clampJumpInputValue);
+  getJumpInput()?.addEventListener('change', clampJumpInputValue);
 
   document.querySelector('.btn-refresh')?.addEventListener('click', () => {
     if (getCurrentPage() === 'search' && query.trim()) {
-      void runSearch(true);
+      void runSearch(currentPageNumber());
     }
   });
 }

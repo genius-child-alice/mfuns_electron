@@ -78,11 +78,12 @@
 ### `GET /v1/search/resource`
 
 - **Query:** `text`, `type`（`-1` 表示不限）, `page`, `size`, `sort`（客户端固定传 `all`）
+- **响应:** `data.list` 为结果列表；分页与 Flutter `SubmissionItemsPage` 一致：只读 `total` / `total_count`（少数响应用 `pages` 表示总条数），客户端用 `ceil(total / size)` 算总页数、`page * size < total` 判断下一页；勿将 `total_page`、`num`、`all_count`、`page_num`、`count` 当作总条数或总页数
 
 ### `GET /v1/search/user`
 
 - **Query:** `user`（关键词）, `page`, `size`
-- **响应:** 数组或 `data.list` → 用户列表
+- **响应:** 数组或 `data.list` → 用户列表；分页字段同上
 
 ### `GET /v1/category/all`
 

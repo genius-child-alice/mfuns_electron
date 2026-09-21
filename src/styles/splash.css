@@ -17,7 +17,6 @@
 .splash__inner {
   display: grid;
   place-items: center;
-  animation: splash-enter 900ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .splash__logo {
@@ -26,29 +25,22 @@
   max-width: 90vw;
   height: auto;
   object-fit: contain;
-  filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.12));
-  animation: splash-breathe 1.8s ease-in-out 0.35s infinite;
+  opacity: 0;
+  filter: brightness(0.45) drop-shadow(0 8px 24px rgba(0, 0, 0, 0.12));
+  animation: splash-logo-reveal 2.2s ease-out forwards;
 }
 
-@keyframes splash-enter {
-  from {
+@keyframes splash-logo-reveal {
+  0% {
     opacity: 0;
-    transform: scale(0.92) translateY(8px);
+    filter: brightness(0.4) drop-shadow(0 4px 12px rgba(0, 0, 0, 0.08));
   }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
+  55% {
+    opacity: 0.85;
+    filter: brightness(0.92) drop-shadow(0 8px 20px rgba(0, 0, 0, 0.1));
   }
-}
-
-@keyframes splash-breathe {
-  0%,
   100% {
-    transform: scale(1);
     opacity: 1;
-  }
-  50% {
-    transform: scale(1.03);
-    opacity: 0.92;
+    filter: brightness(1) drop-shadow(0 8px 24px rgba(0, 0, 0, 0.12));
   }
 }

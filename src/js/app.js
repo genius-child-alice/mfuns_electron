@@ -142,7 +142,7 @@ function renderShell() {
           <div class="topbar__actions app-drag">
             <div class="topbar__search app-no-drag">
               <label class="search-field">
-                <input type="search" class="search-input" id="topbar-search-input" placeholder="搜索视频、专栏或用户" aria-label="搜索" enterkeyhint="search" />
+                <input type="search" class="search-input" id="topbar-search-input" placeholder="搜索视频、文章或用户" aria-label="搜索" enterkeyhint="search" />
                 ${materialIcon('search', 'material-symbols-outlined--search')}
               </label>
             </div>

@@ -322,20 +322,27 @@
 }
 
 .mine-favorite-folders__toolbar {
-  margin-bottom: 12px;
+  grid-column: 1 / -1;
+  margin-bottom: 4px;
 }
 
 .mine-favorite-folders {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-width: 720px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+}
+
+@media (max-width: 720px) {
+  .mine-favorite-folders {
+    grid-template-columns: 1fr;
+  }
 }
 
 .mine-favorite-folder-wrap {
   display: flex;
   align-items: stretch;
   gap: 8px;
+  min-width: 0;
 }
 
 .mine-favorite-folder-wrap .mine-favorite-folder {

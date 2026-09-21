@@ -4,7 +4,9 @@ const SPLASH_FADE_MS = 520;
 export function runSplash(onDone) {
   const splash = document.getElementById('splash');
   const app = document.getElementById('app');
-  if (!splash || !app) {
+  if (!splash) {
+    app?.classList.remove('app--hidden');
+    app?.setAttribute('aria-hidden', 'false');
     onDone?.();
     return;
   }
@@ -13,8 +15,10 @@ export function runSplash(onDone) {
 
   const finish = () => {
     splash.classList.add('splash--hide');
-    app.classList.remove('app--hidden');
-    app.setAttribute('aria-hidden', 'false');
+    if (app) {
+      app.classList.remove('app--hidden');
+      app.setAttribute('aria-hidden', 'false');
+    }
 
     window.setTimeout(() => {
       splash.remove();

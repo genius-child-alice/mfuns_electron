@@ -80,14 +80,8 @@
 .follow-list__grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px 32px;
+  gap: 16px 24px;
   padding: 8px 0 24px;
-}
-
-@media (max-width: 720px) {
-  .follow-list__grid {
-    grid-template-columns: 1fr;
-  }
 }
 
 .follow-list__empty {
