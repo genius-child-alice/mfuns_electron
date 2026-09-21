@@ -829,8 +829,15 @@ export function settingsPageHtml() {
               <div class="settings-row settings-row--top">
                 <div class="settings-row__label">
                   <span class="settings-row__title">等级经验</span>
+                  <span class="settings-row__hint">当前账号段位与经验</span>
                 </div>
-                <div class="settings-row__control" id="settings-level-sections">加载中…</div>
+                <div class="settings-row__control settings-row__control--stack settings-level-panel">
+                  <div id="settings-my-level" class="settings-my-level">加载中…</div>
+                  <details class="settings-level-chart">
+                    <summary>段位经验表</summary>
+                    <ul class="settings-level-list" id="settings-level-sections"></ul>
+                  </details>
+                </div>
               </div>
               <div class="settings-row settings-row--top">
                 <div class="settings-row__label">

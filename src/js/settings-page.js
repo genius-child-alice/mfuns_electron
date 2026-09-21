@@ -27,12 +27,21 @@ import {
   updateUserGender,
   updateUserName,
 } from './user-profile-api.js';
+import {
+  levelProgressHint,
+  renderLevelBadgeHtml,
+  renderLevelSectionsListHtml,
+  resolveUserLevelId,
+} from './user-level.js';
 import { uploadCommentImage } from './video-api.js';
 
 const DEFAULT_AVATAR_SRC = 'assets/mfuns_logo.png';
 
 /** @type {(() => void) | null} */
 let onUserUpdated = null;
+
+/** @type {import('./user-profile-api.js').UserProfile | null} */
+let settingsProfileSnapshot = null;
 
 /**
  * @param {{ onUserUpdated?: () => void }} [options]
@@ -347,28 +356,57 @@ function bindAppSettingsControls() {
 async function refreshAccountExtra() {
   const section = document.getElementById('settings-section-account-extra');
   const anchor = document.querySelector('.settings-anchor__link[data-settings-anchor="account-extra"]');
+  const myLevelEl = document.getElementById('settings-my-level');
   const levelEl = document.getElementById('settings-level-sections');
   const backpackEl = document.getElementById('settings-backpack-list');
-  if (!section || !levelEl || !backpackEl) return;
+  if (!section || !myLevelEl || !levelEl || !backpackEl) return;
 
   const loggedIn = isLoggedIn();
   section.hidden = !loggedIn;
   anchor?.closest('li')?.toggleAttribute('hidden', !loggedIn);
   if (!loggedIn) return;
 
-  levelEl.textContent = '加载中…';
+  myLevelEl.textContent = '加载中…';
+  levelEl.innerHTML = '';
   backpackEl.textContent = '加载中…';
   try {
-    const [levels, backpack] = await Promise.all([
+    const session = loadSession();
+    const userId = Number(session?.user?.id ?? session?.user?.user_id);
+    const profilePromise =
+      Number.isFinite(userId) && userId > 0
+        ? fetchUserProfile(userId).catch(() => settingsProfileSnapshot)
+        : Promise.resolve(settingsProfileSnapshot);
+
+    const [profile, levels, backpack] = await Promise.all([
+      profilePromise,
       fetchLevelSections().catch(() => []),
       fetchUserBackpack().catch(() => []),
     ]);
+    if (profile) settingsProfileSnapshot = profile;
+
+    if (!profile?.level) {
+      myLevelEl.innerHTML = '<p class="settings-muted">暂无等级信息</p>';
+    } else {
+      const exp = profile.exp ?? 0;
+      const hint = levelProgressHint(exp, profile.level, levels);
+      const barHtml =
+        hint.text && profile.level < 10
+          ? `<div class="settings-my-level__bar" role="presentation"><div class="settings-my-level__bar-fill" style="width:${hint.percent}%"></div></div>`
+          : '';
+      myLevelEl.innerHTML = `
+        ${renderLevelBadgeHtml({
+          levelId: profile.level,
+          exp,
+          className: 'user-level-badge--settings',
+        })}
+        ${hint.text ? `<p class="settings-my-level__hint">${escapeHtml(hint.text)}</p>` : ''}
+        ${barHtml}`;
+    }
+
     levelEl.innerHTML =
       levels.length > 0
-        ? `<ul class="settings-level-list">${levels
-            .map((item) => `<li>LV${item.levelId} · 经验 ${item.experience}</li>`)
-            .join('')}</ul>`
-        : '<p class="settings-muted">暂无等级数据</p>';
+        ? renderLevelSectionsListHtml(levels)
+        : '<li class="settings-muted">暂无等级数据</li>';
     backpackEl.innerHTML =
       backpack.length > 0
         ? `<ul class="settings-backpack-list">${backpack
@@ -379,7 +417,8 @@ async function refreshAccountExtra() {
             .join('')}</ul>`
         : '<p class="settings-muted">背包为空</p>';
   } catch {
-    levelEl.innerHTML = '<p class="settings-muted">加载失败</p>';
+    myLevelEl.innerHTML = '<p class="settings-muted">加载失败</p>';
+    levelEl.innerHTML = '';
     backpackEl.innerHTML = '<p class="settings-muted">加载失败</p>';
   }
 }
@@ -394,17 +433,6 @@ async function refreshSessionUser() {
   } catch {
     /* 资料已写入服务端，会话刷新失败不阻断 */
   }
-}
-
-/**
- * @param {Record<string, unknown> | null | undefined} user
- */
-function userLevel(user) {
-  if (!user) return null;
-  const level = user.level_id ?? user.level;
-  if (typeof level === 'number' && Number.isFinite(level)) return Math.trunc(level);
-  const parsed = Number.parseInt(`${level ?? ''}`, 10);
-  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function renderAccountCard() {
@@ -434,7 +462,8 @@ function renderAccountCard() {
   }
 
   const name = userDisplayName(user);
-  const level = userLevel(user);
+  const levelId = settingsProfileSnapshot?.level ?? resolveUserLevelId(user);
+  const levelExp = settingsProfileSnapshot?.exp;
   const remoteAvatar = userAvatarMediaSrc(user);
   const avatarSrc = remoteAvatar || DEFAULT_AVATAR_SRC;
   const brandFallback = !remoteAvatar;
@@ -447,7 +476,16 @@ function renderAccountCard() {
       <div class="settings-account__meta">
         <div class="settings-account__name-row">
           <span class="settings-account__name">${escapeHtml(name)}</span>
-          ${level != null ? `<span class="settings-account__level">LV${level}</span>` : ''}
+          ${
+            levelId != null
+              ? renderLevelBadgeHtml({
+                  levelId,
+                  exp: levelExp,
+                  showExp: false,
+                  className: 'user-level-badge--account',
+                })
+              : ''
+          }
         </div>
         <button type="button" class="settings-account__switch" id="settings-account-switch">
           <span class="material-symbols-outlined" aria-hidden="true">sync_alt</span>
@@ -511,6 +549,7 @@ export async function refreshSettingsProfile() {
   renderAccountCard();
   syncAppSettingsForm();
   if (!isLoggedIn()) {
+    settingsProfileSnapshot = null;
     fillProfileForm(null);
     void refreshAccountExtra();
     return;
@@ -525,6 +564,8 @@ export async function refreshSettingsProfile() {
       return;
     }
     const profile = await fetchUserProfile(userId);
+    settingsProfileSnapshot = profile;
+    renderAccountCard();
     fillProfileForm(profile);
     void refreshAccountExtra();
   } catch (err) {

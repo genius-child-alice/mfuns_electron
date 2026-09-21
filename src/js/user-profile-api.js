@@ -5,6 +5,7 @@ import {
   parsePreviewList,
   resolveCoverUrl,
 } from './content-api.js';
+import { levelFromBadges } from './user-level.js';
 
 /** @typedef {{
  *   id: number,
@@ -113,8 +114,8 @@ function parseUserProfile(raw) {
     banner: resolveCoverUrl(source.banner_image ?? source.banner),
     bio,
     gender: `${source.gender ?? info.gender ?? ''}`,
-    level: asInt(source.level_id ?? info.level_id),
-    exp: asInt(source.exp ?? source.experience ?? info.exp),
+    level: asInt(source.level_id ?? info.level_id) ?? levelFromBadges(source.badges),
+    exp: asInt(source.exp ?? source.experience ?? info.exp ?? info.experience),
     fans: asInt(source.fans ?? source.fans_count ?? info.fans) ?? 0,
     follows:
       asInt(source.follows ?? source.follow_count ?? source.following ?? info.follows) ?? 0,

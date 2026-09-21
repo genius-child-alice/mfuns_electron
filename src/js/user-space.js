@@ -18,6 +18,7 @@ import {
   fetchUserProfile,
   fetchUserVideos,
 } from './user-profile-api.js';
+import { renderLevelBadgeHtml } from './user-level.js';
 import {
   fetchFavoriteFolderList,
   fetchFavoriteItemsPage,
@@ -139,7 +140,11 @@ function renderProfileHeader(profile) {
 
   const levelBadge =
     profile.level != null && profile.level > 0
-      ? `<span class="user-space__level">LV${profile.level}</span>`
+      ? renderLevelBadgeHtml({
+          levelId: profile.level,
+          exp: profile.exp,
+          className: 'user-level-badge--space',
+        })
       : '';
 
   el.innerHTML = `
