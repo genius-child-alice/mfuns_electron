@@ -182,18 +182,27 @@ export function renderFeedCard(item, ctx = {}) {
     ? `<span class="user-space__feed-card__pin">${materialIcon('vertical_align_top', 'user-space__feed-card__pin-icon')}置顶</span>`
     : '';
 
+  const authorId = item.authorId;
+  const avatarInner = avatarSrc
+    ? `<img class="user-space__feed-card__avatar" src="${escapeHtml(avatarSrc)}" alt="" />`
+    : '<span class="user-space__feed-card__avatar user-space__feed-card__avatar--ph"></span>';
+  const avatarHtml =
+    authorId != null
+      ? `<button type="button" class="user-space__feed-card__profile user-space__feed-card__profile--avatar" data-author-profile="${authorId}" title="进入主页">${avatarInner}</button>`
+      : avatarInner;
+  const nameHtml =
+    authorId != null
+      ? `<button type="button" class="user-space__feed-card__profile user-space__feed-card__name" data-author-profile="${authorId}" title="进入主页">${escapeHtml(authorName)}</button>`
+      : `<span class="user-space__feed-card__name">${escapeHtml(authorName)}</span>`;
+
   return `
     <article class="user-space__feed-card" data-feed-id="${item.id}">
       <div class="user-space__feed-card__top">
         <header class="user-space__feed-card__head">
-          ${
-            avatarSrc
-              ? `<img class="user-space__feed-card__avatar" src="${escapeHtml(avatarSrc)}" alt="" />`
-              : '<span class="user-space__feed-card__avatar user-space__feed-card__avatar--ph"></span>'
-          }
+          ${avatarHtml}
           <div class="user-space__feed-card__who">
             <div class="user-space__feed-card__name-row">
-              <span class="user-space__feed-card__name">${escapeHtml(authorName)}</span>
+              ${nameHtml}
               ${pinHtml}
             </div>
             <div class="user-space__feed-card__meta">
@@ -294,6 +303,15 @@ export function handleTimelineFeedClick(event, options = {}) {
     event.preventDefault();
     event.stopPropagation();
     void handleFeedVideoFollow(feedFollow);
+    return true;
+  }
+
+  const profileBtn = target.closest('[data-author-profile]');
+  if (profileBtn instanceof HTMLElement) {
+    event.preventDefault();
+    event.stopPropagation();
+    const uid = Number.parseInt(profileBtn.getAttribute('data-author-profile') ?? '', 10);
+    if (Number.isFinite(uid)) options.onOpenUserSpace?.(uid);
     return true;
   }
 
