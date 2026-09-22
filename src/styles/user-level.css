@@ -4,6 +4,11 @@
   align-items: center;
   flex-shrink: 0;
   max-width: 100%;
+  gap: 6px;
+  line-height: 1.2;
+}
+
+.user-level-badge--text {
   padding: 3px 8px;
   border-radius: 7px;
   border: 1px solid color-mix(in srgb, var(--level-color) 55%, transparent);
@@ -12,49 +17,65 @@
   font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.04em;
-  line-height: 1.2;
+}
+
+.user-level-badge--icon {
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
+.user-level-badge__icon {
+  display: block;
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 .user-level-badge__rank {
   flex-shrink: 0;
 }
 
-.user-level-badge__sep {
-  width: 1px;
-  height: 11px;
-  margin: 0 6px;
-  background: color-mix(in srgb, var(--level-color) 40%, transparent);
-  flex-shrink: 0;
-}
-
 .user-level-badge__exp {
   font-size: 11.5px;
   font-weight: 600;
+  color: var(--text-secondary);
   letter-spacing: 0;
   white-space: nowrap;
 }
 
-.user-level-badge--space {
-  align-self: center;
+.user-level-badge--space .user-level-badge__icon {
+  width: 24px;
+  height: 24px;
 }
 
-.user-level-badge--account {
+.user-level-badge--account .user-level-badge__icon {
+  width: 18px;
+  height: 18px;
+}
+
+.user-level-badge--settings .user-level-badge__icon {
+  width: 20px;
+  height: 20px;
+}
+
+.user-level-badge--settings .user-level-badge__exp {
   font-size: 12px;
-  padding: 2px 7px;
-}
-
-.user-level-badge--settings {
-  font-size: 14px;
-  padding: 4px 10px;
 }
 
 .settings-my-level {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 8px;
+  gap: 6px;
   width: 100%;
   max-width: 360px;
+}
+
+.settings-my-level .user-level-badge--settings {
+  flex-direction: row;
+  align-items: center;
 }
 
 .settings-my-level__hint {
@@ -102,18 +123,30 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 6px 8px;
+  padding: 4px 8px;
   border-radius: 6px;
-  --level-color: #8a9096;
+}
+
+.settings-level-list__icon {
+  display: block;
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 .settings-level-list__rank {
   display: inline-flex;
   min-width: 28px;
   font-weight: 800;
-  color: var(--level-color);
+  color: var(--level-color, #8a9096);
 }
 
 .settings-level-list__exp {
   font-variant-numeric: tabular-nums;
+  font-size: 12px;
+}
+
+.settings-account__name-row .user-level-badge--account {
+  margin-left: 2px;
 }

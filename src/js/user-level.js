@@ -1,4 +1,7 @@
-/** 与 Flutter `user_profile_page.dart` 一致：level_id 1–10 → D … S+ */
+import { badgeImageUrl } from './badge-catalog.js';
+import { mediaSrcForCover } from './content-api.js';
+
+/** 与 Flutter `user_profile_page.dart` 一致：level_id 1–10 → D … S+（对应官网 badge 图 1–10） */
 
 export const LEVEL_RANKS = ['D', 'D+', 'C', 'C+', 'B', 'B+', 'A', 'A+', 'S', 'S+'];
 
@@ -78,6 +81,27 @@ export function formatExperience(exp) {
 }
 
 /**
+ * @param {string} text
+ */
+function escapeHtml(text) {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/**
+ * @param {number} levelId
+ * @param {number} [resizeWidth]
+ */
+export function levelBadgeIconSrc(levelId, resizeWidth = 96) {
+  const raw = badgeImageUrl(levelId, resizeWidth);
+  if (!raw) return '';
+  return mediaSrcForCover(raw) ?? raw;
+}
+
+/**
  * @param {{
  *   levelId: number | null | undefined,
  *   exp?: number | null,
@@ -90,13 +114,17 @@ export function renderLevelBadgeHtml(options) {
   if (levelId == null || levelId < 1) return '';
   const label = levelLabelFromId(levelId);
   if (!label) return '';
-  const color = levelColorFromLabel(label);
   const extraClass = className ? ` ${className}` : '';
+  const src = levelBadgeIconSrc(levelId);
   const expHtml =
     showExp && exp != null && Number.isFinite(exp)
-      ? `<span class="user-level-badge__sep" aria-hidden="true"></span><span class="user-level-badge__exp">经验 ${formatExperience(exp)}</span>`
+      ? `<span class="user-level-badge__exp">经验 ${formatExperience(exp)}</span>`
       : '';
-  return `<span class="user-level-badge${extraClass}" style="--level-color: ${color}" title="段位 ${label}"><span class="user-level-badge__rank">${label}</span>${expHtml}</span>`;
+  if (!src) {
+    const color = levelColorFromLabel(label);
+    return `<span class="user-level-badge user-level-badge--text${extraClass}" style="--level-color: ${color}" title="段位 ${escapeHtml(label)}"><span class="user-level-badge__rank">${escapeHtml(label)}</span>${expHtml}</span>`;
+  }
+  return `<span class="user-level-badge user-level-badge--icon${extraClass}" title="段位 ${escapeHtml(label)}"><img class="user-level-badge__icon" src="${escapeHtml(src)}" alt="${escapeHtml(label)}" width="24" height="24" loading="lazy" decoding="async" />${expHtml}</span>`;
 }
 
 /**
@@ -135,9 +163,12 @@ export function renderLevelSectionsListHtml(sections) {
   return sections
     .map((item) => {
       const label = levelLabelFromId(item.levelId);
-      const color = levelColorFromLabel(label);
-      return `<li class="settings-level-list__item" style="--level-color: ${color}">
-        <span class="settings-level-list__rank">${label}</span>
+      const src = levelBadgeIconSrc(item.levelId, 64);
+      const rankHtml = src
+        ? `<img class="settings-level-list__icon" src="${escapeHtml(src)}" alt="${escapeHtml(label)}" width="20" height="20" loading="lazy" decoding="async" />`
+        : `<span class="settings-level-list__rank">${escapeHtml(label)}</span>`;
+      return `<li class="settings-level-list__item">
+        ${rankHtml}
         <span class="settings-level-list__exp">经验 ≥ ${item.experience}</span>
       </li>`;
     })
