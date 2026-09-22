@@ -211,6 +211,10 @@ function renderPage() {
   if (!detail || !root) return;
 
   const { preview } = detail;
+  const coverSrc = mediaSrcForCover(preview.cover);
+  const coverHtml = coverSrc
+    ? `<figure class="article-read__cover"><img src="${escapeHtml(coverSrc)}" alt="${escapeHtml(preview.title)}" decoding="async" /></figure>`
+    : '';
   const avatarSrc = mediaSrcForCover(detail.authorAvatar);
   const publishIso = detail.publishedAt ?? preview.createdAt;
   const dateLabel = formatDateTime(publishIso);
@@ -221,6 +225,7 @@ function renderPage() {
 
   root.innerHTML = `
     <article class="article-read">
+      ${coverHtml}
       <header class="article-read__head">
         <h1 class="article-read__title">${escapeHtml(preview.title)}</h1>
         <div class="article-read__meta">

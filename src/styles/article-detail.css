@@ -76,6 +76,27 @@
   padding: 48px 16px;
 }
 
+.article-read__cover {
+  margin: 0 0 24px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--card-cover);
+  border: 1px solid var(--border-subtle);
+}
+
+.article-read__cover img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: min(420px, 52vh);
+  object-fit: cover;
+}
+
+.article-read .watch-collection {
+  margin-top: 28px;
+  margin-bottom: 0;
+}
+
 .article-read__title {
   margin: 0 0 20px;
   font-size: 1.75rem;
