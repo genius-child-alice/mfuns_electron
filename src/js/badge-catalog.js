@@ -43,3 +43,62 @@ export function badgeLabelFromId(badgeId) {
   const id = Math.trunc(badgeId);
   return BADGE_LABELS[id] ?? `勋章 ${id}`;
 }
+
+/**
+ * @param {unknown} value
+ * @returns {number[]}
+ */
+export function parseUserBadgeIds(value) {
+  if (!Array.isArray(value)) return [];
+  /** @type {number[]} */
+  const ids = [];
+  for (const entry of value) {
+    let id = null;
+    if (typeof entry === 'number' && Number.isFinite(entry)) {
+      id = Math.trunc(entry);
+    } else if (entry && typeof entry === 'object') {
+      const row = /** @type {Record<string, unknown>} */ (entry);
+      const raw = row.id ?? row.badge_id;
+      id = Number.parseInt(`${raw ?? ''}`, 10);
+      if (!Number.isFinite(id)) id = null;
+    } else {
+      id = Number.parseInt(`${entry ?? ''}`, 10);
+      if (!Number.isFinite(id)) id = null;
+    }
+    if (id != null && id > 0) ids.push(id);
+  }
+  return ids.slice(0, 5);
+}
+
+/**
+ * @param {string} text
+ */
+function escapeAttr(text) {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;');
+}
+
+/**
+ * 与官网 MBadge（sm）一致：最多 5 枚，30px 图。
+ * @param {number[]} badgeIds
+ * @param {'sm' | 'md'} [size]
+ */
+export function renderUserBadgesHtml(badgeIds, size = 'sm') {
+  if (!Array.isArray(badgeIds) || badgeIds.length === 0) return '';
+  const width = size === 'md' ? 60 : 30;
+  const items = badgeIds
+    .slice(0, 5)
+    .map((badgeId) => {
+      const id = Math.trunc(badgeId);
+      const label = badgeLabelFromId(id);
+      const src = badgeImageUrl(id, width);
+      if (!src) return '';
+      return `<span class="m-badge__item watch-comment__badge-item" title="${escapeAttr(label)}" aria-label="${escapeAttr(label)}"><img src="${escapeAttr(src)}" alt="" width="${width}" height="${width}" loading="lazy" /></span>`;
+    })
+    .filter(Boolean)
+    .join('');
+  if (!items) return '';
+  return `<span class="m-badge m-badge--${size} watch-comment__badges">${items}</span>`;
+}

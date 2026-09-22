@@ -1,3 +1,4 @@
+import { parseUserBadgeIds } from './badge-catalog.js';
 import { API_BASE, loadSession } from './auth.js';
 import { loadAppSettings } from './app-preferences.js';
 import {
@@ -52,7 +53,9 @@ import {
  *   dislikes: number,
  *   disliked: boolean,
  *   replyCount: number,
- *   createdAt: string | null,
+ *   floorNum: number | null,
+ *   badges: number[],
+ *   createdAt: number | string | null,
  * }} CommunityComment */
 
 /**
@@ -274,6 +277,21 @@ function parseVideoParts(data) {
  * @param {unknown} raw
  * @returns {CommunityComment | null}
  */
+/**
+ * @param {unknown} value
+ */
+function parseCommentCreatedAt(value) {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const n = Number(trimmed);
+    if (Number.isFinite(n) && n > 0) return n;
+    return trimmed;
+  }
+  return null;
+}
+
 function parseComment(raw) {
   const json = asMap(raw);
   const id = asInt(json.id);
@@ -285,6 +303,7 @@ function parseComment(raw) {
   const dislike = asMap(likeStatus.dislike);
   const rawContent = `${json.content ?? ''}`;
   const authorId = asInt(user.id ?? user.user_id ?? json.user_id);
+  const badges = parseUserBadgeIds(user.badges ?? json.badges);
   return {
     id,
     authorId,
@@ -298,7 +317,9 @@ function parseComment(raw) {
     dislikes: asInt(dislike.count ?? json.dislike_count) ?? 0,
     disliked: dislike.is_active === true || dislike.is_active === 1,
     replyCount: asInt(json.reply_count) ?? 0,
-    createdAt: typeof json.created_at === 'string' ? json.created_at : null,
+    floorNum: asInt(json.floor_num ?? json.floor),
+    badges: badges.slice(0, 5),
+    createdAt: parseCommentCreatedAt(json.created_at ?? json.create_time),
   };
 }
 

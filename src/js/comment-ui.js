@@ -10,6 +10,7 @@ import {
   fetchReactionStatus,
   setCommentReaction,
 } from './video-api.js';
+import { renderUserBadgesHtml } from './badge-catalog.js';
 import { openCommentComposer } from './comment-composer.js';
 import { confirmAction } from './confirm-dialog.js';
 
@@ -52,6 +53,35 @@ function formatCount(n) {
   if (!Number.isFinite(n) || n < 0) return '0';
   if (n >= 10000) return `${(n / 10000).toFixed(1)}万`;
   return String(Math.trunc(n));
+}
+
+/**
+ * 与官网 pipe.date 一致（CkS7fInq.js）
+ * @param {number | string | null | undefined} value
+ */
+export function formatCommentDate(value) {
+  if (value == null || value === '') return '';
+  let ms = NaN;
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    ms = value < 1e12 ? value * 1000 : value;
+  } else if (typeof value === 'string') {
+    const n = Number(value);
+    if (Number.isFinite(n) && n > 0) ms = n < 1e12 ? n * 1000 : n;
+    else ms = Date.parse(value);
+  }
+  if (!Number.isFinite(ms)) return '';
+  const t = new Date(ms);
+  const diff = Date.now() - t.getTime();
+  const seconds = Math.floor(diff / 1000);
+  if (seconds < 60) return '刚刚';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}分钟前`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}小时前`;
+  if (t.getFullYear() === new Date().getFullYear()) {
+    return `${t.getMonth() + 1}-${t.getDate()}`;
+  }
+  return `${t.getFullYear()}-${t.getMonth() + 1}-${t.getDate()}`;
 }
 
 /**
@@ -144,7 +174,14 @@ function renderNestedReplyButton(reply, rootCommentId) {
 
 /**
  * @param {CommunityComment} item
- * @param {{ bodyIdPrefix: string, compact?: boolean, replyActionHtml?: string, currentUserId?: number | null, rootCommentId?: number }} options
+ * @param {{
+ *   bodyIdPrefix: string,
+ *   compact?: boolean,
+ *   replyActionHtml?: string,
+ *   currentUserId?: number | null,
+ *   resourceAuthorId?: number | null,
+ *   rootCommentId?: number,
+ * }} options
  */
 function renderCommentRow(item, options) {
   const compact = options.compact === true;
@@ -154,11 +191,28 @@ function renderCommentRow(item, options) {
     ? `<img class="watch-comment__avatar${avatarSizeClass}" src="${escapeHtml(avatarSrc)}" alt="" />`
     : `<span class="watch-comment__avatar watch-comment__avatar--ph${avatarSizeClass}"></span>`;
   const avatar = authorLink(item.authorId, avatarInner, 'watch-comment__avatar-btn');
+  const badgesHtml = renderUserBadgesHtml(item.badges ?? [], compact ? 'sm' : 'sm');
+  const isResourceAuthor =
+    options.resourceAuthorId != null &&
+    item.authorId != null &&
+    item.authorId === options.resourceAuthorId;
+  const authorLabel = escapeHtml(item.authorName);
+  const authorInner = `${authorLabel}${badgesHtml}${
+    isResourceAuthor ? '<span class="watch-comment__landlord">作者</span>' : ''
+  }`;
   const author = item.authorId
-    ? authorLink(item.authorId, escapeHtml(item.authorName), 'watch-comment__author')
-    : `<p class="watch-comment__author">${escapeHtml(item.authorName)}</p>`;
+    ? authorLink(item.authorId, authorInner, 'watch-comment__author')
+    : `<p class="watch-comment__author">${authorInner}</p>`;
   const extraMeta = options.replyActionHtml ?? '';
   const rootCommentId = options.rootCommentId ?? item.id;
+  const dateLabel = formatCommentDate(item.createdAt);
+  const floorHtml =
+    !compact && item.floorNum != null && item.floorNum > 0
+      ? `<span class="watch-comment__floor">${item.floorNum}F</span>`
+      : '';
+  const timeHtml = dateLabel
+    ? `<time class="watch-comment__time" datetime="">${escapeHtml(dateLabel)}</time>`
+    : '';
   const deleteBtn =
     options.currentUserId != null &&
     item.authorId != null &&
@@ -170,9 +224,16 @@ function renderCommentRow(item, options) {
     <article class="watch-comment ${compact ? 'watch-comment--reply' : ''}" data-comment-id="${item.id}">
       ${avatar}
       <div class="watch-comment__body">
-        ${author}
+        <header class="watch-comment__head">
+          <div class="watch-comment__head-main">${author}</div>
+          <span class="watch-comment__cid">#${item.id}</span>
+        </header>
         <div class="watch-comment__text markdown-body" id="${options.bodyIdPrefix}-${item.id}"></div>
         <div class="watch-comment__meta">
+          <div class="watch-comment__meta-info">
+            ${floorHtml}
+            ${timeHtml}
+          </div>
           <div class="watch-comment__meta-main">
             ${renderCommentReactionButtons(item)}
             ${extraMeta}
@@ -188,7 +249,7 @@ function renderCommentRow(item, options) {
  * @param {CommentReplyThread} thread
  * @param {number} rootCommentId
  * @param {number} rootCommentId
- * @param {{ replyBodyIdPrefix: string, currentUserId?: number | null }} options
+ * @param {{ replyBodyIdPrefix: string, currentUserId?: number | null, resourceAuthorId?: number | null }} options
  */
 function renderReplyThreadHtml(comment, thread, rootCommentId, options) {
   if (!thread.expanded) return '';
@@ -207,6 +268,7 @@ function renderReplyThreadHtml(comment, thread, rootCommentId, options) {
           bodyIdPrefix: options.replyBodyIdPrefix,
           compact: true,
           currentUserId: options.currentUserId,
+          resourceAuthorId: options.resourceAuthorId ?? null,
           rootCommentId,
           replyActionHtml: renderNestedReplyButton(reply, rootCommentId),
         });
@@ -237,6 +299,7 @@ function renderReplyThreadHtml(comment, thread, rootCommentId, options) {
  *   replyBodyIdPrefix: string,
  *   replyStore: CommentReplyStore,
  *   currentUserId?: number | null,
+ *   resourceAuthorId?: number | null,
  * }} options
  */
 export function renderCommentsHtml(comments, options) {
@@ -245,6 +308,7 @@ export function renderCommentsHtml(comments, options) {
   }
 
   const currentUserId = options.currentUserId ?? resolveMineUserId(null);
+  const resourceAuthorId = options.resourceAuthorId ?? null;
 
   return comments
     .map((item) => {
@@ -255,6 +319,7 @@ export function renderCommentsHtml(comments, options) {
         ? renderReplyThreadHtml(item, thread, item.id, {
             replyBodyIdPrefix: options.replyBodyIdPrefix,
             currentUserId,
+            resourceAuthorId,
           })
         : '';
 
@@ -273,6 +338,7 @@ export function renderCommentsHtml(comments, options) {
           ${renderCommentRow(item, {
             bodyIdPrefix: options.bodyIdPrefix,
             currentUserId,
+            resourceAuthorId,
             rootCommentId: item.id,
             replyActionHtml: renderRootReplyButton(item.id),
           })}

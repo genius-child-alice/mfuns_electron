@@ -112,6 +112,7 @@ function refreshCommentsUi() {
     bodyIdPrefix: COMMENT_BODY_PREFIX,
     replyBodyIdPrefix: COMMENT_REPLY_PREFIX,
     replyStore: commentReplyStore,
+    resourceAuthorId: currentDetail?.authorId ?? null,
   });
   mountAllCommentRichText(commentItems, commentReplyStore, {
     bodyIdPrefix: COMMENT_BODY_PREFIX,
@@ -476,7 +477,7 @@ function renderSidePanel() {
         <div class="watch-comment-form" id="watch-comment-form">
           ${commentComposerTriggerHtml('发一条友善的评论', 'watch-comment-trigger', 'watch-comment-trigger')}
         </div>
-        <div class="watch-comments" id="watch-comments-list">${renderCommentsHtml(commentItems, { bodyIdPrefix: COMMENT_BODY_PREFIX, replyBodyIdPrefix: COMMENT_REPLY_PREFIX, replyStore: commentReplyStore })}</div>
+        <div class="watch-comments" id="watch-comments-list">${renderCommentsHtml(commentItems, { bodyIdPrefix: COMMENT_BODY_PREFIX, replyBodyIdPrefix: COMMENT_REPLY_PREFIX, replyStore: commentReplyStore, resourceAuthorId: detail.authorId ?? null })}</div>
       </div>
       <div class="watch-tab-panel watch-tab-panel--danmaku" data-watch-panel="danmaku" ${activeTab === 'danmaku' ? '' : 'hidden'}>
         <div id="danmakuList" class="m-video__danmaku" aria-label="弹幕列表"></div>

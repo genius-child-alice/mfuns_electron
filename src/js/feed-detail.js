@@ -135,6 +135,7 @@ function refreshCommentsUi() {
     bodyIdPrefix: COMMENT_BODY_PREFIX,
     replyBodyIdPrefix: COMMENT_REPLY_PREFIX,
     replyStore: commentReplyStore,
+    resourceAuthorId: currentDetail?.feed?.authorId ?? null,
   });
   mountAllCommentRichText(commentItems, commentReplyStore, {
     bodyIdPrefix: COMMENT_BODY_PREFIX,

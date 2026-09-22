@@ -88,6 +88,7 @@ function refreshCommentsUi() {
     bodyIdPrefix: COMMENT_BODY_PREFIX,
     replyBodyIdPrefix: COMMENT_REPLY_PREFIX,
     replyStore: commentReplyStore,
+    resourceAuthorId: currentDetail?.authorId ?? null,
   });
   mountAllCommentRichText(commentItems, commentReplyStore, {
     bodyIdPrefix: COMMENT_BODY_PREFIX,
@@ -283,7 +284,7 @@ function renderPage() {
         <div class="watch-comment-form" id="article-comment-form">
           ${commentComposerTriggerHtml('发一条友善的评论', 'article-comment-trigger', 'watch-comment-trigger')}
         </div>
-        <div class="watch-comments" id="article-comments-list">${renderCommentsHtml(commentItems, { bodyIdPrefix: COMMENT_BODY_PREFIX, replyBodyIdPrefix: COMMENT_REPLY_PREFIX, replyStore: commentReplyStore })}</div>
+        <div class="watch-comments" id="article-comments-list">${renderCommentsHtml(commentItems, { bodyIdPrefix: COMMENT_BODY_PREFIX, replyBodyIdPrefix: COMMENT_REPLY_PREFIX, replyStore: commentReplyStore, resourceAuthorId: detail.authorId ?? null })}</div>
       </section>
     </article>`;
 
