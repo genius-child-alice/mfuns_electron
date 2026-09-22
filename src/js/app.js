@@ -487,13 +487,6 @@ function bindNavigation() {
     void navigateTo('home');
   });
 
-  document.querySelectorAll('[data-tab]').forEach((el) => {
-    el.addEventListener('click', () => {
-      document.querySelectorAll('.topbar__tab').forEach((tab) => tab.classList.remove('is-active'));
-      el.classList.add('is-active');
-    });
-  });
-
   document.querySelector('[data-sidebar-tool="upload"]')?.addEventListener('click', () => {
     void import('./contribute-page.js')
       .then((mod) => mod.openContributePage())

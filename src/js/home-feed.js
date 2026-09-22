@@ -3,7 +3,7 @@ import {
   childCategoryNodes,
   fetchCategories,
   fetchHotList,
-  fetchCategoryListPage,
+  fetchRecommendByCategory,
   fetchRecommendList,
   formatVideoDuration,
   mediaSrcForCover,
@@ -17,7 +17,7 @@ import { getScrollTop, registerPageNavigation, restoreScrollTop } from './naviga
 const PAGE_SIZE = 20;
 const RECOMMEND_SIZE_STEP = PAGE_SIZE;
 const MAX_RECOMMEND_SIZE = 200;
-const MAX_CATEGORY_ITEMS = 200;
+const MAX_CATEGORY_ITEMS = 100;
 const CATEGORY_FETCH_SIZE = 20;
 const SCROLL_PREFETCH_MIN_PX = 560;
 const SCROLL_PREFETCH_VIEWPORT_RATIO = 1.5;
@@ -26,6 +26,18 @@ const SCROLL_PREFETCH_VIEWPORT_RATIO = 1.5;
 let activeHomeTab = 'recommend';
 
 let loading = false;
+
+/** 递增后用于丢弃过期的首页 feed 请求，避免加载中被误拦或旧响应覆盖新 Tab */
+let feedLoadGen = 0;
+
+function startFeedLoad() {
+  return ++feedLoadGen;
+}
+
+/** @param {number} gen */
+function isFeedLoadCurrent(gen) {
+  return gen === feedLoadGen;
+}
 
 /** @type {import('./content-api.js').ContentPreview[]} */
 let shownItems = [];
@@ -50,7 +62,7 @@ let selectedParentCategoryId = null;
 /** @type {number | null} */
 let selectedCategoryId = null;
 
-let categoryPage = 1;
+let categoryRecommendSize = PAGE_SIZE;
 
 let categoryStripBound = false;
 
@@ -233,7 +245,7 @@ function resetFeedState() {
   recommendRequestSize = PAGE_SIZE;
   hotFilteredCache = null;
   hotShownCount = 0;
-  categoryPage = 1;
+  categoryRecommendSize = PAGE_SIZE;
   removeLoadMoreIndicator();
 }
 
@@ -318,14 +330,16 @@ function schedulePrefetchCheck() {
 /**
  * @param {number} categoryId
  * @param {'replace' | 'append' | 'merge'} [mode]
+ * @param {number} [gen]
  */
-async function loadCategoryContents(categoryId, mode = 'replace') {
+async function loadCategoryContents(categoryId, mode = 'replace', gen = feedLoadGen) {
   const previousCategoryId = selectedCategoryId;
   selectedCategoryId = categoryId;
   renderCategoryStrip();
 
   if (mode === 'merge') {
-    const { items: fresh } = await fetchCategoryListPage(categoryId, 1, CATEGORY_FETCH_SIZE);
+    const fresh = await fetchRecommendByCategory(categoryId, CATEGORY_FETCH_SIZE);
+    if (!isFeedLoadCurrent(gen)) return;
     if (fresh.length === 0) return;
     shownItems = mergeRecommendations(fresh, shownItems);
     setGridHtml(shownItems.map((item) => renderVideoCard(item)).join(''));
@@ -335,36 +349,55 @@ async function loadCategoryContents(categoryId, mode = 'replace') {
   const switchingCategory =
     previousCategoryId == null || previousCategoryId !== categoryId;
   if (mode === 'replace' && switchingCategory) {
-    categoryPage = 1;
+    categoryRecommendSize = PAGE_SIZE;
     shownItems = [];
     hasMore = true;
     setGridLoading();
   }
 
-  const { items, hasNext } = await fetchCategoryListPage(categoryId, categoryPage, PAGE_SIZE);
+  if (mode === 'append') {
+    if (categoryRecommendSize >= MAX_RECOMMEND_SIZE) {
+      hasMore = false;
+      return;
+    }
+    categoryRecommendSize += RECOMMEND_SIZE_STEP;
+    const items = await fetchRecommendByCategory(categoryId, categoryRecommendSize);
+    if (!isFeedLoadCurrent(gen)) return;
+    const seen = new Set(shownItems.map((item) => `${item.type}:${item.id}`));
+    const newItems = items.filter((item) => !seen.has(`${item.type}:${item.id}`));
+    if (newItems.length === 0) {
+      hasMore = false;
+      return;
+    }
+    appendVideoCards(newItems);
+    hasMore = categoryRecommendSize < MAX_RECOMMEND_SIZE;
+    return;
+  }
+
+  const items = await fetchRecommendByCategory(categoryId, PAGE_SIZE);
+  if (!isFeedLoadCurrent(gen)) return;
+  categoryRecommendSize = PAGE_SIZE;
   if (items.length === 0) {
     hasMore = false;
-    if (mode === 'replace' && switchingCategory) {
+    if (switchingCategory) {
       setGridHtml('<p class="home-feed__empty">该分区暂无内容</p>');
     }
     return;
   }
 
-  if (mode === 'replace' && switchingCategory) {
-    shownItems = [...items];
-    setGridHtml(shownItems.map((item) => renderVideoCard(item)).join(''));
-  } else {
-    appendVideoCards(items);
-  }
-  hasMore = hasNext;
+  shownItems = [...items];
+  setGridHtml(shownItems.map((item) => renderVideoCard(item)).join(''));
+  hasMore = categoryRecommendSize < MAX_RECOMMEND_SIZE;
 }
 
 /**
  * @param {HomeTabId} [tabId]
  */
 export async function loadHomeFeed(tabId = activeHomeTab) {
-  if (loading) return;
+  if (loading && tabId === activeHomeTab) return;
+  const gen = startFeedLoad();
   activeHomeTab = tabId;
+  syncTopbarHomeTabs();
   syncCategoryStripVisible();
   resetFeedState();
   loading = true;
@@ -374,6 +407,7 @@ export async function loadHomeFeed(tabId = activeHomeTab) {
     if (tabId === 'category') {
       setGridLoading();
       await ensureCategories();
+      if (!isFeedLoadCurrent(gen)) return;
       if (categories.length === 0) {
         setGridHtml('<p class="home-feed__empty">暂无分区</p>');
         hasMore = false;
@@ -386,7 +420,7 @@ export async function loadHomeFeed(tabId = activeHomeTab) {
         setGridHtml('<p class="home-feed__empty">暂无分区</p>');
         return;
       }
-      await loadCategoryContents(selectedCategoryId, 'replace');
+      await loadCategoryContents(selectedCategoryId, 'replace', gen);
       return;
     }
 
@@ -394,6 +428,7 @@ export async function loadHomeFeed(tabId = activeHomeTab) {
 
     if (tabId === 'hot') {
       const items = await fetchHotList();
+      if (!isFeedLoadCurrent(gen)) return;
       hotFilteredCache = items;
       if (hotFilteredCache.length === 0) {
         hasMore = false;
@@ -409,6 +444,7 @@ export async function loadHomeFeed(tabId = activeHomeTab) {
     }
 
     const items = await fetchRecommendList(PAGE_SIZE);
+    if (!isFeedLoadCurrent(gen)) return;
     if (items.length === 0) {
       hasMore = false;
       setGridHtml('<p class="home-feed__empty">暂无内容</p>');
@@ -424,14 +460,17 @@ export async function loadHomeFeed(tabId = activeHomeTab) {
     setStatus(message, true);
     hasMore = false;
   } finally {
-    loading = false;
-    schedulePrefetchCheck();
+    if (isFeedLoadCurrent(gen)) {
+      loading = false;
+      schedulePrefetchCheck();
+    }
   }
 }
 
 export async function loadMoreHomeFeed() {
   if (loading || !hasMore || !isHomePageVisible()) return;
 
+  const gen = feedLoadGen;
   loading = true;
   setLoadMoreIndicator(true);
 
@@ -441,8 +480,7 @@ export async function loadMoreHomeFeed() {
         hasMore = false;
         return;
       }
-      categoryPage += 1;
-      await loadCategoryContents(selectedCategoryId, 'append');
+      await loadCategoryContents(selectedCategoryId, 'append', gen);
       return;
     }
 
@@ -469,6 +507,7 @@ export async function loadMoreHomeFeed() {
 
     recommendRequestSize += RECOMMEND_SIZE_STEP;
     const items = await fetchRecommendList(recommendRequestSize);
+    if (!isFeedLoadCurrent(gen)) return;
     const seen = new Set(shownItems.map((item) => item.id));
     const newItems = items.filter((item) => !seen.has(item.id));
 
@@ -483,9 +522,11 @@ export async function loadMoreHomeFeed() {
     const message = err instanceof Error ? err.message : '加载更多失败';
     setStatus(message, true);
   } finally {
-    loading = false;
-    removeLoadMoreIndicator();
-    schedulePrefetchCheck();
+    if (isFeedLoadCurrent(gen)) {
+      loading = false;
+      removeLoadMoreIndicator();
+      schedulePrefetchCheck();
+    }
   }
 }
 
@@ -501,7 +542,7 @@ function onCategoryStripClick(event) {
   const parentBtn = target.closest('[data-home-parent]');
   if (parentBtn) {
     const parentId = Number.parseInt(parentBtn.getAttribute('data-home-parent') ?? '', 10);
-    if (!Number.isFinite(parentId) || parentId === selectedParentCategoryId || loading) return;
+    if (!Number.isFinite(parentId) || parentId === selectedParentCategoryId) return;
     selectedParentCategoryId = parentId;
     const subs = childCategoryNodes(categories, parentId);
     const nextCategoryId = subs[0]?.id ?? parentId;
@@ -509,15 +550,19 @@ function onCategoryStripClick(event) {
       renderCategoryStrip();
       return;
     }
+    const gen = startFeedLoad();
     loading = true;
     resetFeedState();
-    void loadCategoryContents(nextCategoryId, 'replace')
+    void loadCategoryContents(nextCategoryId, 'replace', gen)
       .catch((err) => {
+        if (!isFeedLoadCurrent(gen)) return;
         setStatus(err instanceof Error ? err.message : '加载失败', true);
       })
       .finally(() => {
-        loading = false;
-        schedulePrefetchCheck();
+        if (isFeedLoadCurrent(gen)) {
+          loading = false;
+          schedulePrefetchCheck();
+        }
       });
     return;
   }
@@ -525,16 +570,20 @@ function onCategoryStripClick(event) {
   const btn = target.closest('[data-home-category]');
   if (!btn) return;
   const id = Number.parseInt(btn.getAttribute('data-home-category') ?? '', 10);
-  if (!Number.isFinite(id) || id === selectedCategoryId || loading) return;
+  if (!Number.isFinite(id) || id === selectedCategoryId) return;
+  const gen = startFeedLoad();
   loading = true;
   resetFeedState();
-  void loadCategoryContents(id, 'replace')
+  void loadCategoryContents(id, 'replace', gen)
     .catch((err) => {
+      if (!isFeedLoadCurrent(gen)) return;
       setStatus(err instanceof Error ? err.message : '加载失败', true);
     })
     .finally(() => {
-      loading = false;
-      schedulePrefetchCheck();
+      if (isFeedLoadCurrent(gen)) {
+        loading = false;
+        schedulePrefetchCheck();
+      }
     });
 }
 
@@ -561,7 +610,7 @@ export function captureHomeFeedState() {
     categoriesLoaded,
     selectedParentCategoryId,
     selectedCategoryId,
-    categoryPage,
+    categoryRecommendSize,
     loading,
     scrollTop: getScrollTop('main-content'),
   };
@@ -581,7 +630,7 @@ export function restoreHomeFeedState(state) {
   categoriesLoaded = state.categoriesLoaded ?? false;
   selectedParentCategoryId = state.selectedParentCategoryId ?? null;
   selectedCategoryId = state.selectedCategoryId ?? null;
-  categoryPage = state.categoryPage ?? 1;
+  categoryRecommendSize = state.categoryRecommendSize ?? PAGE_SIZE;
   loading = false;
 
   syncTopbarHomeTabs();
