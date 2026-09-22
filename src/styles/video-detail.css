@@ -104,23 +104,39 @@
   z-index: 1;
 }
 
-.watch-danmaku-panel {
-  margin-top: 16px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.08));
+.watch-tab-panel--danmaku {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  padding: 12px 16px 16px;
+  box-sizing: border-box;
 }
 
-.watch-danmaku-panel__title {
-  margin: 0 0 8px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.m-video__danmaku {
-  max-height: 280px;
+.watch-tab-panel--danmaku .m-video__danmaku {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
   overflow: auto;
   font-size: 13px;
+}
+
+/* 播放器控件强调色与设置页主题色一致 */
+.watch-mfuns-player .mfunsPlayer-playedBar {
+  background: var(--accent) !important;
+}
+
+/* 进度条吉祥物拖拽球（SDK 默认 11px，桌面端略放大） */
+.watch-mfuns-player .mfunsPlayer-bar-wrap .mfunsPlayer-thumb {
+  width: 20px;
+  height: 20px;
+  top: -8px;
+  margin-right: -18px;
+  background-size: 100% 100%;
+}
+
+.watch-mfuns-player .mfunsPlayer-controller-danmaku-trigger .icon-danmaku {
+  color: var(--accent) !important;
 }
 
 /* mfunsPlayer 深色：跟随应用主题或播放器「关灯模式」 */
@@ -154,14 +170,7 @@ html[data-theme='dark'] .watch-mfuns-player .mfunsPlayer-footBar .mfunsPlayer-vi
   border-color: #666 !important;
 }
 
-html[data-theme='dark'] .watch-danmaku-panel,
-.watch-mfuns-player.watch-mfuns-player--scheme-dark ~ .watch-side .watch-danmaku-panel,
-html[data-theme='dark'] .watch-side .watch-danmaku-panel {
-  border-top-color: rgba(255, 255, 255, 0.08);
-}
-
-html[data-theme='dark'] .watch-danmaku-panel__title,
-html[data-theme='dark'] .m-video__danmaku {
+html[data-theme='dark'] .watch-tab-panel--danmaku .m-video__danmaku {
   color: var(--text-primary);
 }
 
@@ -875,8 +884,8 @@ html[data-theme='dark'] .m-video__danmaku {
 
 .watch-side {
   flex-shrink: 0;
-  width: min(360px, 34vw);
-  min-width: 300px;
+  width: min(440px, 42vw);
+  min-width: 380px;
   display: flex;
   flex-direction: column;
   border-left: 1px solid var(--border-subtle);
@@ -898,7 +907,7 @@ html[data-theme='dark'] .m-video__danmaku {
 .watch-tabs__list {
   display: flex;
   align-items: stretch;
-  gap: 24px;
+  gap: 20px;
 }
 
 .watch-tabs__more {
@@ -954,6 +963,8 @@ html[data-theme='dark'] .m-video__danmaku {
 
 .watch-side-scroll {
   flex: 1;
+  display: flex;
+  flex-direction: column;
   overflow: auto;
   min-height: 0;
   scrollbar-width: thin;

@@ -20,6 +20,7 @@ import {
   updateDanmakuPlayerConfig,
   updatePlayerConfig,
 } from './player-preferences.js';
+import { accentToHex, loadPreferences } from './theme.js';
 
 /** @typedef {import('./video-api.js').VideoPart} VideoPart */
 
@@ -58,6 +59,11 @@ function loadExternalScript(src, globalName) {
     script.onerror = () => reject(new Error(`加载失败: ${src}`));
     document.head.appendChild(script);
   });
+}
+
+/** mfunsPlayer.theme() 仅接受可被解析的十六进制色值，传 rgb() 会导致进度条等颜色异常 */
+function resolveAccentThemeHex() {
+  return accentToHex(loadPreferences().accent);
 }
 
 function ensureMfunsPlayerSdk() {
@@ -229,15 +235,10 @@ export class WatchPlayer {
   }
 
   syncThemeColor() {
-    const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
-    if (accent) {
-      document.documentElement.style.setProperty('--color-primary', accent);
-    }
+    const hex = resolveAccentThemeHex();
+    document.documentElement.style.setProperty('--color-primary', hex);
     if (this.player?.theme) {
-      const primary =
-        getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim() ||
-        accent;
-      if (primary) this.player.theme(primary);
+      this.player.theme(hex);
     }
   }
 
@@ -289,6 +290,7 @@ export class WatchPlayer {
     this.player = new PlayerCtor({
       uid,
       container: this.container,
+      theme: resolveAccentThemeHex(),
       draggable: true,
       hotkey: true,
       autoPlay: this.pendingAutoPlay || config.autoPlay,

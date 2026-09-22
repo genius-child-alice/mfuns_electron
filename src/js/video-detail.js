@@ -368,6 +368,9 @@ function renderSidePanel() {
         <button type="button" class="watch-tabs__btn ${activeTab === 'comments' ? 'is-active' : ''}" data-watch-tab="comments" role="tab">
           评论<span class="watch-tabs__count">${formatCount(preview.comments)}</span>
         </button>
+        <button type="button" class="watch-tabs__btn ${activeTab === 'danmaku' ? 'is-active' : ''}" data-watch-tab="danmaku" role="tab">
+          弹幕<span class="watch-tabs__count">${formatCount(danmakuCount)}</span>
+        </button>
       </div>
       <button type="button" class="watch-tabs__more" aria-label="更多" title="更多">
         ${materialIcon('more_vert')}
@@ -458,11 +461,6 @@ function renderSidePanel() {
 
         ${renderPartsPlaylist(currentParts, activePartIndex, preview.title, preview.views)}
 
-        <div class="watch-danmaku-panel">
-          <h3 class="watch-danmaku-panel__title">弹幕列表</h3>
-          <div id="danmakuList" class="m-video__danmaku"></div>
-        </div>
-
         <section class="watch-related">
           <h2 class="watch-related__heading">相关推荐</h2>
           <div class="watch-related__list">${renderRelatedList(relatedItems)}</div>
@@ -473,6 +471,9 @@ function renderSidePanel() {
           ${commentComposerTriggerHtml('发一条友善的评论', 'watch-comment-trigger', 'watch-comment-trigger')}
         </div>
         <div class="watch-comments" id="watch-comments-list">${renderCommentsHtml(commentItems, { bodyIdPrefix: COMMENT_BODY_PREFIX, replyBodyIdPrefix: COMMENT_REPLY_PREFIX, replyStore: commentReplyStore })}</div>
+      </div>
+      <div class="watch-tab-panel watch-tab-panel--danmaku" data-watch-panel="danmaku" ${activeTab === 'danmaku' ? '' : 'hidden'}>
+        <div id="danmakuList" class="m-video__danmaku" aria-label="弹幕列表"></div>
       </div>
     </div>`;
 
@@ -533,7 +534,7 @@ function bindSidePanelEvents() {
   document.querySelectorAll('[data-watch-tab]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const tab = btn.getAttribute('data-watch-tab');
-      if (tab !== 'intro' && tab !== 'comments') return;
+      if (tab !== 'intro' && tab !== 'comments' && tab !== 'danmaku') return;
       activeTab = tab;
       document.querySelectorAll('[data-watch-tab]').forEach((el) => {
         el.classList.toggle('is-active', el.getAttribute('data-watch-tab') === tab);
@@ -541,6 +542,9 @@ function bindSidePanelEvents() {
       document.querySelectorAll('[data-watch-panel]').forEach((panel) => {
         panel.hidden = panel.getAttribute('data-watch-panel') !== tab;
       });
+      if (tab === 'danmaku') {
+        getWatchPlayer()?.reattachDanmakuList();
+      }
     });
   });
 
