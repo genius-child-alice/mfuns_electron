@@ -1,3 +1,4 @@
+import { badgeImageUrl, badgeLabelFromId } from './badge-catalog.js';
 import { sendLoginCode } from './auth.js';
 import { apiDelete, apiGet, apiPostJson, resolveCoverUrl } from './content-api.js';
 
@@ -249,29 +250,66 @@ export async function unwearAvatarFrame(frameId) {
 /**
  * @param {unknown} raw
  */
-function parseBadge(raw) {
+function parseBadge(raw, wearingIds = /** @type {Set<number>} */ (new Set())) {
   const row = asMap(raw);
-  const id = asInt(row.badge_id ?? row.id);
+  const info = asMap(row.info ?? row.badge ?? row.badge_info);
+  const id = asInt(info.id ?? row.badge_id);
   if (id == null) return null;
+  const nameRaw =
+    info.name ??
+    info.title ??
+    row.name ??
+    row.title ??
+    row.badge_name ??
+    row.honor_name;
+  const name =
+    typeof nameRaw === 'string' && nameRaw.trim().length > 0
+      ? nameRaw.trim()
+      : badgeLabelFromId(id);
+  const image =
+    resolveCoverUrl(info.image ?? info.icon ?? info.url ?? row.image ?? row.icon) ??
+    badgeImageUrl(id);
+  const active =
+    wearingIds.has(id) ||
+    Boolean(row.active ?? row.is_active ?? row.wearing ?? row.wear);
   return {
     id,
-    name: `${row.name ?? row.title ?? `勋章 ${id}`}`,
-    image: resolveCoverUrl(row.image ?? row.icon),
-    active: Boolean(row.active ?? row.is_active ?? row.wearing),
+    name,
+    image,
+    active,
   };
 }
 
 /** @returns {Promise<UserBadge[]>} */
 export async function fetchUserBadges() {
   const data = await apiGet('/v1/user/user_badges');
+  const wearingIds = new Set();
+  try {
+    const session = asMap(await apiGet('/v1/user/info'));
+    const user = asMap(session.user ?? session.user_info ?? session);
+    const worn = user.badges;
+    if (Array.isArray(worn)) {
+      for (const entry of worn) {
+        const bid =
+          typeof entry === 'object' && entry != null
+            ? asInt(asMap(entry).id ?? asMap(entry).badge_id)
+            : asInt(entry);
+        if (bid != null) wearingIds.add(bid);
+      }
+    }
+    const levelBadge = asInt(user.level_badge);
+    if (levelBadge != null) wearingIds.add(levelBadge);
+  } catch {
+    /* 仅影响佩戴高亮 */
+  }
   return (Array.isArray(data) ? data : toList(data))
-    .map(parseBadge)
+    .map((row) => parseBadge(row, wearingIds))
     .filter((item) => item != null);
 }
 
 /** @param {number} badgeId */
 export async function setDisplayBadge(badgeId) {
-  await apiPostJson('/v1/user/set_badge', { badge_id: badgeId });
+  await apiPostJson('/v1/user/set_badge', { badges: [badgeId] });
 }
 
 /** @typedef {{ isPremium: boolean, expireAt: string | null, label: string }} PremiumStatus */
