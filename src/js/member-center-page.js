@@ -8,6 +8,7 @@ import { openInAppBrowser } from './legal.js';
 import { isLoggedIn, requireLogin } from './login-ui.js';
 import {
   getScrollTop,
+  navigateBack,
   navigateTo,
   registerPageNavigation,
   restoreScrollTop,
@@ -111,8 +112,6 @@ async function setView(view) {
   currentView = view;
   const title = document.getElementById('member-center-title');
   if (title) title.textContent = viewTitle(view);
-  const back = document.getElementById('member-center-back');
-  if (back) back.hidden = view === 'hub';
   await renderView();
 }
 
@@ -868,9 +867,8 @@ export function memberCenterPageHtml() {
     <div class="page-view page-view--member" data-page="member" hidden>
       <div class="member-center-page">
         <header class="member-center-page__head app-no-drag">
-          <button type="button" class="member-center-page__back" id="member-center-back" hidden>
-            ${materialIcon('arrow_back')}
-            <span>返回</span>
+          <button type="button" class="member-center-page__back" id="member-center-back" aria-label="返回">
+            ${materialIcon('arrow_back', 'member-center-page__back-icon')}
           </button>
           <h1 class="member-center-page__title" id="member-center-title">个人中心</h1>
         </header>
@@ -886,7 +884,10 @@ export function bindMemberCenterPage() {
   bound = true;
 
   document.getElementById('member-center-back')?.addEventListener('click', () => {
-    if (currentView === 'hub') return;
+    if (currentView === 'hub') {
+      void navigateBack();
+      return;
+    }
     if (currentView.startsWith('security-')) void setView('security');
     else void setView('hub');
   });

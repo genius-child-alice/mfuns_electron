@@ -691,8 +691,8 @@ export function spacePageHtml() {
           <div class="user-space__profile" id="user-space-profile"></div>
           <nav class="user-space__tabs" role="tablist" aria-label="空间内容">
             <button type="button" class="user-space__tab is-active" data-space-tab="video" role="tab">视频</button>
-            <button type="button" class="user-space__tab" data-space-tab="feed" role="tab">动态</button>
             <button type="button" class="user-space__tab" data-space-tab="article" role="tab">文章</button>
+            <button type="button" class="user-space__tab" data-space-tab="feed" role="tab">动态</button>
             <button type="button" class="user-space__tab" data-space-tab="favorite" role="tab">收藏</button>
             <button type="button" class="user-space__tab" data-space-tab="series" role="tab">合集</button>
           </nav>
