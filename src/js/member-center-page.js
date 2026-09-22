@@ -444,7 +444,6 @@ async function renderView() {
       case 'customer':
         html = `
           <p class="member-hint">遇到问题可通过官网客服渠道反馈，桌面端将打开内置浏览器。</p>
-          <button type="button" class="btn-accent" id="member-open-customer">打开客服页面</button>
           <button type="button" class="btn-secondary" id="member-open-contact">联系与反馈</button>`;
         break;
       case 'creator':
@@ -595,10 +594,6 @@ async function onMemberBodyClick(event) {
     return;
   }
 
-  if (target.closest('#member-open-customer')) {
-    openInAppBrowser('https://www.mfuns.net/member/customer', '客服中心');
-    return;
-  }
   if (target.closest('#member-open-contact')) {
     openInAppBrowser('https://www.mfuns.net/customer/contact', '联系客服');
     return;

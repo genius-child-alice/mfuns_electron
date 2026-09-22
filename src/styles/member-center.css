@@ -58,6 +58,25 @@
   max-width: 680px;
   margin: 0 auto;
   padding: 20px 20px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: stretch;
+}
+
+.member-center-page__body > .member-hub-hero {
+  margin-bottom: 0;
+}
+
+.member-center-page__body > .member-hub-group {
+  margin-bottom: 0;
+}
+
+.member-center-page__body > .member-list,
+.member-center-page__body > .member-warning,
+.member-center-page__body > .member-danmaku-tools {
+  margin-top: 0;
+  margin-bottom: 0;
 }
 
 /* —— 首页 —— */

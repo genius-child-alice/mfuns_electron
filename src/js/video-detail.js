@@ -1,6 +1,10 @@
 import { notify } from './notice-ui.js';
 import { materialIcon, videoPlayCountIcon } from './icons.js';
-import { mediaSrcForCover, formatContentArchiveNo } from './content-api.js';
+import {
+  formatContentArchiveNo,
+  formatVideoDuration,
+  mediaSrcForCover,
+} from './content-api.js';
 import { getWatchPlayer } from './watch-player.js';
 import { mountRichContent } from './rich-content.js';
 import { loadStickerUrlMap } from './emoji-pack.js';
@@ -214,10 +218,28 @@ function renderRelatedList(items) {
       const cover = coverSrc
         ? `<img class="watch-related__thumb" src="${escapeHtml(coverSrc)}" alt="" loading="lazy" />`
         : '<span class="watch-related__thumb watch-related__thumb--ph"></span>';
+      const durationLabel = item.type === 1 ? formatVideoDuration(item.duration) : '';
+      const durationHtml = durationLabel
+        ? `<span class="watch-related__duration">${escapeHtml(durationLabel)}</span>`
+        : '';
+      const authorName = item.author?.trim() ? item.author : 'Mfuns 用户';
       return `
         <button type="button" class="watch-related__item" data-related-id="${escapeHtml(item.id)}">
-          ${cover}
-          <span class="watch-related__title">${escapeHtml(item.title)}</span>
+          <span class="watch-related__thumb-wrap">
+            ${cover}
+            ${durationHtml}
+          </span>
+          <span class="watch-related__body">
+            <span class="watch-related__title">${escapeHtml(item.title)}</span>
+            <span class="watch-related__author">
+              ${materialIcon('person', 'watch-related__author-icon')}
+              <span class="watch-related__author-name">${escapeHtml(authorName)}</span>
+            </span>
+            <span class="watch-related__stats">
+              <span class="watch-related__stat">${materialIcon('thumb_up', 'watch-related__stat-icon')}${formatCount(item.likes)}</span>
+              <span class="watch-related__stat">${videoPlayCountIcon('watch-related__stat-icon')}${formatCount(item.views)}</span>
+            </span>
+          </span>
         </button>`;
     })
     .join('');

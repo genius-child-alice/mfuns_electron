@@ -1,6 +1,6 @@
 import { API_BASE, loadSession } from './auth.js';
 
-/** @typedef {{ id: string, title: string, cover: string | null, author: string, authorId: number | null, authorAvatar: string | null, type: number, views: number, comments: number, duration: number | null, createdAt: string | null }} ContentPreview */
+/** @typedef {{ id: string, title: string, cover: string | null, author: string, authorId: number | null, authorAvatar: string | null, type: number, views: number, likes: number, comments: number, duration: number | null, createdAt: string | null }} ContentPreview */
 
 /**
  * @param {Response} res
@@ -365,7 +365,9 @@ export function parseContentPreview(raw) {
     authorId,
     authorAvatar: pickCoverUrl(user?.avatar ?? user?.face ?? item.author_avatar),
     type: parseContentType(raw),
-    views: Number(item.view_count ?? item.views ?? 0) || 0,
+    views: Number(item.view_count ?? item.views ?? resource?.view_count ?? 0) || 0,
+    likes:
+      Number(item.like_count ?? item.likes ?? resource?.like_count ?? resource?.likes ?? 0) || 0,
     comments: Number(item.comment_count ?? item.comments ?? 0) || 0,
     duration: parseDuration(item, resource),
     createdAt: normalizeCreatedAt(
