@@ -1,5 +1,14 @@
 html {
-  view-transition-name: theme-root;
+  view-transition-name: none;
+}
+
+/* 若仍有残留过渡层，禁止拦截点击 */
+::view-transition,
+::view-transition-group(*),
+::view-transition-image-pair(*),
+::view-transition-old(*),
+::view-transition-new(*) {
+  pointer-events: none !important;
 }
 
 ::view-transition-old(theme-root),

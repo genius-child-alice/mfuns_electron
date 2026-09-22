@@ -24,6 +24,45 @@ import { accentToHex, loadPreferences } from './theme.js';
 
 /** @typedef {import('./video-api.js').VideoPart} VideoPart */
 
+/** 移除官网关灯模式全页遮罩，避免挡住整个窗口的点击 */
+export function clearGlobalPlayerBlackmask() {
+  document.body.classList.remove('player-mode-blackmask');
+  document.querySelectorAll('.heimu').forEach((node) => {
+    try {
+      node.remove();
+    } catch {
+      /* ignore */
+    }
+  });
+}
+
+/** @type {MutationObserver | null} */
+let heimuGuard = null;
+
+/** 监听整棵文档树，一旦 SDK 挂上 .heimu 立即摘掉（防止销毁/切页竞态） */
+export function ensureHeimuGuard() {
+  if (heimuGuard || typeof MutationObserver === 'undefined') return;
+  heimuGuard = new MutationObserver((mutations) => {
+    let hit = false;
+    for (const mutation of mutations) {
+      for (const node of mutation.addedNodes) {
+        if (!(node instanceof HTMLElement)) continue;
+        if (node.classList.contains('heimu') || node.querySelector?.('.heimu')) {
+          hit = true;
+          break;
+        }
+      }
+      if (hit) break;
+    }
+    if (hit || document.body.classList.contains('player-mode-blackmask')) {
+      clearGlobalPlayerBlackmask();
+    }
+  });
+  // subtree:true —— SDK 也可能把遮罩挂进 #app 内部，只盯 body 直接子节点会漏掉
+  heimuGuard.observe(document.documentElement, { childList: true, subtree: true });
+  clearGlobalPlayerBlackmask();
+}
+
 const MFUNS_PLAYER_JS =
   'https://resource.mfuns.net/js/mfunsplayer/web/2.2.2/mfunsPlayer.min.umd.js';
 const MFUNS_ECHARTS_JS = 'https://resource.mfuns.net/js/echarts/6.0.0/echarts.min.js';
@@ -265,8 +304,7 @@ export class WatchPlayer {
 
   /** 移除官网「关灯模式」的全页黑色遮罩（桌面端只保留播放器内深色控件） */
   clearPlayerBlackmask() {
-    document.body.classList.remove('player-mode-blackmask');
-    document.querySelectorAll('body > .heimu').forEach((node) => node.remove());
+    clearGlobalPlayerBlackmask();
   }
 
   syncDarkmodeSwitch(dark) {
@@ -377,11 +415,35 @@ export class WatchPlayer {
 
     this.syncThemeColor();
     this.bindPlayerEvents();
+    this.patchDarkmodeSwitch();
     // 启动时清掉历史 sticky darkMode，默认跟随应用主题
     clearPlayerDarkModeOverride();
     this.applyColorScheme();
     this.ready = true;
     this.placeholder?.setAttribute('hidden', '');
+  }
+
+  /** SDK 关灯会挂全页 .heimu 遮罩；桌面端改为只切脚栏样式 */
+  patchDarkmodeSwitch() {
+    const switchCmp = this.player?.components?.videoDarkmodeSwitch;
+    const player = this.player;
+    if (!switchCmp || !player) return;
+    switchCmp.onToggle = (enabled) => {
+      const footBar = player.template?.footBar;
+      if (enabled) {
+        footBar?.classList?.add('darkmode');
+        player.container?.classList?.add('mfunsPlayer-darkmode');
+        player.events?.trigger?.('darkmode_on');
+      } else {
+        footBar?.classList?.remove('darkmode');
+        player.container?.classList?.remove('mfunsPlayer-darkmode');
+        player.events?.trigger?.('darkmode_off');
+      }
+      clearGlobalPlayerBlackmask();
+      if (player.videoLoaded) {
+        player.notice?.(enabled ? '已开启关灯模式' : '已关闭关灯模式');
+      }
+    };
   }
 
   bindPlayerEvents() {
@@ -723,6 +785,8 @@ export class WatchPlayer {
     this.root?.classList.remove('watch-mfuns-player--scheme-dark');
     if (this.root) delete this.root.dataset.playerScheme;
     if (this.container) this.container.innerHTML = '';
+    // SDK destroy 不会清理挂在 body 上的 .heimu，销毁后再清一次
+    clearGlobalPlayerBlackmask();
   }
 
   /**
@@ -799,9 +863,11 @@ export function getWatchPlayer() {
 }
 
 export function destroyWatchPlayer() {
-  if (!instance) return;
-  instance.destroy();
-  instance = null;
+  if (instance) {
+    instance.destroy();
+    instance = null;
+  }
+  clearGlobalPlayerBlackmask();
 }
 
 /** @deprecated mfunsPlayer 内置弹幕 */

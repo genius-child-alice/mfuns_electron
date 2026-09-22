@@ -8,6 +8,24 @@
   display: none !important;
 }
 
+/* 未打开的 dialog 绝不参与命中测试（避免透明全屏 dialog 吞掉点击） */
+dialog:not([open]) {
+  display: none !important;
+  pointer-events: none !important;
+}
+
+/* 播放器关灯遮罩：永不挡住桌面端点击（SDK 会挂到 body / #app） */
+.heimu,
+body .heimu,
+body > .heimu,
+body.player-mode-blackmask .heimu {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+  z-index: -1 !important;
+}
+
 html,
 body {
   margin: 0;

@@ -1,3 +1,5 @@
+import { clearGlobalPlayerBlackmask, ensureHeimuGuard } from './watch-player.js';
+import { unblockUi } from './ui-unblock.js';
 import {
   accentToHex,
   initTheme,
@@ -42,7 +44,7 @@ import { bindSettingsPage, refreshSettingsProfile } from './settings-page.js';
 import { bindMessagePage, openMessagePage } from './message-page.js';
 import { bindConfirmDialog } from './confirm-dialog.js';
 import { bindCloseAppDialog } from './close-app-dialog.js';
-import { bindNavigationShortcuts, navigateTo } from './navigation.js';
+import { bindNavigationShortcuts, navigateTo, resetNavigationLock } from './navigation.js';
 import { registerOpenLoginHandler, requireLogin } from './login-ui.js';
 import { bindHomeFeed } from './home-feed.js';
 import { bindFeedPage } from './feed-page.js';
@@ -469,6 +471,8 @@ function bindNavigation() {
     el.addEventListener('click', () => {
       const pageId = el.getAttribute('data-nav');
       if (pageId === 'home' || pageId === 'feed' || pageId === 'mine') {
+        resetNavigationLock();
+        unblockUi('sidebar-nav');
         void navigateTo(pageId);
       }
     });
@@ -478,6 +482,8 @@ function bindNavigation() {
 
   document.querySelector('.topbar__logo-link')?.addEventListener('click', (e) => {
     e.preventDefault();
+    resetNavigationLock();
+    unblockUi('logo-home');
     void navigateTo('home');
   });
 
@@ -779,6 +785,10 @@ function updateThemeToggleIcon(scheme) {
 
 function bootApp() {
   initTheme();
+  ensureHeimuGuard();
+  clearGlobalPlayerBlackmask();
+  resetNavigationLock();
+  unblockUi('boot');
   document.documentElement.classList.toggle('reduce-motion', loadAppSettings().reduceMotion);
   renderShell();
   bindWindowControls();

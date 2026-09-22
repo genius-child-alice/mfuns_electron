@@ -446,7 +446,7 @@ html[data-theme='dark'] .content::-webkit-scrollbar-corner {
   color: var(--text-tertiary);
 }
 
-.page-view--home {
+.page-view--home:not([hidden]) {
   display: flex;
   flex-direction: column;
   min-height: 0;

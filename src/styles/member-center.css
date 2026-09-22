@@ -1,4 +1,4 @@
-.page-view--member {
+.page-view--member:not([hidden]) {
   display: flex;
   flex-direction: column;
   min-height: 0;

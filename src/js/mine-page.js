@@ -6,7 +6,9 @@ import { formatVideoDuration, mediaSrcForCover } from './content-api.js';
 import { fetchHistoryPage } from './history-api.js';
 import { isLoggedIn } from './login-ui.js';
 import { getCurrentPage } from './pages.js';
-import { getScrollTop, registerPageNavigation, restoreScrollTop } from './navigation.js';
+import { clearGlobalPlayerBlackmask } from './watch-player.js';
+import { unblockUi } from './ui-unblock.js';
+import { getScrollTop, registerPageNavigation, resetNavigationLock, restoreScrollTop } from './navigation.js';
 import { openContentDetail, previewFromCard } from './content-nav.js';
 import { fetchMineDashboard } from './user-profile-api.js';
 import {
@@ -1049,6 +1051,9 @@ export function refreshMinePage() {
 }
 
 export function onMinePageEnter() {
+  clearGlobalPlayerBlackmask();
+  resetNavigationLock();
+  unblockUi('mine-enter');
   syncMineGuestLayout();
   if (!isLoggedIn()) {
     if (activeTab === 'watchlater') {
@@ -1081,6 +1086,8 @@ export function onMinePageEnter() {
     if (subscribedSeries.length === 0) void loadSubscribedSeriesFirstPage();
     else renderSubscribedSeriesView();
   }
+  // 异步加载后可能又被 SDK 挂上遮罩，再清一次
+  window.requestAnimationFrame(() => unblockUi('mine-enter-raf'));
 }
 
 export function captureMinePageState() {
@@ -1099,8 +1106,7 @@ export function captureMinePageState() {
     subscribedSeries,
     subscribedPage,
     subscribedHasMore,
-    bodyHtml: document.getElementById('mine-page-body')?.innerHTML ?? '',
-    searchInputValue: getHistorySearchInput()?.value ?? '',
+    searchInputValue: getSearchInput()?.value ?? '',
     scrollTop: getScrollTop('main-content'),
   };
 }
@@ -1128,10 +1134,15 @@ export function restoreMinePageState(state) {
   subscribedLoading = false;
   syncTabUi();
   syncMineGuestLayout();
-  const body = document.getElementById('mine-page-body');
-  if (body) body.innerHTML = state.bodyHtml ?? '';
-  const searchInput = getHistorySearchInput();
+  const searchInput = getSearchInput();
   if (searchInput) searchInput.value = state.searchInputValue ?? '';
+  if (activeTab === 'history') renderHistoryView();
+  else if (activeTab === 'favorite') {
+    if (activeFavoriteFolderId != null) renderFavoriteItemsView();
+    else renderFavoriteFoldersView(favoriteFolders);
+  } else if (activeTab === 'watchlater') refreshWatchLaterView();
+  else if (activeTab === 'offline') renderOfflineCacheView();
+  else if (activeTab === 'series') renderSubscribedSeriesView();
   restoreScrollTop('main-content', state.scrollTop ?? 0);
 }
 

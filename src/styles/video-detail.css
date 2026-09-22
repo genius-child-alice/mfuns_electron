@@ -151,9 +151,15 @@ html[data-theme='dark'] .watch-mfuns-player,
   color-scheme: dark;
 }
 
-/* 桌面端不使用官网全页遮罩，避免侧边栏与页面被压暗 */
+/* 桌面端永不使用官网全页关灯遮罩（会挡住全部点击） */
+.heimu,
+body > .heimu,
 body.player-mode-blackmask .heimu {
   display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+  z-index: -1 !important;
 }
 
 /* 浅色：强制浅色脚栏（覆盖 SDK .darkmode 残留） */

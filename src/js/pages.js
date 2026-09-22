@@ -1,7 +1,8 @@
 import { materialIcon } from './icons.js';
 import { loadSession, userDisplayName } from './auth.js';
 import { userAvatarMediaSrc } from './content-api.js';
-import { destroyWatchPlayer } from './watch-player.js';
+import { clearGlobalPlayerBlackmask, destroyWatchPlayer } from './watch-player.js';
+import { unblockUi } from './ui-unblock.js';
 
 const DEFAULT_AVATAR = 'assets/mfuns_logo.png';
 
@@ -965,6 +966,11 @@ export function setPage(pageId, options = {}) {
   if (currentPage === 'watch' && pageId !== 'watch') {
     destroyWatchPlayer();
   }
+  // 离开播放页后也兜底清掉全屏遮罩，避免点不了侧栏/我的页
+  if (pageId !== 'watch') {
+    clearGlobalPlayerBlackmask();
+  }
+  unblockUi(`setPage:${pageId}`);
   currentPage = pageId;
 
   document.querySelectorAll('.page-view').forEach((el) => {

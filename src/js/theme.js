@@ -84,35 +84,13 @@ export function setColorSchemeWithReveal(nextScheme, originEl, event = null) {
   const scheme = nextScheme === 'dark' ? 'dark' : 'light';
   if (current.colorScheme === scheme) return current;
 
-  const origin = revealOriginFromElement(originEl, event);
-  setRevealOrigin(origin);
-
-  const commit = () => {
-    const next = writePreferences({ colorScheme: scheme });
-    applyPreferences(next);
-    return next;
-  };
-
-  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const canAnimate =
-    !reducedMotion &&
-    typeof document.startViewTransition === 'function';
-
-  if (!canAnimate) {
-    clearRevealOrigin();
-    return commit();
-  }
-
-  const transition = document.startViewTransition(commit);
-  transition.finished.finally(() => {
-    clearRevealOrigin();
-    // 过渡结束后再通知一次，确保播放器等组件拿到最终主题
-    const prefs = loadPreferences();
-    window.dispatchEvent(
-      new CustomEvent('mfuns:theme-change', { detail: { colorScheme: prefs.colorScheme } }),
-    );
-  });
-  return loadPreferences();
+  // 桌面端暂不用 View Transition：Electron 下偶发残留层会挡住全部点击
+  void originEl;
+  void event;
+  clearRevealOrigin();
+  const next = writePreferences({ colorScheme: scheme });
+  applyPreferences(next);
+  return next;
 }
 
 /** @returns {Preferences} */

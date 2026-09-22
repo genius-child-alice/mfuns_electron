@@ -20,6 +20,11 @@ let stack = [{ pageId: 'home' }];
 let index = 0;
 let navigating = false;
 
+/** 导航锁卡死时由 unblockUi 调用 */
+export function resetNavigationLock() {
+  navigating = false;
+}
+
 /**
  * @param {PageId} pageId
  * @param {PageNavigationHandler} handler
@@ -145,7 +150,10 @@ async function applyEntry(entry, { restored }) {
  * @param {{ push?: boolean, force?: boolean }} [options]
  */
 export async function navigateTo(pageId, params = {}, options = {}) {
-  if (navigating) return;
+  if (navigating) {
+    console.warn('[navigateTo] skipped while navigating', pageId);
+    return;
+  }
   const push = options.push !== false;
   const current = stack[index];
   if (
@@ -157,6 +165,12 @@ export async function navigateTo(pageId, params = {}, options = {}) {
   }
 
   navigating = true;
+  const watchdog = window.setTimeout(() => {
+    if (navigating) {
+      console.warn('[navigateTo] watchdog cleared stuck lock');
+      navigating = false;
+    }
+  }, 8000);
   try {
     await captureCurrentEntry();
     if (push) {
@@ -167,7 +181,10 @@ export async function navigateTo(pageId, params = {}, options = {}) {
       stack[index] = { pageId, params };
     }
     await applyEntry(stack[index], { restored: false });
+  } catch (err) {
+    console.error('[navigateTo] failed', pageId, err);
   } finally {
+    window.clearTimeout(watchdog);
     navigating = false;
   }
 }
