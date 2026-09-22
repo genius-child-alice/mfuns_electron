@@ -10,6 +10,7 @@ import {
   rootCategoryNodes,
 } from './content-api.js';
 import { openContentDetail, previewFromCard } from './content-nav.js';
+import { openCategoryListPage } from './category-list-page.js';
 import { getScrollTop, registerPageNavigation, restoreScrollTop } from './navigation.js';
 
 /** @typedef {'recommend' | 'hot' | 'category'} HomeTabId */
@@ -191,7 +192,15 @@ function syncCategoryStripVisible() {
   const isCategoryTab = activeHomeTab === 'category';
   const strip = getCategoryStripEl();
   if (strip) strip.hidden = !isCategoryTab;
+  const openListBtn = document.getElementById('home-category-open-list');
+  if (openListBtn) openListBtn.hidden = !isCategoryTab || selectedCategoryId == null;
   document.getElementById('main-content')?.classList.toggle('content--home-category', isCategoryTab);
+}
+
+function selectedCategoryLabel() {
+  if (selectedCategoryId == null) return '';
+  const node = categories.find((item) => item.id === selectedCategoryId);
+  return node?.name ?? '';
 }
 
 function renderCategoryStrip() {
@@ -336,6 +345,7 @@ async function loadCategoryContents(categoryId, mode = 'replace', gen = feedLoad
   const previousCategoryId = selectedCategoryId;
   selectedCategoryId = categoryId;
   renderCategoryStrip();
+  syncCategoryStripVisible();
 
   if (mode === 'merge') {
     const fresh = await fetchRecommendByCategory(categoryId, CATEGORY_FETCH_SIZE);
@@ -388,6 +398,29 @@ async function loadCategoryContents(categoryId, mode = 'replace', gen = feedLoad
   shownItems = [...items];
   setGridHtml(shownItems.map((item) => renderVideoCard(item)).join(''));
   hasMore = categoryRecommendSize < MAX_RECOMMEND_SIZE;
+}
+
+async function refreshRecommendMerge() {
+  if (loading) return;
+  const gen = startFeedLoad();
+  loading = true;
+  setStatus('');
+  try {
+    const fresh = await fetchRecommendList(CATEGORY_FETCH_SIZE);
+    if (!isFeedLoadCurrent(gen)) return;
+    if (fresh.length === 0) return;
+    shownItems = mergeRecommendations(fresh, shownItems);
+    setGridHtml(shownItems.map((item) => renderVideoCard(item)).join(''));
+    hasMore = recommendRequestSize < MAX_RECOMMEND_SIZE;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : '刷新失败';
+    setStatus(message, true);
+  } finally {
+    if (isFeedLoadCurrent(gen)) {
+      loading = false;
+      schedulePrefetchCheck();
+    }
+  }
 }
 
 /**
@@ -667,7 +700,19 @@ export function bindHomeFeed() {
       void loadCategoryContents(selectedCategoryId, 'merge');
       return;
     }
+    if (activeHomeTab === 'recommend') {
+      void refreshRecommendMerge();
+      return;
+    }
     loadHomeFeed(activeHomeTab);
+  });
+
+  document.getElementById('home-category-open-list')?.addEventListener('click', () => {
+    if (selectedCategoryId == null) return;
+    void openCategoryListPage({
+      categoryId: selectedCategoryId,
+      categoryName: selectedCategoryLabel(),
+    });
   });
 
   document.getElementById('main-content')?.addEventListener('scroll', onMainContentScroll, {

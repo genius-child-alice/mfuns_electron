@@ -2,11 +2,16 @@ import { notify } from './notice-ui.js';
 import { materialIcon } from './icons.js';
 import { requireLogin } from './login-ui.js';
 import { createComment, createCommentReply, uploadCommentImage } from './video-api.js';
+import { fetchEmojiPackGroups } from './emoji-pack.js';
 
 const DEFAULT_MAX_LENGTH = 200;
 const MAX_IMAGES = 9;
 
 const EMOJI_ITEMS = ['😀', '😂', '🥰', '😊', '😭', '👍', '❤️', '🎉', '🙏', '🔥', '✨', '🤔'];
+
+let stickerPanelLoaded = false;
+/** @type {string} */
+let activeStickerPackKey = '';
 
 /** @typedef {{
  *   title?: string,
@@ -72,7 +77,11 @@ export function commentComposerDialogHtml() {
             <span class="comment-composer__count" id="comment-composer-count">0 / ${DEFAULT_MAX_LENGTH}</span>
           </div>
           <div class="comment-composer__emoji-panel" id="comment-composer-emoji-panel" hidden>
-            ${EMOJI_ITEMS.map((emoji) => `<button type="button" class="comment-composer__emoji" data-composer-emoji="${emoji}">${emoji}</button>`).join('')}
+            <div class="comment-composer__sticker-tabs" id="comment-composer-sticker-tabs" role="tablist" aria-label="表情分组"></div>
+            <div class="comment-composer__sticker-grid" id="comment-composer-sticker-grid"></div>
+            <div class="comment-composer__emoji-fallback" id="comment-composer-emoji-fallback">
+              ${EMOJI_ITEMS.map((emoji) => `<button type="button" class="comment-composer__emoji" data-composer-emoji="${emoji}">${emoji}</button>`).join('')}
+            </div>
           </div>
           <div class="comment-composer__images" id="comment-composer-images"></div>
           <input type="file" id="comment-composer-file" accept="image/*" multiple hidden />
@@ -131,7 +140,49 @@ function hideEmojiPanel() {
 function toggleEmojiPanel() {
   const panel = document.getElementById('comment-composer-emoji-panel');
   if (!panel) return;
+  const willShow = panel.hasAttribute('hidden');
+  if (willShow) void ensureOfficialStickerPanel();
   panel.toggleAttribute('hidden');
+}
+
+function renderStickerPack(packKey, groups) {
+  const grid = document.getElementById('comment-composer-sticker-grid');
+  const tabs = document.getElementById('comment-composer-sticker-tabs');
+  if (!grid || !tabs) return;
+  activeStickerPackKey = packKey;
+  const pack = groups.find((group) => group.key === packKey) ?? groups[0];
+  if (!pack) return;
+  tabs.innerHTML = groups
+    .map(
+      (group) =>
+        `<button type="button" class="comment-composer__sticker-tab ${group.key === pack.key ? 'is-active' : ''}" data-sticker-pack="${group.key}" role="tab">${group.name}</button>`,
+    )
+    .join('');
+  grid.innerHTML = pack.stickers
+    .map(
+      (sticker) =>
+        `<button type="button" class="comment-composer__sticker" data-composer-sticker="${sticker.key}" title="${sticker.key}">
+          <img src="${sticker.url}" alt="" loading="lazy" />
+        </button>`,
+    )
+    .join('');
+  document.getElementById('comment-composer-emoji-fallback')?.setAttribute('hidden', '');
+}
+
+async function ensureOfficialStickerPanel() {
+  if (stickerPanelLoaded) return;
+  const grid = document.getElementById('comment-composer-sticker-grid');
+  const tabs = document.getElementById('comment-composer-sticker-tabs');
+  if (!grid || !tabs) return;
+  grid.innerHTML = `<p class="comment-composer__sticker-loading">${materialIcon('progress_activity', 'home-feed__spin')}加载表情…</p>`;
+  try {
+    const groups = await fetchEmojiPackGroups();
+    stickerPanelLoaded = true;
+    if (groups.length === 0) return;
+    renderStickerPack(groups[0].key, groups);
+  } catch {
+    grid.innerHTML = '<p class="comment-composer__sticker-loading">官方表情加载失败</p>';
+  }
 }
 
 /**
@@ -381,6 +432,23 @@ export function bindCommentComposer() {
 
   document.getElementById('comment-composer-emoji-panel')?.addEventListener('click', (event) => {
     const target = /** @type {HTMLElement} */ (event.target);
+    const packTab = target.closest('[data-sticker-pack]');
+    if (packTab instanceof HTMLElement) {
+      const packKey = packTab.getAttribute('data-sticker-pack');
+      if (!packKey) return;
+      void fetchEmojiPackGroups().then((groups) => renderStickerPack(packKey, groups));
+      return;
+    }
+
+    const stickerBtn = target.closest('[data-composer-sticker]');
+    if (stickerBtn instanceof HTMLElement && input) {
+      const key = stickerBtn.getAttribute('data-composer-sticker');
+      if (!key) return;
+      insertAtCursor(input, `[${key}]`);
+      hideEmojiPanel();
+      return;
+    }
+
     const btn = target.closest('[data-composer-emoji]');
     if (!(btn instanceof HTMLElement) || !input) return;
     const emoji = btn.getAttribute('data-composer-emoji');

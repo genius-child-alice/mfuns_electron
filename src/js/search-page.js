@@ -197,6 +197,7 @@ function syncTabs() {
   const resourcePanel = document.getElementById('search-page-resource');
   const userPanel = document.getElementById('search-page-users');
   const isUser = activeTab === 'user';
+  document.getElementById('search-page-sort-hint')?.toggleAttribute('hidden', isUser);
   resourcePanel?.toggleAttribute('hidden', isUser);
   userPanel?.toggleAttribute('hidden', !isUser);
 }

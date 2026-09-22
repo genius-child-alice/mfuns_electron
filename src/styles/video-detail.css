@@ -1599,6 +1599,67 @@ html[data-theme='dark'] .watch-side-scroll::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
+.watch-comment__pin {
+  flex-shrink: 0;
+  padding: 0 4px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 16px;
+  color: #e67e22;
+  background: color-mix(in srgb, #e67e22 14%, transparent);
+}
+
+.watch-comments__chrome {
+  margin: 8px 0 12px;
+}
+
+.watch-comments__sort {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.watch-comments__sort-btn {
+  padding: 0;
+  color: var(--text-tertiary);
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+.watch-comments__sort-btn.is-active {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.watch-comments__more {
+  display: block;
+  width: 100%;
+  margin: 12px 0 4px;
+  padding: 10px;
+  border-radius: var(--radius-md);
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 13px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.watch-comments__more:hover {
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+}
+
+.watch-comments__more-hint {
+  margin: 12px 0 4px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
 .watch-comment__cid {
   flex-shrink: 0;
   font-size: 12px;

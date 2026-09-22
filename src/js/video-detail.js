@@ -14,6 +14,7 @@ import {
 } from './navigation.js';
 import { requireLogin } from './login-ui.js';
 import {
+  COMMENT_LIST_PAGE_SIZE,
   fetchCommentList,
   fetchFollowStatus,
   fetchReactionStatus,
@@ -42,6 +43,8 @@ import {
 } from './watch-later-store.js';
 import {
   bindCommentSection,
+  commentListFooterHtml,
+  commentSortToolbarHtml,
   createCommentReplyStore,
   mountAllCommentRichText,
   renderCommentsHtml,
@@ -105,6 +108,23 @@ const commentReplyStore = createCommentReplyStore();
 const COMMENT_BODY_PREFIX = 'watch-comment-body';
 const COMMENT_REPLY_PREFIX = 'watch-comment-reply';
 
+/** @type {'desc' | 'asc'} */
+let commentOrder = 'desc';
+let commentListPage = 1;
+let commentListHasMore = false;
+let commentListLoading = false;
+
+function syncCommentChrome() {
+  const toolbar = document.getElementById('watch-comments-toolbar');
+  if (toolbar) {
+    toolbar.outerHTML = commentSortToolbarHtml(commentOrder);
+  }
+  const footer = document.getElementById('watch-comments-footer');
+  if (footer) {
+    footer.innerHTML = commentListFooterHtml(commentListHasMore, commentListLoading);
+  }
+}
+
 function refreshCommentsUi() {
   const list = document.getElementById('watch-comments-list');
   if (!list) return;
@@ -118,6 +138,32 @@ function refreshCommentsUi() {
     bodyIdPrefix: COMMENT_BODY_PREFIX,
     replyBodyIdPrefix: COMMENT_REPLY_PREFIX,
   });
+  syncCommentChrome();
+}
+
+async function loadRootComments(page, { append = false } = {}) {
+  const areaId = currentDetail?.commentAreaId;
+  if (!areaId) return;
+  commentListLoading = true;
+  syncCommentChrome();
+  try {
+    const batch = await fetchCommentList(areaId, page, commentOrder);
+    commentListPage = page;
+    commentListHasMore = batch.length >= COMMENT_LIST_PAGE_SIZE;
+    if (append) {
+      const seen = new Set(commentItems.map((item) => item.id));
+      commentItems = [...commentItems, ...batch.filter((item) => !seen.has(item.id))];
+    } else {
+      commentItems = batch;
+      commentReplyStore.clear();
+    }
+  } catch {
+    if (!append) commentItems = [];
+    commentListHasMore = false;
+  } finally {
+    commentListLoading = false;
+    refreshCommentsUi();
+  }
 }
 
 /**
@@ -477,7 +523,9 @@ function renderSidePanel() {
         <div class="watch-comment-form" id="watch-comment-form">
           ${commentComposerTriggerHtml('发一条友善的评论', 'watch-comment-trigger', 'watch-comment-trigger')}
         </div>
+        <div id="watch-comments-toolbar">${commentSortToolbarHtml(commentOrder)}</div>
         <div class="watch-comments" id="watch-comments-list">${renderCommentsHtml(commentItems, { bodyIdPrefix: COMMENT_BODY_PREFIX, replyBodyIdPrefix: COMMENT_REPLY_PREFIX, replyStore: commentReplyStore, resourceAuthorId: detail.authorId ?? null })}</div>
+        <div id="watch-comments-footer">${commentListFooterHtml(commentListHasMore, commentListLoading)}</div>
       </div>
       <div class="watch-tab-panel watch-tab-panel--danmaku" data-watch-panel="danmaku" ${activeTab === 'danmaku' ? '' : 'hidden'}>
         <div id="danmakuList" class="m-video__danmaku" aria-label="弹幕列表"></div>
@@ -818,13 +866,16 @@ async function loadWatchPage(preview) {
       authorTotalLikes = authorProfile.totalLikes;
     }
 
-    let comments = [];
+    commentOrder = 'desc';
+    commentListPage = 1;
+    commentListHasMore = false;
     if (detail.commentAreaId) {
-      comments = await fetchCommentList(detail.commentAreaId, 1).catch(() => []);
+      await loadRootComments(1, { append: false });
+    } else {
+      commentItems = [];
     }
 
     relatedItems = related;
-    commentItems = comments;
 
     canManageSeries = await canManageContentSeries(detail.authorId);
 
@@ -884,6 +935,9 @@ function captureWatchPageState() {
     offlineDownloading,
     relatedItems,
     commentItems,
+    commentOrder,
+    commentListPage,
+    commentListHasMore,
     collectionNavHtml,
     canManageSeries,
     scrollTop: getScrollTop('main-content'),
@@ -915,6 +969,10 @@ function applyWatchPageState(state) {
   offlineDownloading = state.offlineDownloading ?? false;
   relatedItems = state.relatedItems ?? [];
   commentItems = state.commentItems ?? [];
+  commentOrder = state.commentOrder === 'asc' ? 'asc' : 'desc';
+  commentListPage = state.commentListPage ?? 1;
+  commentListHasMore = state.commentListHasMore ?? false;
+  commentListLoading = false;
   collectionNavHtml = state.collectionNavHtml ?? '';
   canManageSeries = state.canManageSeries ?? false;
   commentReplyStore.clear();
@@ -957,6 +1015,15 @@ export function bindVideoDetail() {
     bodyIdPrefix: COMMENT_BODY_PREFIX,
     replyBodyIdPrefix: COMMENT_REPLY_PREFIX,
     onRefresh: refreshCommentsUi,
+    onOrderChange: (order) => {
+      if (order === commentOrder) return;
+      commentOrder = order;
+      void loadRootComments(1, { append: false });
+    },
+    onLoadMoreComments: () => {
+      if (commentListLoading || !commentListHasMore) return;
+      void loadRootComments(commentListPage + 1, { append: true });
+    },
   });
 
   document.getElementById('watch-back-btn')?.addEventListener('click', closeVideoDetail);
@@ -969,8 +1036,7 @@ export function bindVideoDetail() {
       title: '发表一个评论',
       areaId: currentDetail.commentAreaId,
       onSuccess: async () => {
-        commentItems = await fetchCommentList(currentDetail.commentAreaId, 1);
-        commentReplyStore.clear();
+        await loadRootComments(1, { append: false });
         if (currentDetail.preview) {
           currentDetail.preview.comments = Math.max(
             currentDetail.preview.comments,

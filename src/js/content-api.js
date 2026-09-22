@@ -500,37 +500,57 @@ export async function fetchCategories() {
   /** @type {Map<number, CategoryNode>} */
   const unique = new Map();
   all.forEach((node) => unique.set(node.id, node));
-  return [...unique.values()].sort((a, b) => a.name.localeCompare(b.name));
+  const ordered = [];
+  const seen = new Set();
+  for (const node of all) {
+    const existing = unique.get(node.id);
+    if (existing && !seen.has(node.id)) {
+      ordered.push(existing);
+      seen.add(node.id);
+    }
+  }
+  for (const node of unique.values()) {
+    if (!seen.has(node.id)) ordered.push(node);
+  }
+  return ordered;
 }
 
 /**
- * @param {CategoryNode[]} nodes
- */
-function sortCategoryNodes(nodes) {
-  return [...nodes].sort((a, b) => a.name.localeCompare(b.name));
-}
-
-/**
- * 一级大分区（接口约定 parent_id === 0）。
+ * 一级大分区（接口约定 parent_id === 0），保留 `/v1/category/all` 树顺序。
  * @param {CategoryNode[]} all
  */
 export function rootCategoryNodes(all) {
-  const roots = all.filter((node) => node.parentId === 0);
-  if (roots.length > 0) return sortCategoryNodes(roots);
+  /** @type {CategoryNode[]} */
+  const roots = [];
+  const seen = new Set();
+  for (const node of all) {
+    if (node.parentId === 0 && !seen.has(node.id)) {
+      roots.push(node);
+      seen.add(node.id);
+    }
+  }
+  if (roots.length > 0) return roots;
   const idSet = new Set(all.map((node) => node.id));
-  return sortCategoryNodes(
-    all.filter((node) => node.parentId == null || (!idSet.has(node.parentId) && node.parentId !== 0)),
-  );
+  for (const node of all) {
+    if (
+      (node.parentId == null || (!idSet.has(node.parentId) && node.parentId !== 0)) &&
+      !seen.has(node.id)
+    ) {
+      roots.push(node);
+      seen.add(node.id);
+    }
+  }
+  return roots;
 }
 
 /**
- * 某大分区下的小分区；若无子节点则返回该大分区自身。
+ * 某大分区下的小分区；若无子节点则返回该大分区自身（保留接口顺序）。
  * @param {CategoryNode[]} all
  * @param {number} parentId
  */
 export function childCategoryNodes(all, parentId) {
   const children = all.filter((node) => node.parentId === parentId);
-  if (children.length > 0) return sortCategoryNodes(children);
+  if (children.length > 0) return children;
   const self = all.find((node) => node.id === parentId);
   return self ? [self] : [];
 }

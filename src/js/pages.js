@@ -6,7 +6,7 @@ import { unblockUi } from './ui-unblock.js';
 
 const DEFAULT_AVATAR = 'assets/mfuns_logo.png';
 
-/** @typedef {'home' | 'feed' | 'mine' | 'settings' | 'watch' | 'article' | 'space' | 'follow-list' | 'search' | 'tag' | 'message' | 'contribute' | 'sign' | 'series' | 'member'} PageId */
+/** @typedef {'home' | 'feed' | 'mine' | 'settings' | 'watch' | 'article' | 'space' | 'follow-list' | 'search' | 'tag' | 'category-list' | 'message' | 'contribute' | 'sign' | 'series' | 'member'} PageId */
 
 /** @type {PageId} */
 let currentPage = 'home';
@@ -50,7 +50,10 @@ export function homePageHtml() {
     <div class="page-view page-view--home" data-page="home">
       <nav class="home-category-strip" id="home-category-strip" hidden aria-label="内容分区">
         <div class="home-category-strip__row home-category-strip__row--parent" id="home-category-parent-list" role="tablist" aria-label="大分区"></div>
-        <div class="home-category-strip__row home-category-strip__row--child" id="home-category-child-list" role="tablist" aria-label="小分区"></div>
+        <div class="home-category-strip__row home-category-strip__row--child-wrap">
+          <div class="home-category-strip__row home-category-strip__row--child" id="home-category-child-list" role="tablist" aria-label="小分区"></div>
+          <button type="button" class="home-category-strip__all" id="home-category-open-list" hidden>全部稿件</button>
+        </div>
       </nav>
       <p class="home-feed__status" id="home-feed-status" hidden role="status"></p>
       <div class="content-grid" id="home-feed-grid"></div>
@@ -93,6 +96,26 @@ export function seriesPageHtml() {
     </div>`;
 }
 
+export function categoryListPageHtml() {
+  return `
+    <div class="page-view page-view--category-list" data-page="category-list" hidden>
+      <div class="category-list-page" id="category-list-scroll">
+        <header class="category-list-page__head">
+          <button type="button" class="category-list-page__back app-no-drag" id="category-list-back">
+            ${materialIcon('arrow_back', 'category-list-page__back-icon')}
+            <span>返回</span>
+          </button>
+          <h1 class="category-list-page__title" id="category-list-title">分区稿件</h1>
+          <button type="button" class="category-list-page__refresh app-no-drag" id="category-list-refresh" aria-label="刷新">
+            ${materialIcon('refresh')}
+          </button>
+        </header>
+        <p class="home-feed__status" id="category-list-status" hidden role="status"></p>
+        <div class="content-grid category-list-page__grid" id="category-list-grid"></div>
+      </div>
+    </div>`;
+}
+
 export function tagPageHtml() {
   return `
     <div class="page-view page-view--tag" data-page="tag" hidden>
@@ -123,6 +146,7 @@ export function searchPageHtml() {
         <header class="search-page__head">
           <h1 class="search-page__title" id="search-page-query">搜索</h1>
         </header>
+        <p class="search-page__sort-hint" id="search-page-sort-hint">稿件结果按综合排序（与官网一致）</p>
         <nav class="search-page__tabs" id="search-page-tabs" aria-label="搜索分类">
           <button type="button" class="search-page__tab is-active" data-search-tab="all">综合</button>
           <button type="button" class="search-page__tab" data-search-tab="video">视频</button>
@@ -1008,6 +1032,7 @@ export function setPage(pageId, options = {}) {
   main?.classList.toggle('content--follow-list', pageId === 'follow-list');
   main?.classList.toggle('content--search', pageId === 'search');
   main?.classList.toggle('content--tag', pageId === 'tag');
+  main?.classList.toggle('content--category-list', pageId === 'category-list');
   main?.classList.toggle('content--message', pageId === 'message');
   main?.classList.toggle('content--contribute', pageId === 'contribute');
   main?.classList.toggle('content--sign', pageId === 'sign');
@@ -1026,6 +1051,7 @@ export function setPage(pageId, options = {}) {
         pageId === 'space' ||
         pageId === 'follow-list' ||
         pageId === 'tag' ||
+        pageId === 'category-list' ||
         pageId === 'message' ||
         pageId === 'contribute' ||
         pageId === 'sign' ||

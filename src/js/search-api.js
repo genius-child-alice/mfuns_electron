@@ -102,9 +102,16 @@ export function parseSearchPageMeta(data, page, size, itemCount) {
  * @param {number} [page]
  * @param {number} [size]
  * @param {number} [type] -1 综合，0 文章，1 视频
+ * @param {string} [sort] 官网客户端固定 `all`（综合）
  * @returns {Promise<SearchResourcePage>}
  */
-export async function searchResources(keyword, page = 1, size = SEARCH_PAGE_SIZE, type = -1) {
+export async function searchResources(
+  keyword,
+  page = 1,
+  size = SEARCH_PAGE_SIZE,
+  type = -1,
+  sort = 'all',
+) {
   const text = `${keyword ?? ''}`.trim();
   if (!text) {
     return {
@@ -121,7 +128,7 @@ export async function searchResources(keyword, page = 1, size = SEARCH_PAGE_SIZE
     type,
     page,
     size,
-    sort: 'all',
+    sort,
   });
   const items = parsePreviewList(data);
   const meta = parseSearchPageMeta(data, page, size, items.length);

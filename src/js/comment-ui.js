@@ -9,6 +9,7 @@ import {
   fetchCommentReplies,
   fetchReactionStatus,
   setCommentReaction,
+  sortCommentsForDisplay,
 } from './video-api.js';
 import { renderUserBadgesHtml } from './badge-catalog.js';
 import { openCommentComposer } from './comment-composer.js';
@@ -198,8 +199,8 @@ function renderCommentRow(item, options) {
     item.authorId === options.resourceAuthorId;
   const authorLabel = escapeHtml(item.authorName);
   const authorInner = `${authorLabel}${badgesHtml}${
-    isResourceAuthor ? '<span class="watch-comment__landlord">作者</span>' : ''
-  }`;
+    item.pinned ? '<span class="watch-comment__pin">置顶</span>' : ''
+  }${isResourceAuthor ? '<span class="watch-comment__landlord">作者</span>' : ''}`;
   const author = item.authorId
     ? authorLink(item.authorId, authorInner, 'watch-comment__author')
     : `<p class="watch-comment__author">${authorInner}</p>`;
@@ -302,15 +303,42 @@ function renderReplyThreadHtml(comment, thread, rootCommentId, options) {
  *   resourceAuthorId?: number | null,
  * }} options
  */
+/**
+ * @param {'desc' | 'asc'} [activeOrder]
+ * @param {string} [toolbarId]
+ */
+export function commentSortToolbarHtml(activeOrder = 'desc', toolbarId = 'watch-comments-toolbar') {
+  return `
+    <div class="watch-comments__chrome" id="${toolbarId}" role="toolbar" aria-label="评论排序">
+      <div class="watch-comments__sort" role="tablist" aria-label="评论排序">
+        <button type="button" class="watch-comments__sort-btn ${activeOrder === 'desc' ? 'is-active' : ''}" data-comment-order="desc" role="tab" aria-selected="${activeOrder === 'desc'}">最热</button>
+        <button type="button" class="watch-comments__sort-btn ${activeOrder === 'asc' ? 'is-active' : ''}" data-comment-order="asc" role="tab" aria-selected="${activeOrder === 'asc'}">最新</button>
+      </div>
+    </div>`;
+}
+
+/**
+ * @param {boolean} [hasMore]
+ * @param {boolean} [loading]
+ */
+export function commentListFooterHtml(hasMore = false, loading = false) {
+  if (!hasMore && !loading) return '';
+  if (loading) {
+    return `<p class="watch-comments__more-hint">${materialIcon('progress_activity', 'home-feed__spin')}加载更多评论…</p>`;
+  }
+  return `<button type="button" class="watch-comments__more" data-comment-list-more>加载更多评论</button>`;
+}
+
 export function renderCommentsHtml(comments, options) {
-  if (comments.length === 0) {
+  const sorted = sortCommentsForDisplay(comments);
+  if (sorted.length === 0) {
     return '<p class="watch-comments__empty">还没有评论，来抢沙发吧~</p>';
   }
 
   const currentUserId = options.currentUserId ?? resolveMineUserId(null);
   const resourceAuthorId = options.resourceAuthorId ?? null;
 
-  return comments
+  return sorted
     .map((item) => {
       const thread = options.replyStore.ensure(item.id);
       const replyTotal = options.replyStore.replyTotal(item, item.id);
@@ -559,6 +587,8 @@ export function openCommentReplyDialog(options) {
  *   bodyIdPrefix: string,
  *   replyBodyIdPrefix: string,
  *   onRefresh: () => void,
+ *   onOrderChange?: (order: 'desc' | 'asc') => void,
+ *   onLoadMoreComments?: () => void,
  * }} options
  */
 export function bindCommentSection(root, options) {
@@ -567,6 +597,21 @@ export function bindCommentSection(root, options) {
 
   root.addEventListener('click', (event) => {
     const target = /** @type {HTMLElement} */ (event.target);
+
+    const orderBtn = target.closest('[data-comment-order]');
+    if (orderBtn instanceof HTMLButtonElement && options.onOrderChange) {
+      const order = orderBtn.getAttribute('data-comment-order');
+      if (order === 'desc' || order === 'asc') {
+        options.onOrderChange(order);
+      }
+      return;
+    }
+
+    const listMoreBtn = target.closest('[data-comment-list-more]');
+    if (listMoreBtn instanceof HTMLButtonElement && options.onLoadMoreComments) {
+      options.onLoadMoreComments();
+      return;
+    }
 
     const likeBtn = target.closest('[data-comment-like]');
     if (likeBtn instanceof HTMLButtonElement) {

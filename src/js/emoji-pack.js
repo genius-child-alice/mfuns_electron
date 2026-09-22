@@ -52,3 +52,33 @@ export async function mediaSrcForStickerKey(stickerKey) {
   if (!url) return null;
   return mediaSrcForRichImage(url);
 }
+
+/**
+ * @typedef {{ key: string, name: string, stickers: { key: string, url: string }[] }} EmojiPackGroup
+ */
+
+/**
+ * 与 Flutter EmojiData 一致的分组列表（评论/私信表情面板用）。
+ * @returns {Promise<EmojiPackGroup[]>}
+ */
+export async function fetchEmojiPackGroups() {
+  const data = await apiGet('/v1/emoji_pack/list', { with_vip: 1 });
+  const root = asMap(data);
+  /** @type {EmojiPackGroup[]} */
+  const groups = [];
+  for (const [packKey, packVal] of Object.entries(root)) {
+    const pack = asMap(packVal);
+    const name = `${pack.name ?? packKey}`.trim() || packKey;
+    const list = asMap(pack.list);
+    /** @type {{ key: string, url: string }[]} */
+    const stickers = [];
+    for (const [stickerId, stickerVal] of Object.entries(list)) {
+      const url = `${asMap(stickerVal).url ?? ''}`.trim();
+      if (!url) continue;
+      const key = `${packKey}-${stickerId}`;
+      stickers.push({ key, url: mediaSrcForRichImage(url) ?? url });
+    }
+    if (stickers.length > 0) groups.push({ key: packKey, name, stickers });
+  }
+  return groups;
+}

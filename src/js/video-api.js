@@ -1,4 +1,5 @@
 import { parseUserBadgeIds } from './badge-catalog.js';
+import { commentSpansFromText } from './message-quill.js';
 import { API_BASE, loadSession } from './auth.js';
 import { loadAppSettings } from './app-preferences.js';
 import {
@@ -56,6 +57,7 @@ import {
  *   floorNum: number | null,
  *   badges: number[],
  *   createdAt: number | string | null,
+ *   pinned: boolean,
  * }} CommunityComment */
 
 /**
@@ -320,7 +322,26 @@ function parseComment(raw) {
     floorNum: asInt(json.floor_num ?? json.floor),
     badges: badges.slice(0, 5),
     createdAt: parseCommentCreatedAt(json.created_at ?? json.create_time),
+    pinned:
+      json.is_top === 1 ||
+      json.is_top === true ||
+      json.top === 1 ||
+      json.is_pinned === 1 ||
+      json.is_pinned === true ||
+      json.pinned === true,
   };
+}
+
+export const COMMENT_LIST_PAGE_SIZE = 20;
+
+/**
+ * @param {CommunityComment[]} comments
+ */
+export function sortCommentsForDisplay(comments) {
+  return [...comments].sort((a, b) => {
+    if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+    return 0;
+  });
 }
 
 /**
@@ -512,7 +533,36 @@ export async function setCommentReaction(commentId, action) {
  * @param {string} text
  */
 function commentQuillJson(text) {
-  return JSON.stringify([{ insert: `${text}\n` }]);
+  const spans = commentSpansFromText(text);
+  /** @type {Record<string, unknown>[]} */
+  const ops = [];
+  for (const span of spans) {
+    if (span.stickerKey) {
+      ops.push({ insert: { sticker: span.stickerKey } });
+      continue;
+    }
+    if (span.mentionName) {
+      ops.push({
+        insert: `[@${span.mentionId ?? ''}:${span.mentionName}]`,
+      });
+      continue;
+    }
+    const chunk = `${span.text ?? ''}`;
+    if (!chunk) continue;
+    const lines = chunk.split('\n');
+    for (const line of lines) {
+      ops.push({ insert: `${line}\n` });
+    }
+  }
+  if (ops.length === 0) {
+    ops.push({ insert: '\n' });
+  } else {
+    const last = ops[ops.length - 1];
+    if (typeof last.insert !== 'string' || !`${last.insert}`.endsWith('\n')) {
+      ops.push({ insert: '\n' });
+    }
+  }
+  return JSON.stringify(ops);
 }
 
 /**

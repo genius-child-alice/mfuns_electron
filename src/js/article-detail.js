@@ -14,6 +14,7 @@ import {
 import { requireLogin } from './login-ui.js';
 import { fetchArticleDetail } from './article-api.js';
 import {
+  COMMENT_LIST_PAGE_SIZE,
   fetchCommentList,
   fetchFollowStatus,
   fetchReactionStatus,
@@ -35,6 +36,8 @@ import {
 } from './watch-later-store.js';
 import {
   bindCommentSection,
+  commentListFooterHtml,
+  commentSortToolbarHtml,
   createCommentReplyStore,
   mountAllCommentRichText,
   renderCommentsHtml,
@@ -81,6 +84,23 @@ const commentReplyStore = createCommentReplyStore();
 const COMMENT_BODY_PREFIX = 'article-comment-body';
 const COMMENT_REPLY_PREFIX = 'article-comment-reply';
 
+/** @type {'desc' | 'asc'} */
+let commentOrder = 'desc';
+let commentListPage = 1;
+let commentListHasMore = false;
+let commentListLoading = false;
+
+function syncCommentChrome() {
+  const toolbar = document.getElementById('article-comments-toolbar');
+  if (toolbar) {
+    toolbar.outerHTML = commentSortToolbarHtml(commentOrder, 'article-comments-toolbar');
+  }
+  const footer = document.getElementById('article-comments-footer');
+  if (footer) {
+    footer.innerHTML = commentListFooterHtml(commentListHasMore, commentListLoading);
+  }
+}
+
 function refreshCommentsUi() {
   const list = document.getElementById('article-comments-list');
   if (!list) return;
@@ -94,6 +114,32 @@ function refreshCommentsUi() {
     bodyIdPrefix: COMMENT_BODY_PREFIX,
     replyBodyIdPrefix: COMMENT_REPLY_PREFIX,
   });
+  syncCommentChrome();
+}
+
+async function loadRootComments(page, { append = false } = {}) {
+  const areaId = currentDetail?.commentAreaId;
+  if (!areaId) return;
+  commentListLoading = true;
+  syncCommentChrome();
+  try {
+    const batch = await fetchCommentList(areaId, page, commentOrder);
+    commentListPage = page;
+    commentListHasMore = batch.length >= COMMENT_LIST_PAGE_SIZE;
+    if (append) {
+      const seen = new Set(commentItems.map((item) => item.id));
+      commentItems = [...commentItems, ...batch.filter((item) => !seen.has(item.id))];
+    } else {
+      commentItems = batch;
+      commentReplyStore.clear();
+    }
+  } catch {
+    if (!append) commentItems = [];
+    commentListHasMore = false;
+  } finally {
+    commentListLoading = false;
+    refreshCommentsUi();
+  }
 }
 
 /**
@@ -284,7 +330,9 @@ function renderPage() {
         <div class="watch-comment-form" id="article-comment-form">
           ${commentComposerTriggerHtml('发一条友善的评论', 'article-comment-trigger', 'watch-comment-trigger')}
         </div>
+        <div id="article-comments-toolbar">${commentSortToolbarHtml(commentOrder, 'article-comments-toolbar')}</div>
         <div class="watch-comments" id="article-comments-list">${renderCommentsHtml(commentItems, { bodyIdPrefix: COMMENT_BODY_PREFIX, replyBodyIdPrefix: COMMENT_REPLY_PREFIX, replyStore: commentReplyStore, resourceAuthorId: detail.authorId ?? null })}</div>
+        <div id="article-comments-footer">${commentListFooterHtml(commentListHasMore, commentListLoading)}</div>
       </section>
     </article>`;
 
@@ -510,11 +558,14 @@ async function loadArticlePage(preview) {
       authorTotalLikes = authorProfile.totalLikes;
     }
 
-    let comments = [];
+    commentOrder = 'desc';
+    commentListPage = 1;
+    commentListHasMore = false;
     if (detail.commentAreaId) {
-      comments = await fetchCommentList(detail.commentAreaId, 1).catch(() => []);
+      await loadRootComments(1, { append: false });
+    } else {
+      commentItems = [];
     }
-    commentItems = comments;
 
     canManageSeries = await canManageContentSeries(detail.authorId);
 
@@ -559,6 +610,9 @@ function captureArticlePageState() {
     favoriteCount,
     watchLater,
     commentItems,
+    commentOrder,
+    commentListPage,
+    commentListHasMore,
     collectionNavHtml,
     canManageSeries,
     rootHtml: getRoot()?.innerHTML ?? '',
@@ -584,6 +638,10 @@ function applyArticlePageState(state) {
   favoriteCount = state.favoriteCount ?? 0;
   watchLater = state.watchLater ?? false;
   commentItems = state.commentItems ?? [];
+  commentOrder = state.commentOrder === 'asc' ? 'asc' : 'desc';
+  commentListPage = state.commentListPage ?? 1;
+  commentListHasMore = state.commentListHasMore ?? false;
+  commentListLoading = false;
   collectionNavHtml = state.collectionNavHtml ?? '';
   canManageSeries = state.canManageSeries ?? false;
   commentReplyStore.clear();
@@ -626,6 +684,15 @@ export function bindArticleDetail() {
     bodyIdPrefix: COMMENT_BODY_PREFIX,
     replyBodyIdPrefix: COMMENT_REPLY_PREFIX,
     onRefresh: refreshCommentsUi,
+    onOrderChange: (order) => {
+      if (order === commentOrder) return;
+      commentOrder = order;
+      void loadRootComments(1, { append: false });
+    },
+    onLoadMoreComments: () => {
+      if (commentListLoading || !commentListHasMore) return;
+      void loadRootComments(commentListPage + 1, { append: true });
+    },
   });
 
   document.getElementById('article-back-btn')?.addEventListener('click', closeArticleDetail);
@@ -638,8 +705,7 @@ export function bindArticleDetail() {
       title: '发表一个评论',
       areaId: currentDetail.commentAreaId,
       onSuccess: async () => {
-        commentItems = await fetchCommentList(currentDetail.commentAreaId, 1);
-        commentReplyStore.clear();
+        await loadRootComments(1, { append: false });
         if (currentDetail.preview) {
           currentDetail.preview.comments = Math.max(
             currentDetail.preview.comments,

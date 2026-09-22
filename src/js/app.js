@@ -33,6 +33,7 @@ import {
   followListPageHtml,
   searchPageHtml,
   tagPageHtml,
+  categoryListPageHtml,
   signPageHtml,
   seriesPageHtml,
   messagePageHtml,
@@ -62,6 +63,7 @@ import { bindMinePage, refreshMinePage } from './mine-page.js';
 import { mergeGuestWatchLaterIntoUser } from './watch-later-store.js';
 import { bindSearchPage } from './search-page.js';
 import { bindTagPage } from './tag-page.js';
+import { bindCategoryListPage } from './category-list-page.js';
 import { bindSignPage } from './sign-page.js';
 import { bindSeriesPage } from './series-page.js';
 import { bindSeriesPickerDialog } from './series-ui.js';
@@ -194,6 +196,7 @@ function renderShell() {
           ${followListPageHtml()}
           ${searchPageHtml()}
           ${tagPageHtml()}
+          ${categoryListPageHtml()}
           ${signPageHtml()}
           ${seriesPageHtml()}
           ${messagePageHtml()}
@@ -807,6 +810,7 @@ function bootApp() {
   bindFollowList();
   bindSearchPage();
   bindTagPage();
+  bindCategoryListPage();
   bindSignPage();
   bindSeriesPage();
   bindSeriesPickerDialog();
