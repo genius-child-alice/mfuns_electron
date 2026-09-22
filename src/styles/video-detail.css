@@ -1253,11 +1253,14 @@ html[data-theme='dark'] .watch-side-scroll::-webkit-scrollbar-thumb {
 }
 
 .watch-video-meta__no {
-  margin-left: auto;
   font-size: 12px;
   line-height: 1.4;
   color: var(--text-tertiary);
   font-variant-numeric: tabular-nums;
+}
+
+.watch-video-meta__time .watch-video-meta__no {
+  margin-left: 10px;
 }
 
 /* —— 互动条（点赞/投币/收藏/缓存/分享）—— */

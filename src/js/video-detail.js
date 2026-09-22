@@ -506,15 +506,14 @@ function renderSidePanel() {
           <span>${materialIcon('subtitles', 'watch-meta-icon')}${formatCount(danmakuCount)}</span>
           ${
             dateLabel
-              ? `<span class="watch-video-meta__time">${materialIcon('schedule', 'watch-meta-icon')}<time datetime="${escapeHtml(publishIso ?? '')}">${escapeHtml(dateLabel)}</time></span>`
-              : ''
+              ? `<span class="watch-video-meta__time">${materialIcon('schedule', 'watch-meta-icon')}<time datetime="${escapeHtml(publishIso ?? '')}">${escapeHtml(dateLabel)}</time><span class="watch-video-meta__no">${escapeHtml(formatContentArchiveNo(preview.id, 1))}</span></span>`
+              : `<span class="watch-video-meta__no">${escapeHtml(formatContentArchiveNo(preview.id, 1))}</span>`
           }
           ${
             copyrightLabel
               ? `<span class="watch-video-meta__copyright">${escapeHtml(copyrightLabel)}</span>`
               : ''
           }
-          <span class="watch-video-meta__no">${escapeHtml(formatContentArchiveNo(preview.id, 1))}</span>
         </div>
 
         ${renderIntroToolbar()}
