@@ -543,9 +543,16 @@ export function minePageHtml() {
             <button type="button" class="mine-profile__space" data-action="open-login">空间 &gt;</button>
           </div>
           <div class="mine-profile mine-profile--auth" data-auth-only hidden>
-            <div class="mine-profile__avatar mine-profile__avatar--static">
-              <img id="mine-avatar-img" src="${DEFAULT_AVATAR}" alt="" />
-            </div>
+            <button type="button" class="mine-profile__avatar-entry" id="mine-open-member" aria-label="打开个人中心">
+              <span class="mine-profile__avatar-ring">
+                <img class="mine-profile__avatar-img" id="mine-avatar-img" src="${DEFAULT_AVATAR}" alt="" />
+              </span>
+              <span class="mine-profile__avatar-entry-label">
+                ${materialIcon('manage_accounts', 'mine-profile__avatar-entry-icon')}
+                <span>个人中心</span>
+                ${materialIcon('chevron_right', 'mine-profile__avatar-entry-chevron')}
+              </span>
+            </button>
             <div class="mine-profile__info">
               <p class="mine-profile__name" id="mine-display-name">Mfuns 用户</p>
               <p class="mine-profile__coins">喵币：<span id="mine-neko-coin">-</span></p>
@@ -559,7 +566,6 @@ export function minePageHtml() {
             <button type="button" class="mine-profile__space" id="btn-open-my-space">空间 &gt;</button>
           </div>
           <div class="mine-sign-card" id="mine-sign-card" data-auth-only hidden></div>
-          <button type="button" class="mine-member-entry" id="mine-open-member" data-auth-only hidden>个人中心</button>
         </div>
 
         <div class="mine-page__toolbar">

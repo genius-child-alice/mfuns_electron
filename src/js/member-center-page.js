@@ -1,4 +1,5 @@
-import { loadSession, fetchUserInfo, saveSession } from './auth.js';
+import { loadSession, fetchUserInfo, saveSession, userDisplayName } from './auth.js';
+import { userAvatarMediaSrc } from './content-api.js';
 import { materialIcon } from './icons.js';
 import { notify } from './notice-ui.js';
 import { confirmAction } from './confirm-dialog.js';
@@ -115,20 +116,64 @@ async function setView(view) {
   await renderView();
 }
 
-function hubTiles() {
+/**
+ * @param {string} view
+ * @param {string} icon
+ * @param {string} label
+ * @param {string} [desc]
+ */
+function memberHubTile(view, icon, label, desc = '') {
   return `
-    <div class="member-tiles">
-      <button type="button" class="member-tile" data-member-view="security">${materialIcon('shield', 'member-tile__icon')}<span>账号与安全</span></button>
-      <button type="button" class="member-tile" data-member-view="premium">${materialIcon('workspace_premium', 'member-tile__icon')}<span>大会员</span></button>
-      <button type="button" class="member-tile" data-member-view="blacklist">${materialIcon('block', 'member-tile__icon')}<span>黑名单</span></button>
-      <button type="button" class="member-tile" data-member-view="api-keys">${materialIcon('key', 'member-tile__icon')}<span>API 密钥</span></button>
-      <button type="button" class="member-tile" data-member-view="badges">${materialIcon('military_tech', 'member-tile__icon')}<span>勋章</span></button>
-      <button type="button" class="member-tile" data-member-view="avatar-frames">${materialIcon('face_retouching_natural', 'member-tile__icon')}<span>头像框</span></button>
-      <button type="button" class="member-tile" data-member-view="accessibility">${materialIcon('accessibility_new', 'member-tile__icon')}<span>无障碍</span></button>
-      <button type="button" class="member-tile" data-member-view="customer">${materialIcon('support_agent', 'member-tile__icon')}<span>联系客服</span></button>
-      <button type="button" class="member-tile" data-member-view="creator">${materialIcon('video_library', 'member-tile__icon')}<span>创作中心</span></button>
-      <button type="button" class="member-tile" data-member-view="danmaku">${materialIcon('subtitles', 'member-tile__icon')}<span>弹幕管理</span></button>
-    </div>`;
+    <button type="button" class="member-tile" data-member-view="${view}">
+      <span class="member-tile__icon-wrap">${materialIcon(icon, 'member-tile__icon')}</span>
+      <span class="member-tile__text">
+        <span class="member-tile__label">${escapeHtml(label)}</span>
+        ${desc ? `<span class="member-tile__desc">${escapeHtml(desc)}</span>` : ''}
+      </span>
+      ${materialIcon('chevron_right', 'member-tile__chevron')}
+    </button>`;
+}
+
+function hubTiles() {
+  const session = loadSession();
+  const name = userDisplayName(session?.user);
+  const avatarSrc = userAvatarMediaSrc(session?.user) || 'assets/mfuns_logo.png';
+
+  return `
+    <div class="member-hub-hero">
+      <div class="member-hub-hero__avatar">
+        <img src="${escapeHtml(avatarSrc)}" alt="" />
+      </div>
+      <div class="member-hub-hero__main">
+        <p class="member-hub-hero__greet">你好，${escapeHtml(name)}</p>
+        <p class="member-hub-hero__sub">账号权益、装扮与创作工具</p>
+      </div>
+    </div>
+    <section class="member-hub-group" aria-labelledby="member-hub-group-account">
+      <h2 class="member-hub-group__title" id="member-hub-group-account">账号</h2>
+      <div class="member-tiles member-tiles--list">
+        ${memberHubTile('security', 'shield', '账号与安全', '手机、邮箱与登录设备')}
+        ${memberHubTile('premium', 'workspace_premium', '大会员', '会员状态与权益')}
+        ${memberHubTile('blacklist', 'block', '黑名单', '屏蔽的用户')}
+        ${memberHubTile('api-keys', 'key', 'API 密钥', '开发者接口')}
+      </div>
+    </section>
+    <section class="member-hub-group" aria-labelledby="member-hub-group-profile">
+      <h2 class="member-hub-group__title" id="member-hub-group-profile">装扮</h2>
+      <div class="member-tiles member-tiles--grid">
+        ${memberHubTile('badges', 'military_tech', '勋章')}
+        ${memberHubTile('avatar-frames', 'face_retouching_natural', '头像框')}
+      </div>
+    </section>
+    <section class="member-hub-group" aria-labelledby="member-hub-group-more">
+      <h2 class="member-hub-group__title" id="member-hub-group-more">更多</h2>
+      <div class="member-tiles member-tiles--list">
+        ${memberHubTile('accessibility', 'accessibility_new', '无障碍与阅读', '减弱动效等')}
+        ${memberHubTile('customer', 'support_agent', '联系客服')}
+        ${memberHubTile('creator', 'video_library', '创作中心', '投稿与数据')}
+        ${memberHubTile('danmaku', 'subtitles', '弹幕管理')}
+      </div>
+    </section>`;
 }
 
 async function renderSecurityHub() {
@@ -271,7 +316,7 @@ async function renderView() {
         html = `
           <div class="member-premium-card ${status.isPremium ? 'is-active' : ''}">
             <h3 class="member-premium-card__title">${escapeHtml(status.label)}</h3>
-            <p class="member-premium-card__desc">桌面端仅展示大会员状态，不提供充值或兑换。如需开通请前往官网。</p>
+            <p class="member-premium-card__desc">此桌面端为民间第三方开发，仅展示大会员状态，不提供充值或兑换。如需开通请前往官网。</p>
             ${
               status.expireAt
                 ? `<p class="member-premium-card__meta">到期时间：${escapeHtml(status.expireAt)}</p>`
