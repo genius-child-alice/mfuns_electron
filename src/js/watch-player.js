@@ -1,7 +1,6 @@
 import { loadSession } from './auth.js';
 import { mediaPlaybackSrc } from './content-api.js';
 import { sendDanmaku } from './danmaku-api.js';
-import { openInAppBrowser } from './legal.js';
 import { requireLogin } from './login-ui.js';
 import {
   endVideoPlaySession,
@@ -14,6 +13,7 @@ import {
   getPreferredResolution,
   resolvePlayerDarkMode,
   setPlayerDarkMode,
+  clearPlayerDarkModeOverride,
   setPreferredResolution,
   setPlayerVolume,
   setSeriesOrder,
@@ -219,14 +219,35 @@ export class WatchPlayer {
     this.sessionBootstrapped = false;
     this.skipResumeOnce = false;
     this.pendingAutoPlay = false;
+    this._syncingColorScheme = false;
 
-    this.onThemeChange = () => {
+    this._themeListening = false;
+    this.onThemeChange = (event) => {
+      clearPlayerDarkModeOverride();
       this.syncThemeColor();
-      this.applyColorScheme();
+      const scheme = event?.detail?.colorScheme;
+      // 以主题事件为准，避免读到旧偏好；并在下一帧再刷一次，防止 view transition 覆盖 DOM
+      const dark = scheme === 'dark' ? true : scheme === 'light' ? false : resolvePlayerDarkMode();
+      this.applyColorScheme(dark);
+      requestAnimationFrame(() => this.applyColorScheme(dark));
+      // view transition 结束后再刷一次，避免截图合成后类名回退
+      window.setTimeout(() => this.applyColorScheme(dark), 560);
     };
     window.addEventListener('resize', () => this.onWindowResize());
     window.addEventListener('beforeunload', () => this.flushBeaconHeartbeat());
+    this.bindThemeListener();
+  }
+
+  bindThemeListener() {
+    if (this._themeListening) return;
     window.addEventListener('mfuns:theme-change', this.onThemeChange);
+    this._themeListening = true;
+  }
+
+  unbindThemeListener() {
+    if (!this._themeListening) return;
+    window.removeEventListener('mfuns:theme-change', this.onThemeChange);
+    this._themeListening = false;
   }
 
   onWindowResize() {
@@ -250,28 +271,57 @@ export class WatchPlayer {
 
   syncDarkmodeSwitch(dark) {
     const switchCmp = this.player?.components?.videoDarkmodeSwitch;
-    if (!switchCmp || switchCmp.value === dark) return;
-    if (typeof switchCmp.setValue === 'function') {
-      switchCmp.setValue(dark);
-      return;
+    if (!switchCmp) return;
+    // 只同步开关外观，绝不调用 toggle()/onToggle：
+    // SDK 关灯关闭时若 body 上已无 .heimu 遮罩，就不会移除 footBar.darkmode。
+    if (switchCmp.value !== dark) {
+      if (typeof switchCmp.setValue === 'function') switchCmp.setValue(dark);
+      else {
+        switchCmp.value = dark;
+        switchCmp.el?.classList?.toggle('switch-on', dark);
+      }
+    } else {
+      switchCmp.el?.classList?.toggle('switch-on', dark);
     }
-    switchCmp.value = dark;
-    switchCmp.el?.classList?.toggle('switch-on', dark);
   }
 
-  /** 同步应用深色主题到 mfunsPlayer 控制条（官网「关灯模式」样式，不遮罩整个窗口） */
-  applyColorScheme() {
-    const dark = resolvePlayerDarkMode();
-    this.root?.classList.toggle('watch-mfuns-player--scheme-dark', dark);
+  /**
+   * 同步应用深色主题到 mfunsPlayer 控制条（官网「关灯模式」样式，不遮罩整个窗口）
+   * @param {boolean} [forcedDark] 若传入则强制使用该值（主题切换时用）
+   */
+  applyColorScheme(forcedDark) {
+    const dark = typeof forcedDark === 'boolean' ? forcedDark : resolvePlayerDarkMode();
+    this._syncingColorScheme = true;
+    try {
+      if (this.root) {
+        this.root.classList.toggle('watch-mfuns-player--scheme-dark', dark);
+        this.root.dataset.playerScheme = dark ? 'dark' : 'light';
+      }
 
-    const player = this.player;
-    if (!player?.container) return;
+      const player = this.player;
+      const scope = this.root ?? player?.container;
+      if (!scope) return;
 
-    player.container.classList.toggle('mfunsPlayer-darkmode', dark);
-    player.template?.footBar?.classList?.toggle('darkmode', dark);
-    this.syncDarkmodeSwitch(dark);
+      // 不调用 SDK toggle(false)：遮罩被清掉后 SDK 不会移除 footBar.darkmode
+      const setDarkClass = (el, className) => {
+        if (!el?.classList) return;
+        if (dark) el.classList.add(className);
+        else el.classList.remove(className);
+      };
 
-    if (dark) this.clearPlayerBlackmask();
+      setDarkClass(player?.container, 'mfunsPlayer-darkmode');
+      scope.querySelectorAll('.mfunsPlayer').forEach((el) => setDarkClass(el, 'mfunsPlayer-darkmode'));
+
+      const footBars = new Set();
+      if (player?.template?.footBar) footBars.add(player.template.footBar);
+      scope.querySelectorAll('.mfunsPlayer-footBar').forEach((el) => footBars.add(el));
+      footBars.forEach((el) => setDarkClass(el, 'darkmode'));
+
+      this.syncDarkmodeSwitch(dark);
+      this.clearPlayerBlackmask();
+    } finally {
+      this._syncingColorScheme = false;
+    }
   }
 
   async ensurePlayer() {
@@ -327,6 +377,8 @@ export class WatchPlayer {
 
     this.syncThemeColor();
     this.bindPlayerEvents();
+    // 启动时清掉历史 sticky darkMode，默认跟随应用主题
+    clearPlayerDarkModeOverride();
     this.applyColorScheme();
     this.ready = true;
     this.placeholder?.setAttribute('hidden', '');
@@ -344,7 +396,9 @@ export class WatchPlayer {
         requireLogin();
         return;
       }
-      openInAppBrowser('https://www.mfuns.net/premium/buy', '大会员');
+      void import('./member-center-page.js').then(({ openMemberCenter }) =>
+        openMemberCenter('premium'),
+      );
     });
 
     p.on('danmaku_send', async (payload) => {
@@ -371,17 +425,19 @@ export class WatchPlayer {
       if (item.key === 'volume') setPlayerVolume(item.value);
       else if (item.key === 'muted') setPlayerVolume(0);
       else if (item.key === 'darkMode') {
-        setPlayerDarkMode(Boolean(item.value));
+        if (!this._syncingColorScheme) setPlayerDarkMode(Boolean(item.value));
         this.applyColorScheme();
       } else updatePlayerConfig(item.key, item.value);
     });
 
     p.on('darkmode_on', () => {
+      if (this._syncingColorScheme) return;
       setPlayerDarkMode(true);
       this.clearPlayerBlackmask();
       this.applyColorScheme();
     });
     p.on('darkmode_off', () => {
+      if (this._syncingColorScheme) return;
       setPlayerDarkMode(false);
       this.clearPlayerBlackmask();
       this.applyColorScheme();
@@ -664,11 +720,31 @@ export class WatchPlayer {
       this.player = null;
     }
     this.ready = false;
+    this.root?.classList.remove('watch-mfuns-player--scheme-dark');
+    if (this.root) delete this.root.dataset.playerScheme;
     if (this.container) this.container.innerHTML = '';
   }
 
+  /**
+   * 换片/重载时只拆播放器实例，保留主题监听（勿用 destroy，否则单例会变成“听不到主题”的僵尸）。
+   */
+  reset() {
+    this.clearPlayerBlackmask();
+    this.flushBeaconHeartbeat();
+    this.destroyPlayerInstance();
+    this.parts = [];
+    this.partIndex = 0;
+    this.videoId = '';
+    this.title = '';
+    this.onPartChange = null;
+    this.onSwitchSeries = null;
+    this.series = null;
+    this.placeholder?.removeAttribute('hidden');
+    this.bindThemeListener();
+  }
+
   destroy() {
-    window.removeEventListener('mfuns:theme-change', this.onThemeChange);
+    this.unbindThemeListener();
     this.clearPlayerBlackmask();
     this.flushBeaconHeartbeat();
     this.destroyPlayerInstance();
@@ -713,6 +789,12 @@ export function getWatchPlayer() {
   const root = document.getElementById('watch-player-root');
   if (!root) return null;
   if (!instance) instance = new WatchPlayer(root);
+  else if (instance.root !== root) {
+    instance.destroy();
+    instance = new WatchPlayer(root);
+  } else {
+    instance.bindThemeListener();
+  }
   return instance;
 }
 

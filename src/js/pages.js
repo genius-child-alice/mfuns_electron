@@ -5,7 +5,7 @@ import { destroyWatchPlayer } from './watch-player.js';
 
 const DEFAULT_AVATAR = 'assets/mfuns_logo.png';
 
-/** @typedef {'home' | 'feed' | 'mine' | 'settings' | 'watch' | 'article' | 'space' | 'follow-list' | 'search' | 'tag' | 'message' | 'contribute' | 'sign' | 'series'} PageId */
+/** @typedef {'home' | 'feed' | 'mine' | 'settings' | 'watch' | 'article' | 'space' | 'follow-list' | 'search' | 'tag' | 'message' | 'contribute' | 'sign' | 'series' | 'member'} PageId */
 
 /** @type {PageId} */
 let currentPage = 'home';
@@ -256,9 +256,11 @@ export function contributePageHtml() {
           <header class="contribute-page__header app-no-drag">
             <h1 class="contribute-page__title">创作中心</h1>
             <nav class="contribute-hub-nav" aria-label="创作中心分类">
+              <button type="button" class="contribute-hub-nav__item" id="contribute-open-creator-hub">概览</button>
               <button type="button" class="contribute-hub-nav__item is-active" data-contribute-section="submission">投稿</button>
               <button type="button" class="contribute-hub-nav__item" data-contribute-section="feed">动态</button>
               <button type="button" class="contribute-hub-nav__item" data-contribute-section="published">已发布</button>
+              <button type="button" class="contribute-hub-nav__item" id="contribute-open-danmaku-hub">弹幕管理</button>
             </nav>
           </header>
           ${guestBanner('登录账号，管理投稿与动态')}
@@ -556,6 +558,7 @@ export function minePageHtml() {
             <button type="button" class="mine-profile__space" id="btn-open-my-space">空间 &gt;</button>
           </div>
           <div class="mine-sign-card" id="mine-sign-card" data-auth-only hidden></div>
+          <button type="button" class="mine-member-entry" id="mine-open-member" data-auth-only hidden>个人中心</button>
         </div>
 
         <div class="mine-page__toolbar">
@@ -936,6 +939,8 @@ export function settingsPageHtml() {
           <nav class="settings-anchor" aria-label="设置目录">
             <ul class="settings-anchor__list">
               <li><a class="settings-anchor__link" href="#settings-section-profile" data-settings-anchor="profile">个人资料</a></li>
+              <li><a class="settings-anchor__link" href="#" data-settings-open-member="security">账号与安全</a></li>
+              <li><a class="settings-anchor__link" href="#" data-settings-open-member="premium">大会员</a></li>
               <li><a class="settings-anchor__link" href="#settings-section-account-extra" data-settings-anchor="account-extra">账号与背包</a></li>
               <li><a class="settings-anchor__link is-active" href="#settings-section-appearance" data-settings-anchor="appearance">外观</a></li>
               <li><a class="settings-anchor__link" href="#settings-section-playback" data-settings-anchor="playback">播放设置</a></li>
@@ -995,6 +1000,7 @@ export function setPage(pageId, options = {}) {
   main?.classList.toggle('content--contribute', pageId === 'contribute');
   main?.classList.toggle('content--sign', pageId === 'sign');
   main?.classList.toggle('content--series', pageId === 'series');
+  main?.classList.toggle('content--member', pageId === 'member');
 
   const homeTabs = document.getElementById('topbar-tabs-home');
   homeTabs?.toggleAttribute('hidden', pageId !== 'home');
@@ -1012,6 +1018,7 @@ export function setPage(pageId, options = {}) {
         pageId === 'contribute' ||
         pageId === 'sign' ||
         pageId === 'series' ||
+        pageId === 'member' ||
         pageId === 'feed',
     );
 

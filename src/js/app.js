@@ -18,6 +18,7 @@ import {
 } from './auth.js';
 import { userAvatarMediaSrc } from './content-api.js';
 import { bindLegalLinks, LEGAL_URLS } from './legal.js';
+import { loadAppSettings } from './app-preferences.js';
 import {
   bindOpenLoginTriggers,
   feedPageHtml,
@@ -65,6 +66,8 @@ import { bindSeriesPickerDialog } from './series-ui.js';
 import { bindImageViewer } from './image-viewer.js';
 import { bindCommentComposer } from './comment-composer.js';
 import { bindDanmakuManagerDialog } from './danmaku-manager-ui.js';
+import { bindMemberCenterPage, memberCenterPageHtml } from './member-center-page.js';
+import { bindReportDialog, reportDialogHtml } from './report-ui.js';
 
 /** @type {() => void} */
 let syncSettingsForm = () => {};
@@ -193,6 +196,7 @@ function renderShell() {
           ${seriesPageHtml()}
           ${messagePageHtml()}
           ${contributePageHtml()}
+          ${memberCenterPageHtml()}
           <button type="button" class="btn-refresh app-no-drag" aria-label="刷新">
             ${materialIcon('refresh')}
           </button>
@@ -262,6 +266,7 @@ function renderShell() {
         <div class="feed-detail__head">
           <div class="feed-detail__head-actions" id="feed-detail-owner-actions" hidden>
             <button type="button" class="feed-detail__owner-btn" id="feed-detail-forward-btn" title="转发到动态">${materialIcon('share')}</button>
+            <button type="button" class="feed-detail__owner-btn" id="feed-detail-report-btn" title="举报">${materialIcon('flag')}</button>
             <button type="button" class="feed-detail__owner-btn feed-detail__owner-btn--danger" id="feed-detail-delete-btn" title="删除动态">${materialIcon('delete')}</button>
           </div>
           <button type="button" class="feed-detail__close" id="feed-detail-close" aria-label="关闭">${materialIcon('close')}</button>
@@ -294,6 +299,7 @@ function renderShell() {
     </dialog>
 
     ${feedForwardDialogHtml()}
+    ${reportDialogHtml()}
 
     <dialog class="favorite-picker app-no-drag" id="favorite-picker-dialog" aria-labelledby="favorite-picker-title">
       <div class="favorite-picker__card">
@@ -773,6 +779,7 @@ function updateThemeToggleIcon(scheme) {
 
 function bootApp() {
   initTheme();
+  document.documentElement.classList.toggle('reduce-motion', loadAppSettings().reduceMotion);
   renderShell();
   bindWindowControls();
   bindNavigation();
@@ -785,6 +792,8 @@ function bootApp() {
   bindFeedPage();
   bindFeedDetail();
   bindFeedForward();
+  bindReportDialog();
+  bindMemberCenterPage();
   bindVideoDetail();
   bindDanmakuManagerDialog();
   bindArticleDetail();

@@ -1136,6 +1136,10 @@ export function restoreMinePageState(state) {
 }
 
 export function bindMinePage() {
+  document.getElementById('mine-open-member')?.addEventListener('click', () => {
+    void import('./member-center-page.js').then((mod) => mod.openMemberCenter('hub'));
+  });
+
   document.getElementById('mine-open-follows')?.addEventListener('click', () => {
     const session = loadSession();
     const userId = session?.user?.id ?? session?.user?.user_id;

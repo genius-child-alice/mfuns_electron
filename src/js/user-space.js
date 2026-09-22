@@ -26,6 +26,9 @@ import {
   fetchUserVideos,
 } from './user-profile-api.js';
 import { renderLevelBadgeHtml } from './user-level.js';
+import { openReportDialog } from './report-ui.js';
+import { addBlacklistUser, REPORT_RESOURCE } from './member-api.js';
+import { confirmAction } from './confirm-dialog.js';
 import {
   fetchFavoriteFolderList,
   fetchFavoriteItemsPage,
@@ -200,6 +203,8 @@ function renderProfileHeader(profile) {
             : `<div class="user-space__head-actions">
                 <button type="button" class="user-space__follow ${following ? 'is-followed' : ''}" id="user-space-follow-btn">${following ? '已关注' : '+ 关注'}</button>
                 <button type="button" class="user-space__message" id="user-space-message-btn">发消息</button>
+                <button type="button" class="user-space__message user-space__message--muted" id="user-space-report-btn">举报</button>
+                <button type="button" class="user-space__message user-space__message--muted" id="user-space-block-btn">拉黑</button>
               </div>`
         }
       </div>
@@ -213,6 +218,30 @@ function renderProfileHeader(profile) {
     void import('./message-page.js').then((mod) =>
       mod.openMessageThread(profile.id, { name: profile.name, avatar: profile.avatar ?? '' }),
     );
+  });
+
+  document.getElementById('user-space-report-btn')?.addEventListener('click', () => {
+    openReportDialog({
+      resourceId: profile.id,
+      resourceType: REPORT_RESOURCE.user,
+      title: profile.name,
+    });
+  });
+
+  document.getElementById('user-space-block-btn')?.addEventListener('click', async () => {
+    if (!requireLogin()) return;
+    const ok = await confirmAction({
+      title: '拉黑用户',
+      message: `将「${profile.name}」加入黑名单？`,
+      variant: 'danger',
+    });
+    if (!ok) return;
+    try {
+      await addBlacklistUser(profile.id);
+      notify('已加入黑名单');
+    } catch (err) {
+      notify(err instanceof Error ? err.message : '操作失败', 'error');
+    }
   });
 
   el.querySelectorAll('[data-user-relation-list]').forEach((btn) => {

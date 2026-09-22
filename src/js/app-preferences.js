@@ -9,6 +9,7 @@ const STORAGE_KEY = 'mfuns.app.settings';
  *   danmakuFontScale: number,
  *   danmakuDisplayArea: number,
  *   autoLaunch: boolean,
+ *   reduceMotion: boolean,
  * }} AppSettings */
 
 /** @returns {AppSettings} */
@@ -20,6 +21,7 @@ export function defaultAppSettings() {
     danmakuFontScale: 1,
     danmakuDisplayArea: 0.75,
     autoLaunch: false,
+    reduceMotion: false,
   };
 }
 
@@ -53,6 +55,7 @@ function normalizeAppSettings(value) {
     danmakuFontScale,
     danmakuDisplayArea,
     autoLaunch: obj.autoLaunch === true,
+    reduceMotion: obj.reduceMotion === true,
   };
 }
 

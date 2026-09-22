@@ -1165,6 +1165,13 @@ export function bindContributePage() {
   bindContributeFeedSection(showView);
   bindContributePublishedSection();
 
+  document.getElementById('contribute-open-creator-hub')?.addEventListener('click', () => {
+    void import('./member-center-page.js').then((mod) => mod.openMemberCenter('creator'));
+  });
+  document.getElementById('contribute-open-danmaku-hub')?.addEventListener('click', () => {
+    void import('./member-center-page.js').then((mod) => mod.openMemberCenter('danmaku'));
+  });
+
   document.querySelectorAll('[data-contribute-section]').forEach((el) => {
     el.addEventListener('click', () => {
       const section = el.getAttribute('data-contribute-section');

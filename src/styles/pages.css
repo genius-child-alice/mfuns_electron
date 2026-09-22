@@ -2,7 +2,8 @@
 .content.content--mine,
 .content.content--settings,
 .content.content--follow-list,
-.content.content--message {
+.content.content--message,
+.content.content--member {
   padding: 0;
   background: var(--page-canvas);
 }

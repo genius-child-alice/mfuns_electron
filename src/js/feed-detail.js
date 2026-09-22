@@ -4,6 +4,8 @@ import { notify } from './notice-ui.js';
 import { loadSession } from './auth.js';
 import { deleteFeed } from './feed-api.js';
 import { openFeedForward } from './feed-forward.js';
+import { openReportDialog } from './report-ui.js';
+import { REPORT_RESOURCE } from './member-api.js';
 import { openCommentComposer } from './comment-composer.js';
 import { requireLogin } from './login-ui.js';
 import {
@@ -181,12 +183,14 @@ function sessionUserId(user) {
 function syncFeedOwnerActions(detail) {
   const actions = document.getElementById('feed-detail-owner-actions');
   const forwardBtn = document.getElementById('feed-detail-forward-btn');
+  const reportBtn = document.getElementById('feed-detail-report-btn');
   const deleteBtn = document.getElementById('feed-detail-delete-btn');
   if (!actions || !forwardBtn || !deleteBtn) return;
   const viewerId = sessionUserId(loadSession()?.user);
   const isOwner = viewerId != null && detail.feed.authorId === viewerId;
   const loggedIn = Boolean(loadSession()?.token);
   forwardBtn.hidden = !loggedIn;
+  if (reportBtn) reportBtn.hidden = !loggedIn || isOwner;
   deleteBtn.hidden = !isOwner;
   actions.hidden = !loggedIn && !isOwner;
 }
@@ -363,6 +367,15 @@ export function bindFeedDetail() {
       resourceType: 3,
       resourceTitle: currentDetail.feed.title || currentDetail.feed.content,
       resourceCover: currentDetail.feed.images[0] ?? currentDetail.feed.resource?.cover ?? '',
+    });
+  });
+
+  document.getElementById('feed-detail-report-btn')?.addEventListener('click', () => {
+    if (!currentDetail || !requireLogin()) return;
+    openReportDialog({
+      resourceId: currentDetail.feed.id,
+      resourceType: REPORT_RESOURCE.feed,
+      title: currentDetail.feed.title || '动态',
     });
   });
 

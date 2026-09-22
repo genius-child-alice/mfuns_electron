@@ -61,6 +61,27 @@ export async function apiPostJson(path, body = {}) {
  * @param {string} path
  * @param {Record<string, string | number | boolean>} fields
  */
+/**
+ * @param {string} path
+ * @param {Record<string, unknown>} [body]
+ */
+export async function apiDelete(path, body = {}) {
+  /** @type {Record<string, string>} */
+  const headers = {
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+  };
+  const token = loadSession()?.token;
+  if (token) headers.Authorization = token;
+
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'DELETE',
+    headers,
+    body: JSON.stringify(body),
+  });
+  return parseApiJson(res);
+}
+
 export async function apiPostForm(path, fields = {}) {
   /** @type {Record<string, string>} */
   const headers = {

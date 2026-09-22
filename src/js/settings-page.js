@@ -141,6 +141,7 @@ export function bindSettingsPage(options = {}) {
     });
   });
 
+  bindSettingsMemberLinks();
   bindSettingsAnchorNav();
   bindAppSettingsControls();
   bindDesktopSettingsControls();
@@ -595,6 +596,16 @@ export async function refreshSettingsProfile() {
   } finally {
     profileLoading = false;
   }
+}
+
+function bindSettingsMemberLinks() {
+  document.querySelectorAll('[data-settings-open-member]').forEach((link) => {
+    link.addEventListener('click', (event) => {
+      event.preventDefault();
+      const view = link.getAttribute('data-settings-open-member') ?? 'hub';
+      void import('./member-center-page.js').then((mod) => mod.openMemberCenter(view));
+    });
+  });
 }
 
 function bindSettingsAnchorNav() {

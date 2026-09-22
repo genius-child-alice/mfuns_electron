@@ -56,6 +56,8 @@ import {
   openSeriesPickerDialog,
   renderCollectionNavHtml,
 } from './series-ui.js';
+import { openReportDialog } from './report-ui.js';
+import { REPORT_RESOURCE } from './member-api.js';
 
 /** @typedef {import('./content-api.js').ContentPreview} ContentPreview */
 /** @typedef {import('./video-api.js').VideoDetail} VideoDetail */
@@ -253,6 +255,10 @@ function renderIntroToolbar() {
       <button type="button" class="watch-interact-bar__item" id="watch-share-btn">
         <span class="watch-interact-bar__icon">${materialIcon('share')}</span>
         <span class="watch-interact-bar__label">分享</span>
+      </button>
+      <button type="button" class="watch-interact-bar__item" id="watch-report-btn" title="举报">
+        <span class="watch-interact-bar__icon">${materialIcon('flag')}</span>
+        <span class="watch-interact-bar__label">举报</span>
       </button>
       <button type="button" class="watch-interact-bar__item" id="watch-forward-feed-btn">
         <span class="watch-interact-bar__icon">${materialIcon('edit_note')}</span>
@@ -667,6 +673,15 @@ function bindSidePanelEvents() {
     });
   });
 
+  document.getElementById('watch-report-btn')?.addEventListener('click', () => {
+    if (!currentDetail) return;
+    openReportDialog({
+      resourceId: Number(currentDetail.preview.id),
+      resourceType: REPORT_RESOURCE.video,
+      title: currentDetail.preview.title,
+    });
+  });
+
   document.getElementById('watch-desc-expand')?.addEventListener('click', () => {
     descExpanded = !descExpanded;
     const block = document.getElementById('watch-desc-block');
@@ -730,7 +745,8 @@ async function loadWatchPage(preview) {
   authorTotalLikes = 0;
   setLoading(true);
 
-  getWatchPlayer()?.destroy();
+  // 只重置播放器实例，保留主题监听（destroy 会卸掉监听且单例仍在）
+  getWatchPlayer()?.reset();
   void loadStickerUrlMap().catch(() => {});
 
   try {

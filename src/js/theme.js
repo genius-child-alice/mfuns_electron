@@ -104,7 +104,14 @@ export function setColorSchemeWithReveal(nextScheme, originEl, event = null) {
   }
 
   const transition = document.startViewTransition(commit);
-  transition.finished.finally(clearRevealOrigin);
+  transition.finished.finally(() => {
+    clearRevealOrigin();
+    // 过渡结束后再通知一次，确保播放器等组件拿到最终主题
+    const prefs = loadPreferences();
+    window.dispatchEvent(
+      new CustomEvent('mfuns:theme-change', { detail: { colorScheme: prefs.colorScheme } }),
+    );
+  });
   return loadPreferences();
 }
 

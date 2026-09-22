@@ -25,6 +25,8 @@ import { resolveFavoriteStatus, resolveMineUserId } from './favorite-api.js';
 import { toggleResourceFavorite } from './favorite-ui.js';
 import { openRewardDialog } from './reward-ui.js';
 import { openShareDialog } from './share-ui.js';
+import { openReportDialog } from './report-ui.js';
+import { REPORT_RESOURCE } from './member-api.js';
 import { coinInteractLabel, favoriteInteractLabel } from './interact-bar-labels.js';
 import {
   isInWatchLater,
@@ -167,6 +169,10 @@ function renderInteractBar() {
       <button type="button" class="watch-interact-bar__item" id="article-share-btn">
         <span class="watch-interact-bar__icon">${materialIcon('share')}</span>
         <span class="watch-interact-bar__label">分享</span>
+      </button>
+      <button type="button" class="watch-interact-bar__item" id="article-report-btn" title="举报">
+        <span class="watch-interact-bar__icon">${materialIcon('flag')}</span>
+        <span class="watch-interact-bar__label">举报</span>
       </button>
       <button type="button" class="watch-interact-bar__item" id="article-forward-feed-btn">
         <span class="watch-interact-bar__icon">${materialIcon('edit_note')}</span>
@@ -383,6 +389,15 @@ function bindPageEvents() {
     openShareDialog({
       url: `https://m.mfuns.net/article/${currentDetail.preview.id}`,
       subtitle: currentDetail.preview.title || '复制链接分享给好友',
+    });
+  });
+
+  document.getElementById('article-report-btn')?.addEventListener('click', () => {
+    if (!currentDetail) return;
+    openReportDialog({
+      resourceId: Number(currentDetail.preview.id),
+      resourceType: REPORT_RESOURCE.article,
+      title: currentDetail.preview.title,
     });
   });
 

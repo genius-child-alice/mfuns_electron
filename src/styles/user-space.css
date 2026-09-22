@@ -267,6 +267,16 @@
   background: var(--accent-soft);
 }
 
+.user-space__message--muted {
+  color: var(--text-secondary);
+  border-color: var(--border-subtle);
+}
+
+.user-space__message--muted:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
 .user-space__tabs {
   position: sticky;
   top: 0;

@@ -96,17 +96,48 @@ export function isAppDarkMode() {
   return loadPreferences().colorScheme === 'dark';
 }
 
+/** 本会话内播放器「关灯」覆盖（不写 localStorage，避免一直卡在深色） */
+/** @type {boolean | null} */
+let sessionDarkModeOverride = null;
+
 /**
- * 播放器关灯/深色：优先读用户曾在播放器里切换过的偏好，否则跟随应用主题。
+ * 播放器关灯/深色：本会话手动切换优先，否则跟随应用主题。
  * @returns {boolean}
  */
 export function resolvePlayerDarkMode() {
-  const config = getPlayerConfig();
-  if (typeof config.darkMode === 'boolean') return config.darkMode;
+  if (typeof sessionDarkModeOverride === 'boolean') return sessionDarkModeOverride;
   return isAppDarkMode();
 }
 
 /** @param {boolean} enabled */
 export function setPlayerDarkMode(enabled) {
-  updatePlayerConfig('darkMode', enabled);
+  sessionDarkModeOverride = enabled;
+  // 清理历史错误落盘的 sticky darkMode，避免下次启动仍强制深色
+  try {
+    const raw = localStorage.getItem(PLAYER_CONFIG_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && 'darkMode' in parsed) {
+      delete parsed.darkMode;
+      localStorage.setItem(PLAYER_CONFIG_KEY, JSON.stringify(parsed));
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+/** 应用主题变更时清除会话覆盖，让播放器重新跟随应用 */
+export function clearPlayerDarkModeOverride() {
+  sessionDarkModeOverride = null;
+  try {
+    const raw = localStorage.getItem(PLAYER_CONFIG_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && 'darkMode' in parsed) {
+      delete parsed.darkMode;
+      localStorage.setItem(PLAYER_CONFIG_KEY, JSON.stringify(parsed));
+    }
+  } catch {
+    /* ignore */
+  }
 }
