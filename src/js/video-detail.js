@@ -48,7 +48,8 @@ import {
 } from './comment-ui.js';
 import { bindTagButtons, renderTagButtons } from './tag-page.js';
 import { commentComposerTriggerHtml, openCommentComposer } from './comment-composer.js';
-import { fetchSeriesContext } from './series-api.js';
+import { fetchSeriesContext, seriesItemToPreview } from './series-api.js';
+import { getPlayerConfig } from './player-preferences.js';
 import {
   bindCollectionNav,
   canManageContentSeries,
@@ -94,6 +95,8 @@ let commentItems = [];
 
 let collectionNavHtml = '';
 let canManageSeries = false;
+/** @type {import('./series-api.js').SeriesItem[]} */
+let seriesPlaylistItems = [];
 
 const commentReplyStore = createCommentReplyStore();
 
@@ -282,6 +285,64 @@ async function reloadVideoCollectionNav() {
   renderSidePanel();
 }
 
+/**
+ * @param {import('./series-api.js').ReturnType<typeof fetchSeriesContext> extends Promise<infer T> ? T : never} ctx
+ */
+function buildMfunsSeriesPayload(ctx) {
+  if (!ctx?.items?.length || !currentDetail) return null;
+  const order = getPlayerConfig().seriesOrder;
+  const items = ctx.items.filter((item) => item.resourceType === 1);
+  if (!items.length) return null;
+  const ordered = order === 'reverse' ? [...items].reverse() : items;
+  return {
+    title: ctx.info.title,
+    currentId: Number(currentDetail.preview.id),
+    order,
+    items: ordered.map((item) => ({ id: item.resourceId, title: item.title })),
+    shuffleKey: `series:${ctx.info.id}`,
+  };
+}
+
+function handleSwitchSeriesVideo(videoId) {
+  if (!Number.isFinite(videoId) || videoId <= 0) return;
+  sessionStorage.setItem('mfuns_auto_continue', '1');
+  const fromSeries = seriesPlaylistItems.find((item) => item.resourceId === videoId);
+  const preview = fromSeries
+    ? seriesItemToPreview(fromSeries)
+    : {
+        id: String(videoId),
+        type: 1,
+        title: '视频',
+        cover: null,
+        author: '',
+        authorId: null,
+        authorAvatar: null,
+        views: 0,
+        comments: 0,
+        duration: null,
+        createdAt: null,
+      };
+  void openVideoDetail(preview);
+}
+
+function loadWatchPlayerWithContext(seriesPayload = null) {
+  if (!currentDetail || currentParts.length === 0) return;
+  getWatchPlayer()?.load({
+    parts: currentParts,
+    partIndex: activePartIndex,
+    videoId: currentDetail.preview.id,
+    title: currentDetail.preview.title,
+    series: seriesPayload,
+    onPartChange: () => {
+      const wp = getWatchPlayer();
+      if (!wp) return;
+      activePartIndex = wp.partIndex;
+      updatePartsActiveState(activePartIndex);
+    },
+    onSwitchSeries: handleSwitchSeriesVideo,
+  });
+}
+
 function renderSidePanel() {
   const detail = currentDetail;
   if (!detail) return;
@@ -397,6 +458,11 @@ function renderSidePanel() {
 
         ${renderPartsPlaylist(currentParts, activePartIndex, preview.title, preview.views)}
 
+        <div class="watch-danmaku-panel">
+          <h3 class="watch-danmaku-panel__title">弹幕列表</h3>
+          <div id="danmakuList" class="m-video__danmaku"></div>
+        </div>
+
         <section class="watch-related">
           <h2 class="watch-related__heading">相关推荐</h2>
           <div class="watch-related__list">${renderRelatedList(relatedItems)}</div>
@@ -412,6 +478,7 @@ function renderSidePanel() {
 
   bindSidePanelEvents();
   hydrateRichMarkdown();
+  getWatchPlayer()?.reattachDanmakuList();
 }
 
 function hydrateRichMarkdown() {
@@ -651,6 +718,7 @@ async function loadWatchPage(preview) {
   commentReplyStore.clear();
   collectionNavHtml = '';
   canManageSeries = false;
+  seriesPlaylistItems = [];
   watchLater = isInWatchLater(resolveWatchLaterUserId(), preview.id, 1);
   offlineCached = Boolean(findOfflineEntry(preview.id, 0));
   offlineDownloading = false;
@@ -684,22 +752,6 @@ async function loadWatchPage(preview) {
           url: offlineSrc,
         },
       ];
-    }
-
-    const poster = detail.preview.cover ? mediaSrcForCover(detail.preview.cover) : null;
-    if (parts.length > 0) {
-      getWatchPlayer()?.load({
-        parts,
-        partIndex: activePartIndex,
-        videoId: detail.preview.id,
-        poster: poster ?? undefined,
-        onPartChange: () => {
-          const wp = getWatchPlayer();
-          if (!wp) return;
-          activePartIndex = wp.partIndex;
-          updatePartsActiveState(activePartIndex);
-        },
-      });
     }
 
     const session = loadSession();
@@ -756,6 +808,8 @@ async function loadWatchPage(preview) {
     canManageSeries = await canManageContentSeries(detail.authorId);
 
     collectionNavHtml = '';
+    /** @type {object | null} */
+    let seriesPayload = null;
     if (detail.seriesId) {
       try {
         const ctx = await fetchSeriesContext(
@@ -763,13 +817,18 @@ async function loadWatchPage(preview) {
           Number(detail.preview.id),
           1,
         );
+        seriesPlaylistItems = ctx.items;
         collectionNavHtml = renderCollectionNavHtml(ctx);
+        seriesPayload = buildMfunsSeriesPayload(ctx);
       } catch {
         /* ignore */
       }
     }
 
     renderSidePanel();
+    if (parts.length > 0) {
+      loadWatchPlayerWithContext(seriesPayload);
+    }
   } catch (err) {
     const side = document.getElementById('watch-side-panel');
     if (side) {
@@ -839,23 +898,10 @@ function applyWatchPageState(state) {
   canManageSeries = state.canManageSeries ?? false;
   commentReplyStore.clear();
 
-  if (currentDetail && currentParts.length > 0) {
-    const poster = currentDetail.preview.cover ? mediaSrcForCover(currentDetail.preview.cover) : null;
-    getWatchPlayer()?.load({
-      parts: currentParts,
-      partIndex: activePartIndex,
-      videoId: currentDetail.preview.id,
-      poster: poster ?? undefined,
-      onPartChange: () => {
-        const wp = getWatchPlayer();
-        if (!wp) return;
-        activePartIndex = wp.partIndex;
-        updatePartsActiveState(activePartIndex);
-      },
-    });
-  }
-
   renderSidePanel();
+  if (currentDetail && currentParts.length > 0) {
+    loadWatchPlayerWithContext(null);
+  }
   refreshCommentsUi();
   restoreScrollTop('main-content', state.scrollTop ?? 0);
 }

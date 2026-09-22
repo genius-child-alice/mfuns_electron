@@ -71,13 +71,98 @@
   min-height: 0;
 }
 
-.watch-player-wrap {
+.watch-player-wrap,
+.watch-mfuns-player {
   position: relative;
   flex: 1;
   min-height: 0;
   width: 100%;
   background: #000;
   overflow: hidden;
+}
+
+.watch-mfuns-player.m-video-player {
+  display: flex;
+  flex-direction: column;
+}
+
+.watch-mfuns-player .m-video-player__main {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+
+.watch-mfuns-player .m-video-player__placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 14px;
+  background: #000;
+  z-index: 1;
+}
+
+.watch-danmaku-panel {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.08));
+}
+
+.watch-danmaku-panel__title {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.m-video__danmaku {
+  max-height: 280px;
+  overflow: auto;
+  font-size: 13px;
+}
+
+/* mfunsPlayer 深色：跟随应用主题或播放器「关灯模式」 */
+html[data-theme='dark'] .watch-mfuns-player,
+.watch-mfuns-player.watch-mfuns-player--scheme-dark {
+  color-scheme: dark;
+}
+
+/* 桌面端不使用官网全页遮罩，避免侧边栏与页面被压暗 */
+body.player-mode-blackmask .heimu {
+  display: none !important;
+}
+
+html[data-theme='dark'] .watch-mfuns-player .mfunsPlayer-footBar,
+.watch-mfuns-player.watch-mfuns-player--scheme-dark .mfunsPlayer-footBar {
+  background-color: #212121;
+  color: #f6f6f6;
+  border-color: #212121;
+}
+
+html[data-theme='dark'] .watch-mfuns-player .mfunsPlayer-footBar .input_box,
+.watch-mfuns-player.watch-mfuns-player--scheme-dark .mfunsPlayer-footBar .input_box {
+  border-left-color: #666;
+}
+
+html[data-theme='dark'] .watch-mfuns-player .mfunsPlayer-footBar .mfunsPlayer-video-danmaku-source,
+.watch-mfuns-player.watch-mfuns-player--scheme-dark
+  .mfunsPlayer-footBar
+  .mfunsPlayer-video-danmaku-source {
+  background-color: #212121 !important;
+  border-color: #666 !important;
+}
+
+html[data-theme='dark'] .watch-danmaku-panel,
+.watch-mfuns-player.watch-mfuns-player--scheme-dark ~ .watch-side .watch-danmaku-panel,
+html[data-theme='dark'] .watch-side .watch-danmaku-panel {
+  border-top-color: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme='dark'] .watch-danmaku-panel__title,
+html[data-theme='dark'] .m-video__danmaku {
+  color: var(--text-primary);
 }
 
 .watch-player {

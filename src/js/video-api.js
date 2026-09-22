@@ -12,7 +12,15 @@ import {
 
 /** @typedef {{ part: number, partIndex: number, title: string, qualities: VideoQuality[] }} VideoPart */
 
-/** @typedef {{ part: number, name: string, label: string, url: string }} VideoQuality */
+/** @typedef {{
+ *   part: number,
+ *   name: string,
+ *   label: string,
+ *   url: string,
+ *   format?: string,
+ *   needLogin?: boolean,
+ *   needPremium?: boolean,
+ * }} VideoQuality */
 
 /** @typedef {{
  *   preview: ContentPreview,
@@ -246,6 +254,9 @@ function parseVideoParts(data) {
         name: `${item.name ?? '默认清晰度'}`,
         label: `${item.label ?? ''}`,
         url,
+        format: `${item.format ?? ''}`.trim() || guessStreamFormat(url),
+        needLogin: Boolean(item.need_login ?? item.needLogin),
+        needPremium: Boolean(item.need_premium ?? item.needPremium),
       });
     });
     if (qualities.length === 0) return;
@@ -312,8 +323,19 @@ export async function fetchVideoDetail(preview) {
 /**
  * @param {string | number} videoId
  */
+/**
+ * @param {string} url
+ */
+function guessStreamFormat(url) {
+  const lower = url.toLowerCase();
+  if (lower.includes('.m3u8')) return 'm3u8';
+  if (lower.includes('.flv')) return 'flv';
+  if (lower.includes('.mpd')) return 'dash';
+  return 'mp4';
+}
+
 export async function fetchVideoPlayParts(videoId) {
-  const data = await apiGet('/v1/video/getPlayAddress', { id: videoId });
+  const data = await apiGet('/v1/video/getPlayAddress', { id: videoId, showAll: 1 });
   return parseVideoParts(data);
 }
 

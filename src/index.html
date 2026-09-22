@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data: https: mfuns-media: mfuns-offline:; media-src 'self' https: mfuns-media: mfuns-offline: blob:; connect-src 'self' https://api.mfuns.net https: mfuns-media: mfuns-offline:"
+      content="default-src 'self'; script-src 'self' https://resource.mfuns.net; style-src 'self' https://resource.mfuns.net 'unsafe-inline'; font-src 'self' https: data:; img-src 'self' data: https: mfuns-media: mfuns-offline:; media-src 'self' https: mfuns-media: mfuns-offline: blob:; connect-src 'self' https://api.mfuns.net https: mfuns-media: mfuns-offline:"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Mfuns</title>
@@ -29,6 +29,10 @@
         root.style.setProperty('--accent-b', String(accent.b));
         root.style.setProperty(
           '--accent',
+          'rgb(' + accent.r + ', ' + accent.g + ', ' + accent.b + ')',
+        );
+        root.style.setProperty(
+          '--color-primary',
           'rgb(' + accent.r + ', ' + accent.g + ', ' + accent.b + ')',
         );
       })();

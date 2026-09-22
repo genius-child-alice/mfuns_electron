@@ -1,446 +1,627 @@
-import Hls from '../../node_modules/hls.js/dist/hls.mjs';
-import { materialIcon } from './icons.js';
+import { loadSession } from './auth.js';
 import { mediaPlaybackSrc } from './content-api.js';
-import { createWatchDanmaku } from './watch-danmaku.js';
+import { sendDanmaku } from './danmaku-api.js';
+import { openInAppBrowser } from './legal.js';
+import { requireLogin } from './login-ui.js';
 import {
-  getQualitiesForPart,
-  pickDefaultQuality,
-  qualityDisplayLabel,
-  sortQualitiesDesc,
-} from './video-api.js';
+  endVideoPlaySession,
+  sendVideoPlayHeartbeat,
+  startVideoPlaySession,
+} from './video-play-api.js';
+import {
+  getDanmakuPlayerConfig,
+  getPlayerConfig,
+  getPreferredResolution,
+  resolvePlayerDarkMode,
+  setPlayerDarkMode,
+  setPreferredResolution,
+  setPlayerVolume,
+  setSeriesOrder,
+  updateDanmakuPlayerConfig,
+  updatePlayerConfig,
+} from './player-preferences.js';
 
 /** @typedef {import('./video-api.js').VideoPart} VideoPart */
-/** @typedef {import('./video-api.js').VideoQuality} VideoQuality */
+
+const MFUNS_PLAYER_JS =
+  'https://resource.mfuns.net/js/mfunsplayer/web/2.2.2/mfunsPlayer.min.umd.js';
+const MFUNS_ECHARTS_JS = 'https://resource.mfuns.net/js/echarts/6.0.0/echarts.min.js';
+const PLACEHOLDER_PIC =
+  'data:image/gif;base64,R0lGODlhAQABAIAAAAUEBAAAACwAAAAAAQABAAACAkQBADs=';
+
+/** @type {Promise<void> | null} */
+let sdkLoadPromise = null;
+
+/**
+ * @param {string} src
+ * @param {string} globalName
+ */
+function loadExternalScript(src, globalName) {
+  return new Promise((resolve, reject) => {
+    if (globalName && window[globalName]) {
+      resolve();
+      return;
+    }
+    const existing = document.querySelector(`script[data-mfuns-src="${src}"]`);
+    if (existing) {
+      existing.addEventListener('load', () => resolve(), { once: true });
+      existing.addEventListener('error', () => reject(new Error(`加载失败: ${src}`)), {
+        once: true,
+      });
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = src;
+    script.crossOrigin = 'anonymous';
+    script.dataset.mfunsSrc = src;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error(`加载失败: ${src}`));
+    document.head.appendChild(script);
+  });
+}
+
+function ensureMfunsPlayerSdk() {
+  if (!sdkLoadPromise) {
+    sdkLoadPromise = Promise.all([
+      loadExternalScript(MFUNS_PLAYER_JS, 'mfunsPlayer'),
+      loadExternalScript(MFUNS_ECHARTS_JS, 'echarts'),
+    ]).then(() => {});
+  }
+  return sdkLoadPromise;
+}
 
 /**
  * @param {string} url
  */
-function isHlsUrl(url) {
-  return /\.m3u8(?:\?|$)/i.test(url);
-}
-
-/** @param {string} url */
-function proxyMediaUrl(url) {
-  if (url.startsWith('mfuns-offline://')) return url;
+function playbackUrl(url) {
   return mediaPlaybackSrc(url) ?? url;
 }
 
-function hlsConfig() {
-  return {
-    enableWorker: true,
-    lowLatencyMode: false,
-    xhrSetup: (xhr, url) => {
-      xhr.open('GET', proxyMediaUrl(url), true);
-    },
-    fetchSetup: (context, initParams) => {
-      return new Request(proxyMediaUrl(context.url), initParams);
-    },
-  };
+/**
+ * @param {number} type
+ */
+function danmakuTypeToApi(type) {
+  if (typeof type === 'number' && Number.isFinite(type)) return Math.trunc(type);
+  const map = { right: 1, top: 5, bottom: 4, left: 6 };
+  return map[type] ?? 1;
 }
 
 /**
- * @param {number} seconds
+ * @param {VideoPart[]} parts
+ * @param {string} videoId
+ * @param {string} [title]
  */
-function formatTime(seconds) {
-  if (!Number.isFinite(seconds) || seconds < 0) return '00:00';
-  const total = Math.floor(seconds);
-  const h = Math.floor(total / 3600);
-  const m = Math.floor((total % 3600) / 60);
-  const s = total % 60;
-  const mm = String(m).padStart(2, '0');
-  const ss = String(s).padStart(2, '0');
-  return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+function buildMfunsVideoList(parts, videoId, title = '') {
+  const pref = getPreferredResolution();
+  const prefNum = Number.parseInt(pref, 10) || 1080;
+
+  return parts.map((part, index) => {
+    const partTitle = parts.length === 1 && title ? title : part.title;
+    const sources = part.qualities.filter((q) => q.url);
+    if (sources.length === 0) {
+      return {
+        pic: PLACEHOLDER_PIC,
+        title: partTitle,
+        url: '',
+        type: 'mp4',
+        danId: `${videoId}&part=${index + 1}`,
+      };
+    }
+
+    const mapResolution = (q, isDefault) => ({
+      url: playbackUrl(q.url),
+      type: q.format || 'mp4',
+      label: q.label || '',
+      name: q.name,
+      isDefault,
+      needLogin: Boolean(q.needLogin),
+      needPremium: Boolean(q.needPremium),
+    });
+
+    if (sources.length === 1) {
+      const q = sources[0];
+      return {
+        pic: PLACEHOLDER_PIC,
+        title: partTitle,
+        url: playbackUrl(q.url),
+        type: q.format || 'mp4',
+        danId: `${videoId}&part=${index + 1}`,
+      };
+    }
+
+    const numeric = sources.map((s) => Number.parseInt(s.name, 10) || 0);
+    const closest =
+      `${prefNum - Math.min(...numeric.map((n) => Math.abs(n - prefNum)))}P`;
+    const pickIndex = Math.max(
+      0,
+      sources.findIndex((s) => s.name === closest),
+    );
+    const picked = sources[pickIndex] ?? sources[0];
+
+    return {
+      pic: PLACEHOLDER_PIC,
+      title: partTitle,
+      url: playbackUrl(picked.url),
+      type: picked.format || 'mp4',
+      danId: `${videoId}&part=${index + 1}`,
+      resolution: sources.map((s, i) => mapResolution(s, i === pickIndex)),
+    };
+  });
+}
+
+/**
+ * @param {string} videoId
+ * @param {number} partIndex
+ */
+function readSavedPosition(videoId, partIndex) {
+  try {
+    const raw = localStorage.getItem(`mfuns:video-position:p:${videoId}:${partIndex}`);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    const position = Number(data.position);
+    if (!Number.isFinite(position) || position < 0) return null;
+    return position;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * @param {string} videoId
+ * @param {number} partIndex
+ * @param {number} position
+ */
+function writeSavedPosition(videoId, partIndex, position) {
+  localStorage.setItem(
+    `mfuns:video-position:p:${videoId}:${partIndex}`,
+    JSON.stringify({ position, time: Date.now() }),
+  );
 }
 
 export class WatchPlayer {
   /** @param {HTMLElement} root */
   constructor(root) {
     this.root = root;
-    /** @type {HTMLVideoElement} */
-    this.video = /** @type {HTMLVideoElement} */ (root.querySelector('#watch-player'));
-    this.overlay = root.querySelector('#watch-player-overlay');
-    this.bigPlay = root.querySelector('#watch-player-big-play');
-    this.playBtn = root.querySelector('#watch-player-play');
-    this.nextBtn = root.querySelector('#watch-player-next');
-    this.progress = /** @type {HTMLInputElement} */ (root.querySelector('#watch-player-progress'));
-    this.progressPlayed = root.querySelector('#watch-player-played');
-    this.progressBuffer = root.querySelector('#watch-player-buffer');
-    this.timeEl = root.querySelector('#watch-player-time');
-    this.qualityBtn = root.querySelector('#watch-player-quality-btn');
-    this.qualityMenu = root.querySelector('#watch-player-quality-menu');
-    this.speedBtn = root.querySelector('#watch-player-speed-btn');
-    this.speedMenu = root.querySelector('#watch-player-speed-menu');
-    this.volumeBtn = root.querySelector('#watch-player-volume-btn');
-    this.volumePopup = root.querySelector('#watch-player-volume-popup');
-    this.volume = /** @type {HTMLInputElement} */ (root.querySelector('#watch-player-volume'));
-    this.fullscreenBtn = root.querySelector('#watch-player-fullscreen');
-    this.errorEl = root.querySelector('#watch-player-error');
-    this.loadingEl = root.querySelector('#watch-player-loading');
-
-    /** @type {Hls | null} */
-    this.hls = null;
+    this.container = root.querySelector('#mfuns-player-container');
+    this.placeholder = root.querySelector('#mfuns-player-placeholder');
+    /** @type {any} */
+    this.player = null;
     /** @type {VideoPart[]} */
     this.parts = [];
     this.partIndex = 0;
-    /** @type {VideoQuality | null} */
-    this.selectedQuality = null;
+    this.videoId = '';
+    this.title = '';
     /** @type {(() => void) | null} */
     this.onPartChange = null;
-    this.controlsTimer = 0;
-    this.progressDragging = false;
-    this.playbackRate = 1;
-    this.videoId = '';
-    /** @type {import('./watch-danmaku.js').WatchDanmaku | null} */
-    this.danmaku = createWatchDanmaku(root);
-    this.danmaku.attachVideo(this.video);
+    /** @type {((videoId: number) => void) | null} */
+    this.onSwitchSeries = null;
+    /** @type {object | null} */
+    this.series = null;
+    this.ready = false;
+    this.sessionId = '';
+    this.heartbeatTimer = 0;
+    this.isPlaying = false;
+    this.lastHeartbeatAt = 0;
+    this.lastPosition = 0;
+    this.dragStart = 0;
+    /** @type {Array<{ from: number, to: number, time: string }>} */
+    this.dragEvents = [];
+    this.totalPlayDuration = 0;
+    this.totalWatchDuration = 0;
+    this.sessionStartedAt = 0;
+    this.heartbeatPlayTime = 0;
+    this.sessionBootstrapped = false;
+    this.skipResumeOnce = false;
+    this.pendingAutoPlay = false;
 
-    this.bindEvents();
+    this.onThemeChange = () => {
+      this.syncThemeColor();
+      this.applyColorScheme();
+    };
+    window.addEventListener('resize', () => this.onWindowResize());
+    window.addEventListener('beforeunload', () => this.flushBeaconHeartbeat());
+    window.addEventListener('mfuns:theme-change', this.onThemeChange);
   }
 
-  bindEvents() {
-    this.root.addEventListener('mousemove', () => this.showControls());
-    this.root.addEventListener('click', () => this.showControls());
-    this.overlay?.addEventListener('click', (e) => {
-      const target = /** @type {HTMLElement} */ (e.target);
-      if (target.closest('.watch-player__bottom')) return;
-      if (target === this.overlay || target.closest('.watch-player__center')) {
-        this.togglePlay();
-      }
-    });
-    this.bigPlay?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.togglePlay();
-    });
-    this.playBtn?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.togglePlay();
-    });
-    this.nextBtn?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (this.partIndex + 1 < this.parts.length) {
-        this.loadPart(this.partIndex + 1, { autoPlay: true });
-      }
-    });
-    this.progress?.addEventListener('input', () => {
-      this.progressDragging = true;
-      const ratio = Number(this.progress.value) / 1000;
-      if (this.progressPlayed) this.progressPlayed.style.width = `${ratio * 100}%`;
-      const duration = this.video.duration;
-      this.updateTimeLabel(
-        ratio,
-        Number.isFinite(duration) ? ratio * duration : 0,
-        duration,
-      );
-    });
-    this.progress?.addEventListener('change', () => {
-      const duration = this.video.duration;
-      if (Number.isFinite(duration) && duration > 0) {
-        this.video.currentTime = (Number(this.progress.value) / 1000) * duration;
-      }
-      this.progressDragging = false;
-    });
-    this.volume?.addEventListener('input', () => {
-      this.video.volume = Number(this.volume.value) / 100;
-      this.syncVolumeIcon();
-    });
-    this.volumeBtn?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.volumePopup?.toggleAttribute('hidden');
-      this.qualityMenu?.setAttribute('hidden', '');
-      this.speedMenu?.setAttribute('hidden', '');
-    });
-    this.qualityBtn?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.qualityMenu?.toggleAttribute('hidden');
-      this.speedMenu?.setAttribute('hidden', '');
-      this.volumePopup?.setAttribute('hidden', '');
-    });
-    this.speedBtn?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.speedMenu?.toggleAttribute('hidden');
-      this.qualityMenu?.setAttribute('hidden', '');
-      this.volumePopup?.setAttribute('hidden', '');
-    });
-    this.speedMenu?.querySelectorAll('[data-playback-rate]').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const rate = Number(btn.getAttribute('data-playback-rate'));
-        if (!Number.isFinite(rate)) return;
-        this.setPlaybackRate(rate);
-        this.speedMenu?.setAttribute('hidden', '');
-      });
-    });
-    this.fullscreenBtn?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (document.fullscreenElement) {
-        document.exitFullscreen();
-      } else {
-        this.root.requestFullscreen?.();
-      }
-    });
-    this.video.addEventListener('play', () => this.syncPlayUi());
-    this.video.addEventListener('pause', () => this.syncPlayUi());
-    this.video.addEventListener('timeupdate', () => this.syncProgress());
-    this.video.addEventListener('waiting', () => this.setLoading(true));
-    this.video.addEventListener('playing', () => this.setLoading(false));
-    this.video.addEventListener('loadedmetadata', () => this.syncProgress());
-    this.video.addEventListener('ended', () => {
-      if (this.partIndex + 1 < this.parts.length) {
-        this.loadPart(this.partIndex + 1, { autoPlay: true });
-      }
-    });
-    document.addEventListener('click', (e) => {
-      const target = /** @type {Node} */ (e.target);
-      if (!this.qualityBtn?.contains(target) && !this.qualityMenu?.contains(target)) {
-        this.qualityMenu?.setAttribute('hidden', '');
-      }
-      if (!this.speedBtn?.contains(target) && !this.speedMenu?.contains(target)) {
-        this.speedMenu?.setAttribute('hidden', '');
-      }
-      if (!this.volumeBtn?.contains(target) && !this.volumePopup?.contains(target)) {
-        this.volumePopup?.setAttribute('hidden', '');
-      }
-    });
+  onWindowResize() {
+    const config = getPlayerConfig();
+    this.player?.template?.buildVideo?.(config.blackBorder);
   }
 
-  /**
-   * @param {number} rate
-   */
-  setPlaybackRate(rate) {
-    this.playbackRate = rate;
-    this.video.playbackRate = rate;
-    if (this.speedBtn) {
-      this.speedBtn.textContent = rate === 1 ? '倍速' : `${rate}x`;
+  syncThemeColor() {
+    const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+    if (accent) {
+      document.documentElement.style.setProperty('--color-primary', accent);
     }
-    this.speedMenu?.querySelectorAll('[data-playback-rate]').forEach((btn) => {
-      btn.classList.toggle(
-        'is-active',
-        Number(btn.getAttribute('data-playback-rate')) === rate,
-      );
-    });
-  }
-
-  syncVolumeIcon() {
-    if (!this.volumeBtn || !this.volume) return;
-    const v = Number(this.volume.value);
-    const icon =
-      v <= 0 ? 'volume_off' : v < 35 ? 'volume_mute' : v < 70 ? 'volume_down' : 'volume_up';
-    this.volumeBtn.innerHTML = materialIcon(icon);
-  }
-
-  syncPartControls() {
-    const hasNext = this.parts.length > 1 && this.partIndex < this.parts.length - 1;
-    this.nextBtn?.toggleAttribute('hidden', !hasNext);
-  }
-
-  showControls() {
-    this.overlay?.classList.remove('watch-player__overlay--hidden');
-    window.clearTimeout(this.controlsTimer);
-    if (!this.video.paused) {
-      this.controlsTimer = window.setTimeout(() => {
-        this.overlay?.classList.add('watch-player__overlay--hidden');
-        this.qualityMenu?.setAttribute('hidden', '');
-        this.speedMenu?.setAttribute('hidden', '');
-        this.volumePopup?.setAttribute('hidden', '');
-      }, 4000);
+    if (this.player?.theme) {
+      const primary =
+        getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim() ||
+        accent;
+      if (primary) this.player.theme(primary);
     }
   }
 
-  syncPlayUi() {
-    const playing = !this.video.paused;
-    this.root.classList.toggle('watch-player-wrap--playing', playing);
-    if (this.playBtn) {
-      this.playBtn.innerHTML = materialIcon(playing ? 'pause' : 'play_arrow');
-    }
-    if (playing) this.showControls();
+  /** 移除官网「关灯模式」的全页黑色遮罩（桌面端只保留播放器内深色控件） */
+  clearPlayerBlackmask() {
+    document.body.classList.remove('player-mode-blackmask');
+    document.querySelectorAll('body > .heimu').forEach((node) => node.remove());
   }
 
-  syncProgress() {
-    const { currentTime, duration } = this.video;
-    const ratio =
-      Number.isFinite(duration) && duration > 0 ? Math.min(1, currentTime / duration) : 0;
-    if (!this.progressDragging && Number.isFinite(duration) && duration > 0) {
-      this.progress.value = String(Math.round(ratio * 1000));
-    }
-    if (this.progressPlayed) {
-      this.progressPlayed.style.width = `${ratio * 100}%`;
-    }
-    if (this.progressBuffer && Number.isFinite(duration) && duration > 0) {
-      let bufferedEnd = 0;
-      const ranges = this.video.buffered;
-      for (let i = 0; i < ranges.length; i += 1) {
-        bufferedEnd = Math.max(bufferedEnd, ranges.end(i));
-      }
-      this.progressBuffer.style.width = `${Math.min(1, bufferedEnd / duration) * 100}%`;
-    }
-    this.updateTimeLabel(ratio, currentTime, duration);
-    this.danmaku?.tick(currentTime, !this.video.paused);
-  }
-
-  /**
-   * @param {number} ratio
-   * @param {number} [current]
-   * @param {number} [duration]
-   */
-  updateTimeLabel(ratio, current = 0, duration = 0) {
-    if (!this.timeEl) return;
-    if (duration > 0) {
-      this.timeEl.textContent = `${formatTime(current)} / ${formatTime(duration)}`;
+  syncDarkmodeSwitch(dark) {
+    const switchCmp = this.player?.components?.videoDarkmodeSwitch;
+    if (!switchCmp || switchCmp.value === dark) return;
+    if (typeof switchCmp.setValue === 'function') {
+      switchCmp.setValue(dark);
       return;
     }
-    this.timeEl.textContent = formatTime(ratio * (this.video.duration || 0));
+    switchCmp.value = dark;
+    switchCmp.el?.classList?.toggle('switch-on', dark);
   }
 
-  setLoading(loading) {
-    this.loadingEl?.toggleAttribute('hidden', !loading);
+  /** 同步应用深色主题到 mfunsPlayer 控制条（官网「关灯模式」样式，不遮罩整个窗口） */
+  applyColorScheme() {
+    const dark = resolvePlayerDarkMode();
+    this.root?.classList.toggle('watch-mfuns-player--scheme-dark', dark);
+
+    const player = this.player;
+    if (!player?.container) return;
+
+    player.container.classList.toggle('mfunsPlayer-darkmode', dark);
+    player.template?.footBar?.classList?.toggle('darkmode', dark);
+    this.syncDarkmodeSwitch(dark);
+
+    if (dark) this.clearPlayerBlackmask();
   }
 
-  /**
-   * @param {string} message
-   */
-  setError(message) {
-    if (!this.errorEl) return;
-    if (!message) {
-      this.errorEl.hidden = true;
-      this.errorEl.textContent = '';
+  async ensurePlayer() {
+    if (!this.container) throw new Error('播放器容器不存在');
+    await ensureMfunsPlayerSdk();
+    if (this.player) return;
+
+    const config = getPlayerConfig();
+    const danmakuConfig = getDanmakuPlayerConfig();
+    const session = loadSession();
+    const user = session?.user;
+    const uid = user && (user.id ?? user.user_id);
+    const videoList = buildMfunsVideoList(this.parts, this.videoId, this.title);
+
+    const PlayerCtor = /** @type {any} */ (window).mfunsPlayer;
+    this.player = new PlayerCtor({
+      uid,
+      container: this.container,
+      draggable: true,
+      hotkey: true,
+      autoPlay: this.pendingAutoPlay || config.autoPlay,
+      autoSwitch: config.autoSwitch,
+      autoSkip: config.autoSkip,
+      smallWindow: config.smallWindow,
+      blackBorder: config.blackBorder,
+      volume: config.volume,
+      currentVideo: this.partIndex,
+      video: videoList,
+      series: this.series,
+      widescreenSwitch: true,
+      danmaku: {
+        api: 'https://api.mfuns.net/v1/danmaku/get_normal',
+        bottom: '0',
+        showDanmaku: danmakuConfig.show,
+        shields: danmakuConfig.shields,
+        opacity: danmakuConfig.opacity,
+        limitArea: danmakuConfig.limitArea,
+        fontScale: danmakuConfig.fontScale,
+        speed: danmakuConfig.speed,
+        keepOutSubtitle: danmakuConfig.keepOutSubtitle,
+        showHighEnergy: true,
+        danmakuCatch: true,
+      },
+      mutex: true,
+      danmakuListAutoScroll: true,
+    });
+
+    const danmakuMount = document.getElementById('danmakuList');
+    if (danmakuMount) {
+      this.player.mountDanmakuAuxiliary(danmakuMount);
+    }
+
+    this.syncThemeColor();
+    this.bindPlayerEvents();
+    this.applyColorScheme();
+    this.ready = true;
+    this.placeholder?.setAttribute('hidden', '');
+  }
+
+  bindPlayerEvents() {
+    const p = this.player;
+    if (!p) return;
+
+    p.on('toLogin', () => {
+      requireLogin();
+    });
+    p.on('toPremium', () => {
+      if (!loadSession()?.token) {
+        requireLogin();
+        return;
+      }
+      openInAppBrowser('https://www.mfuns.net/premium/buy', '大会员');
+    });
+
+    p.on('danmaku_send', async (payload) => {
+      if (!loadSession()?.token) {
+        requireLogin();
+        return;
+      }
+      try {
+        await sendDanmaku({
+          videoId: this.videoId,
+          part: (p.currentVideo ?? this.partIndex) + 1,
+          time: payload.time,
+          content: payload.text,
+          color: payload.color,
+          size: payload.size,
+          type: danmakuTypeToApi(payload.type),
+        });
+      } catch (err) {
+        console.error(err);
+      }
+    });
+
+    p.on('setPlayer', (item) => {
+      if (item.key === 'volume') setPlayerVolume(item.value);
+      else if (item.key === 'muted') setPlayerVolume(0);
+      else if (item.key === 'darkMode') {
+        setPlayerDarkMode(Boolean(item.value));
+        this.applyColorScheme();
+      } else updatePlayerConfig(item.key, item.value);
+    });
+
+    p.on('darkmode_on', () => {
+      setPlayerDarkMode(true);
+      this.clearPlayerBlackmask();
+      this.applyColorScheme();
+    });
+    p.on('darkmode_off', () => {
+      setPlayerDarkMode(false);
+      this.clearPlayerBlackmask();
+      this.applyColorScheme();
+    });
+
+    p.on('setDanmaku', (item) => {
+      updateDanmakuPlayerConfig(item.key, item.value);
+    });
+
+    p.on('resolution_end', () => {
+      const name = p.resolution?.name;
+      if (name) setPreferredResolution(name);
+    });
+
+    p.on('series_order', () => {
+      const order = getPlayerConfig().seriesOrder === 'reverse' ? 'sequential' : 'reverse';
+      setSeriesOrder(order);
+      if (this.series) {
+        this.series = { ...this.series, order };
+        p.setSeries?.(this.series);
+      }
+    });
+
+    p.on('switch_series', (id) => {
+      this.onSwitchSeries?.(Number(id));
+    });
+
+    p.on('switchVideo_start', (index) => {
+      this.endPlaySession();
+      this.sessionBootstrapped = false;
+      this.partIndex = index;
+      this.onPartChange?.();
+    });
+
+    p.on('update_video_position', () => {
+      if (!p.video) return;
+      writeSavedPosition(this.videoId, p.currentVideo ?? this.partIndex, p.video.currentTime);
+    });
+
+    p.on('loadedmetadata', async () => {
+      if (sessionStorage.getItem('mfuns_auto_continue') === '1') {
+        sessionStorage.removeItem('mfuns_auto_continue');
+      } else if (this.skipResumeOnce) {
+        this.skipResumeOnce = false;
+      } else {
+        await this.promptResumePosition();
+      }
+      if (!this.sessionBootstrapped) {
+        await this.startPlaySession();
+        this.sessionBootstrapped = true;
+      }
+    });
+
+    p.on('play', () => {
+      this.isPlaying = true;
+      this.lastHeartbeatAt = Date.now();
+      if (!this.sessionId) void this.startPlaySession();
+      else this.scheduleHeartbeat();
+    });
+
+    p.on('pause', () => {
+      this.isPlaying = false;
+    });
+
+    p.on('ended', () => {
+      this.endPlaySession();
+      this.sessionBootstrapped = false;
+    });
+
+    p.on('seeking', () => {
+      this.dragStart = this.lastPosition;
+    });
+
+    p.on('seeked', async () => {
+      const to = Math.floor(p.video?.currentTime || 0);
+      if (to < 5 && this.dragStart > 0) {
+        this.lastPosition = to;
+        return;
+      }
+      this.dragEvents.push({
+        from: this.dragStart,
+        to,
+        time: new Date().toISOString(),
+      });
+      this.lastPosition = to;
+      if (p.video?.ended) {
+        await this.startPlaySession();
+        this.sessionBootstrapped = true;
+      }
+    });
+
+    p.on('timeupdate', () => {
+      if (p.video) this.lastPosition = Math.floor(p.video.currentTime);
+    });
+  }
+
+  async promptResumePosition() {
+    const config = getPlayerConfig();
+    const part = this.player?.currentVideo ?? this.partIndex;
+    const saved = readSavedPosition(this.videoId, part);
+    if (saved == null || !this.player?.video) return;
+    const duration = this.player.video.duration || 0;
+    if (duration > 0 && saved > duration * 0.9) return;
+    if (config.autoSkip) {
+      this.player.skip?.('已为您自动跳转至', saved, config.autoSkip);
+    } else {
+      this.player.skip?.('是否跳转至上次观看位置', saved, config.autoSkip);
+    }
+  }
+
+  scheduleHeartbeat() {
+    window.clearInterval(this.heartbeatTimer);
+    this.heartbeatTimer = window.setInterval(() => {
+      void this.sendHeartbeat();
+    }, 10000);
+  }
+
+  async startPlaySession() {
+    if (!this.player?.video || this.sessionId) return;
+    try {
+      const startPosition = Math.floor(this.player.video.currentTime || 0);
+      this.sessionId = await startVideoPlaySession({
+        video_id: Number(this.videoId),
+        start_position: startPosition,
+      });
+      this.sessionStartedAt = Date.now();
+      this.lastHeartbeatAt = Date.now();
+      this.lastPosition = startPosition;
+      this.totalPlayDuration = 0;
+      this.totalWatchDuration = 0;
+      this.heartbeatPlayTime = 0;
+      this.dragEvents = [];
+      this.scheduleHeartbeat();
+    } catch (err) {
+      console.error('Failed to start play session:', err);
+    }
+  }
+
+  async sendHeartbeat() {
+    if (!this.sessionId || !this.player?.video) return;
+    const now = Date.now();
+    let playDuration = 0;
+    if (this.isPlaying && this.lastHeartbeatAt > 0) {
+      playDuration = (now - this.lastHeartbeatAt) / 1000;
+      this.totalPlayDuration += playDuration;
+      this.heartbeatPlayTime += playDuration;
+    }
+    this.totalWatchDuration = (now - this.sessionStartedAt) / 1000;
+    const currentPosition = Math.floor(this.player.video.currentTime || 0);
+
+    try {
+      await sendVideoPlayHeartbeat({
+        session_id: this.sessionId,
+        video_id: Number(this.videoId),
+        current_position: currentPosition,
+        play_duration: Math.floor(playDuration) || 0,
+        drag_events: this.dragEvents,
+      });
+    } catch (err) {
+      console.error('Failed to send heartbeat:', err);
+    }
+
+    this.lastPosition = currentPosition;
+    this.lastHeartbeatAt = now;
+    this.heartbeatPlayTime = 0;
+    this.dragEvents = [];
+  }
+
+  async endPlaySession() {
+    window.clearInterval(this.heartbeatTimer);
+    this.heartbeatTimer = 0;
+    if (!this.sessionId || !this.player?.video) {
+      this.sessionId = '';
       return;
     }
-    this.errorEl.hidden = false;
-    this.errorEl.textContent = message;
-  }
+    const sessionId = this.sessionId;
+    const now = Date.now();
+    if (this.isPlaying && this.lastHeartbeatAt > 0) {
+      const delta = (now - this.lastHeartbeatAt) / 1000;
+      this.totalPlayDuration += delta;
+    }
+    this.totalWatchDuration = (now - this.sessionStartedAt) / 1000;
+    const endPosition = Math.floor(this.player.video.currentTime || 0);
 
-  togglePlay() {
-    if (this.video.paused) {
-      void this.video.play().catch(() => this.setError('无法播放，请检查网络或清晰度'));
-    } else {
-      this.video.pause();
+    try {
+      await endVideoPlaySession({
+        session_id: sessionId,
+        video_id: Number(this.videoId),
+        end_position: endPosition,
+        total_play_duration: Math.floor(this.totalPlayDuration) || 0,
+        total_watch_duration: Math.floor(this.totalWatchDuration) || 0,
+      });
+    } catch (err) {
+      console.error('Failed to end play session:', err);
+    }
+
+    if (this.sessionId === sessionId) {
+      this.sessionId = '';
+      this.sessionBootstrapped = false;
+      this.isPlaying = false;
     }
   }
 
-  pause() {
-    this.video.pause();
+  flushBeaconHeartbeat() {
+    if (!this.sessionId || !this.player?.video) return;
+    const now = Date.now();
+    if (this.isPlaying && this.lastHeartbeatAt > 0) {
+      this.heartbeatPlayTime += (now - this.lastHeartbeatAt) / 1000;
+    }
+    const body = {
+      session_id: this.sessionId,
+      video_id: Number(this.videoId),
+      current_position: Math.floor(this.player.video.currentTime || 0),
+      play_duration: Math.floor(this.heartbeatPlayTime) || 0,
+      drag_events: this.dragEvents,
+      is_final: true,
+    };
+    try {
+      const blob = new Blob([JSON.stringify(body)], { type: 'application/json' });
+      navigator.sendBeacon('https://api.mfuns.net/v1/video-play/heartbeat', blob);
+    } catch {
+      /* ignore */
+    }
   }
 
-  destroy() {
-    window.clearTimeout(this.controlsTimer);
-    this.detachHls();
-    this.video.pause();
-    this.video.removeAttribute('src');
-    this.video.removeAttribute('poster');
-    this.video.load();
-    this.root.classList.remove('watch-player-wrap--playing');
-    this.overlay?.classList.remove('watch-player__overlay--hidden');
-    this.qualityMenu?.setAttribute('hidden', '');
-    this.speedMenu?.setAttribute('hidden', '');
-    this.volumePopup?.setAttribute('hidden', '');
-    if (this.progress) this.progress.value = '0';
-    if (this.progressPlayed) this.progressPlayed.style.width = '0%';
-    if (this.progressBuffer) this.progressBuffer.style.width = '0%';
-    if (this.timeEl) this.timeEl.textContent = '00:00 / 00:00';
-    this.setPlaybackRate(1);
-    this.nextBtn?.setAttribute('hidden', '');
-    this.setError('');
-    this.setLoading(false);
-    this.videoId = '';
-    this.danmaku?.resetForUnload();
-  }
-
-  detachHls() {
-    if (this.hls) {
-      this.hls.destroy();
-      this.hls = null;
+  reattachDanmakuList() {
+    const el = document.getElementById('danmakuList');
+    if (el && this.player?.mountDanmakuAuxiliary) {
+      this.player.mountDanmakuAuxiliary(el);
     }
   }
 
   /**
-   * @param {VideoQuality} quality
-   * @param {{ resumeTime?: number, autoPlay?: boolean }} [options]
+   * @param {object | null} series
    */
-  async loadQuality(quality, options = {}) {
-    const resumeTime = options.resumeTime ?? 0;
-    const autoPlay = options.autoPlay ?? false;
-    this.selectedQuality = quality;
-    this.setError('');
-    this.setLoading(true);
-    this.detachHls();
-
-    const rawUrl = quality.url;
-    const src = mediaPlaybackSrc(rawUrl) ?? rawUrl;
-
-    if (isHlsUrl(rawUrl)) {
-      if (Hls.isSupported()) {
-        this.hls = new Hls(hlsConfig());
-        this.hls.attachMedia(this.video);
-        this.hls.on(Hls.Events.MEDIA_ATTACHED, () => {
-          this.hls?.loadSource(src);
-        });
-        this.hls.on(Hls.Events.MANIFEST_PARSED, () => {
-          this.setLoading(false);
-          if (resumeTime > 0) this.video.currentTime = resumeTime;
-          if (autoPlay) void this.video.play().catch(() => {});
-          this.renderQualityMenu();
-          this.updateQualityButton();
-        });
-        this.hls.on(Hls.Events.ERROR, (_, data) => {
-          if (data.fatal) {
-            this.setLoading(false);
-            this.setError('视频流加载失败，可尝试切换清晰度');
-          }
-        });
-        return;
-      }
-      if (this.video.canPlayType('application/vnd.apple.mpegurl')) {
-        this.video.src = src;
-      } else {
-        this.setError('当前环境不支持 HLS 播放');
-        this.setLoading(false);
-        return;
-      }
-    } else {
-      this.video.src = src;
+  setSeries(series) {
+    this.series = series;
+    if (this.player?.setSeries) this.player.setSeries(series);
+    else if (this.player?.loadSeriesVideo) {
+      const list = buildMfunsVideoList(this.parts, this.videoId, this.title);
+      this.player.loadSeriesVideo(list, series);
     }
-
-    await new Promise((resolve) => {
-      const onMeta = () => {
-        this.video.removeEventListener('loadedmetadata', onMeta);
-        resolve(null);
-      };
-      this.video.addEventListener('loadedmetadata', onMeta);
-      this.video.load();
-    });
-    this.setLoading(false);
-    if (resumeTime > 0) this.video.currentTime = resumeTime;
-    if (autoPlay) void this.video.play().catch(() => {});
-    this.renderQualityMenu();
-    this.updateQualityButton();
-  }
-
-  updateQualityButton() {
-    if (!this.qualityBtn || !this.selectedQuality) return;
-    this.qualityBtn.textContent = qualityDisplayLabel(this.selectedQuality);
-  }
-
-  renderQualityMenu() {
-    if (!this.qualityMenu) return;
-    const qualities = sortQualitiesDesc(getQualitiesForPart(this.parts, this.partIndex));
-    this.qualityMenu.innerHTML = qualities
-      .map((q) => {
-        const active =
-          this.selectedQuality?.url === q.url && this.selectedQuality?.part === q.part;
-        return `<button type="button" class="watch-player__menu-item ${active ? 'is-active' : ''}" data-quality-url="${encodeURIComponent(q.url)}">${qualityDisplayLabel(q)}</button>`;
-      })
-      .join('');
-    this.qualityMenu.querySelectorAll('[data-quality-url]').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const url = decodeURIComponent(btn.getAttribute('data-quality-url') ?? '');
-        const quality = qualities.find((q) => q.url === url);
-        if (!quality) return;
-        const resumeTime = this.video.currentTime;
-        this.qualityMenu.setAttribute('hidden', '');
-        void this.loadQuality(quality, { resumeTime, autoPlay: !this.video.paused });
-      });
-    });
   }
 
   /**
@@ -450,36 +631,76 @@ export class WatchPlayer {
   loadPart(partIndex, options = {}) {
     if (partIndex < 0 || partIndex >= this.parts.length) return;
     this.partIndex = partIndex;
-    const quality = pickDefaultQuality(this.parts, partIndex);
-    if (!quality) {
-      this.setError('暂无可用播放地址');
-      return;
+    if (this.player?.switchVideo) {
+      this.player.switchVideo(partIndex);
+      if (options.autoPlay) void this.player.video?.play?.();
+    } else {
+      void this.rebuildPlayer({ autoPlay: options.autoPlay ?? false });
     }
     this.onPartChange?.();
-    this.syncPartControls();
-    void this.loadQuality(quality, { autoPlay: options.autoPlay ?? false });
-    void this.reloadDanmaku();
-  }
-
-  reloadDanmaku() {
-    if (!this.videoId) return;
-    const part = this.parts[this.partIndex]?.part ?? this.partIndex + 1;
-    void this.danmaku?.setContext({ videoId: this.videoId, part });
   }
 
   /**
-   * @param {{ parts: VideoPart[], partIndex?: number, poster?: string | null, autoPlay?: boolean, onPartChange?: () => void, videoId?: string }} config
+   * @param {{ autoPlay?: boolean }} [options]
+   */
+  async rebuildPlayer(options = {}) {
+    if (options.autoPlay) this.pendingAutoPlay = true;
+    this.destroyPlayerInstance();
+    this.placeholder?.removeAttribute('hidden');
+    this.ready = false;
+    await this.ensurePlayer();
+    this.pendingAutoPlay = false;
+    if (options.autoPlay && this.player?.video) {
+      void this.player.video.play?.().catch(() => {});
+    }
+  }
+
+  destroyPlayerInstance() {
+    void this.endPlaySession();
+    if (this.player) {
+      this.player.destroy?.();
+      this.player = null;
+    }
+    this.ready = false;
+    if (this.container) this.container.innerHTML = '';
+  }
+
+  destroy() {
+    window.removeEventListener('mfuns:theme-change', this.onThemeChange);
+    this.clearPlayerBlackmask();
+    this.flushBeaconHeartbeat();
+    this.destroyPlayerInstance();
+    this.parts = [];
+    this.partIndex = 0;
+    this.videoId = '';
+    this.title = '';
+    this.onPartChange = null;
+    this.onSwitchSeries = null;
+    this.series = null;
+    this.placeholder?.removeAttribute('hidden');
+  }
+
+  /**
+   * @param {{
+   *   parts: VideoPart[],
+   *   partIndex?: number,
+   *   videoId?: string,
+   *   title?: string,
+   *   autoPlay?: boolean,
+   *   onPartChange?: () => void,
+   *   onSwitchSeries?: (videoId: number) => void,
+   *   series?: object | null,
+   * }} config
    */
   load(config) {
     this.parts = config.parts;
     this.videoId = config.videoId ? `${config.videoId}` : '';
+    this.title = config.title ?? '';
+    this.partIndex = config.partIndex ?? 0;
     this.onPartChange = config.onPartChange ?? null;
-    if (config.poster) this.video.poster = config.poster;
-    this.video.volume = Number(this.volume?.value ?? 70) / 100;
-    this.syncVolumeIcon();
-    this.video.playbackRate = this.playbackRate;
-    this.syncPartControls();
-    this.loadPart(config.partIndex ?? 0, { autoPlay: config.autoPlay ?? false });
+    this.onSwitchSeries = config.onSwitchSeries ?? null;
+    this.series = config.series ?? null;
+    void this.rebuildPlayer({ autoPlay: config.autoPlay ?? false });
   }
 }
 
@@ -490,28 +711,16 @@ export function getWatchPlayer() {
   const root = document.getElementById('watch-player-root');
   if (!root) return null;
   if (!instance) instance = new WatchPlayer(root);
-  else if (!instance.danmaku) {
-    instance.danmaku = createWatchDanmaku(root);
-    instance.danmaku.attachVideo(instance.video);
-  }
   return instance;
 }
 
 export function destroyWatchPlayer() {
   if (!instance) return;
-  instance.danmaku?.destroy();
   instance.destroy();
   instance = null;
 }
 
+/** @deprecated mfunsPlayer 内置弹幕 */
 export function ensureWatchDanmaku() {
-  const player = getWatchPlayer();
-  if (!player) return null;
-  const root = document.getElementById('watch-player-root');
-  if (!root) return null;
-  if (!player.danmaku) {
-    player.danmaku = createWatchDanmaku(root);
-    player.danmaku.attachVideo(player.video);
-  }
-  return player.danmaku;
+  return null;
 }

@@ -163,6 +163,10 @@ export function applyPreferences(prefs) {
     '--accent-soft',
     `rgba(${r}, ${g}, ${b}, ${prefs.colorScheme === 'dark' ? 0.22 : 0.14})`,
   );
+  root.style.setProperty('--color-primary', `rgb(${r}, ${g}, ${b})`);
+  window.dispatchEvent(
+    new CustomEvent('mfuns:theme-change', { detail: { colorScheme: prefs.colorScheme } }),
+  );
 }
 
 export function initTheme() {
