@@ -1,3 +1,4 @@
+import { pickAvatarFrameUrl } from './avatar-frame-ui.js';
 import { parseUserBadgeIds } from './badge-catalog.js';
 import { commentSpansFromText } from './message-quill.js';
 import { API_BASE, loadSession } from './auth.js';
@@ -47,6 +48,7 @@ import {
  *   authorId: number | null,
  *   authorName: string,
  *   avatar: string | null,
+ *   avatarFrame: string | null,
  *   content: string,
  *   rawContent: string,
  *   likes: number,
@@ -312,6 +314,9 @@ function parseComment(raw) {
     authorName:
       `${user.name ?? user.username ?? user.nickname ?? json.user_name ?? json.nickname ?? '用户'}`.trim(),
     avatar: resolveCoverUrl(user.avatar ?? user.face ?? json.avatar),
+    avatarFrame: pickAvatarFrameUrl(
+      user.avatar_frame ?? user.avatarFrame ?? json.avatar_frame ?? json.avatarFrame,
+    ),
     content: commentPlainText(rawContent),
     rawContent,
     likes: asInt(like.count ?? json.like_count) ?? 0,

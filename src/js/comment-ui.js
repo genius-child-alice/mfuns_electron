@@ -1,6 +1,5 @@
 import { notify } from './notice-ui.js';
 import { materialIcon } from './icons.js';
-import { mediaSrcForCover } from './content-api.js';
 import { mountRichContent } from './rich-content.js';
 import { requireLogin } from './login-ui.js';
 import { resolveMineUserId } from './favorite-api.js';
@@ -11,6 +10,7 @@ import {
   setCommentReaction,
   sortCommentsForDisplay,
 } from './video-api.js';
+import { renderFramedAvatarHtml } from './avatar-frame-ui.js';
 import { renderUserBadgesHtml } from './badge-catalog.js';
 import { openCommentComposer } from './comment-composer.js';
 import { confirmAction } from './confirm-dialog.js';
@@ -187,10 +187,13 @@ function renderNestedReplyButton(reply, rootCommentId) {
 function renderCommentRow(item, options) {
   const compact = options.compact === true;
   const avatarSizeClass = compact ? ' watch-comment__avatar--sm' : '';
-  const avatarSrc = mediaSrcForCover(item.avatar);
-  const avatarInner = avatarSrc
-    ? `<img class="watch-comment__avatar${avatarSizeClass}" src="${escapeHtml(avatarSrc)}" alt="" />`
-    : `<span class="watch-comment__avatar watch-comment__avatar--ph${avatarSizeClass}"></span>`;
+  const avatarInner = renderFramedAvatarHtml({
+    avatar: item.avatar,
+    frame: item.avatarFrame,
+    size: compact ? 'xs' : 'sm',
+    imgClass: `watch-comment__avatar${avatarSizeClass}`,
+    phClass: 'watch-comment__avatar--ph',
+  });
   const avatar = authorLink(item.authorId, avatarInner, 'watch-comment__avatar-btn');
   const badgesHtml = renderUserBadgesHtml(item.badges ?? [], compact ? 'sm' : 'sm');
   const isResourceAuthor =

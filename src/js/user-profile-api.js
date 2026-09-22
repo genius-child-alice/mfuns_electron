@@ -5,6 +5,7 @@ import {
   parsePreviewList,
   resolveCoverUrl,
 } from './content-api.js';
+import { pickAvatarFrameUrl } from './avatar-frame-ui.js';
 import { levelFromBadges } from './user-level.js';
 
 /** @typedef {{
@@ -19,6 +20,7 @@ import { levelFromBadges } from './user-level.js';
  *   fans: number,
  *   follows: number,
  *   totalLikes: number,
+ *   avatarFrame: string | null,
  * }} UserProfile */
 
 /** @typedef {{
@@ -111,6 +113,7 @@ function parseUserProfile(raw) {
     id: asInt(source.id ?? source.user_id) ?? 0,
     name: `${source.name ?? source.username ?? 'Mfuns 用户'}`,
     avatar: resolveCoverUrl(source.avatar ?? source.face),
+    avatarFrame: pickAvatarFrameUrl(source.avatar_frame ?? source.avatarFrame),
     banner: resolveCoverUrl(source.banner_image ?? source.banner),
     bio,
     gender: `${source.gender ?? info.gender ?? ''}`,

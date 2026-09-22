@@ -25,6 +25,7 @@ import {
   fetchUserProfile,
   fetchUserVideos,
 } from './user-profile-api.js';
+import { renderFramedAvatarHtml } from './avatar-frame-ui.js';
 import { renderLevelBadgeHtml } from './user-level.js';
 import { openReportDialog } from './report-ui.js';
 import { addBlacklistUser, REPORT_RESOURCE } from './member-api.js';
@@ -143,7 +144,6 @@ function renderProfileHeader(profile) {
   const session = loadSession();
   const selfId = sessionUserId(session?.user);
   const isSelf = selfId != null && selfId === profile.id;
-  const avatarSrc = mediaSrcForCover(profile.avatar);
   const bannerSrc = mediaSrcForCover(profile.banner);
 
   if (bannerSrc) {
@@ -169,11 +169,13 @@ function renderProfileHeader(profile) {
   el.innerHTML = `
     <div class="user-space__head">
       <div class="user-space__head-avatar">
-        ${
-          avatarSrc
-            ? `<img class="user-space__avatar" src="${escapeHtml(avatarSrc)}" alt="" />`
-            : '<span class="user-space__avatar user-space__avatar--ph"></span>'
-        }
+        ${renderFramedAvatarHtml({
+          avatar: profile.avatar,
+          frame: profile.avatarFrame,
+          size: 'lg',
+          imgClass: 'user-space__avatar',
+          phClass: 'user-space__avatar--ph',
+        })}
       </div>
       <div class="user-space__head-text">
         <div class="user-space__head-title">
