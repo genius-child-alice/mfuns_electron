@@ -254,9 +254,10 @@
 }
 
 .topbar__search {
-  flex: 1;
+  flex: 0 1 auto;
+  width: 336px;
+  max-width: 336px;
   min-width: 0;
-  max-width: none;
   display: flex;
   align-items: center;
   padding: 0 12px 0 20px;

@@ -515,24 +515,17 @@ html[data-theme='light'] .feed-page__stream {
 
 .mine-profile__avatar-ring {
   display: block;
-  width: 72px;
-  height: 72px;
-  padding: 3px;
+  width: 64px;
+  height: 64px;
+  padding: 0;
   border-radius: 50%;
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--accent) 70%, #fff),
-    var(--accent)
-  );
-  box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 28%, transparent);
-  transition:
-    transform 160ms ease,
-    box-shadow 160ms ease;
+  background: none;
+  box-shadow: none;
 }
 
 .mine-profile__avatar-entry:hover .mine-profile__avatar-ring {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 18px color-mix(in srgb, var(--accent) 36%, transparent);
+  transform: none;
+  box-shadow: none;
 }
 
 .mine-profile__avatar-ring .mine-profile__avatar-img {
@@ -540,7 +533,7 @@ html[data-theme='light'] .feed-page__stream {
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  border: 2px solid var(--bg-elevated);
+  border: none;
   box-sizing: border-box;
 }
 

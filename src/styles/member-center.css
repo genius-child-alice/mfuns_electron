@@ -69,21 +69,17 @@
   padding: 20px 18px;
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-subtle);
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--accent) 12%, var(--bg-elevated)),
-    var(--bg-elevated)
-  );
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
+  background: var(--bg-elevated);
 }
 
 .member-hub-hero__avatar {
   flex-shrink: 0;
   width: 56px;
   height: 56px;
-  padding: 2px;
+  padding: 0;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #fff));
+  overflow: hidden;
+  background: var(--search-bg);
 }
 
 .member-hub-hero__avatar img {
@@ -91,7 +87,7 @@
   height: 100%;
   border-radius: 50%;
   object-fit: cover;
-  border: 2px solid var(--bg-elevated);
+  border: none;
   box-sizing: border-box;
 }
 
@@ -400,11 +396,7 @@
 .member-premium-card {
   padding: 22px 20px;
   border-radius: var(--radius-lg);
-  background: linear-gradient(
-    145deg,
-    color-mix(in srgb, var(--accent) 14%, var(--bg-elevated)),
-    var(--bg-elevated)
-  );
+  background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
 }
 
