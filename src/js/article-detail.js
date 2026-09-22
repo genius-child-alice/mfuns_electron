@@ -21,6 +21,7 @@ import {
   setFollow,
   setResourceReaction,
 } from './video-api.js';
+import { renderAuthorAvatarHtml } from './avatar-frame-ui.js';
 import { fetchUserProfile } from './user-profile-api.js';
 import { resolveFavoriteStatus, resolveMineUserId } from './favorite-api.js';
 import { toggleResourceFavorite } from './favorite-ui.js';
@@ -262,7 +263,6 @@ function renderPage() {
   const coverHtml = coverSrc
     ? `<figure class="article-read__cover"><img src="${escapeHtml(coverSrc)}" alt="${escapeHtml(preview.title)}" decoding="async" /></figure>`
     : '';
-  const avatarSrc = mediaSrcForCover(detail.authorAvatar);
   const publishIso = detail.publishedAt ?? preview.createdAt;
   const dateLabel = formatDateTime(publishIso);
   const authorMeta =
@@ -277,13 +277,15 @@ function renderPage() {
         <h1 class="article-read__title">${escapeHtml(preview.title)}</h1>
         <div class="article-read__meta">
           <div class="article-read__author">
-            ${
-              avatarSrc && detail.authorId
-                ? `<button type="button" class="watch-user-link article-read__avatar-btn" data-author-profile="${detail.authorId}" title="进入空间"><img class="article-read__avatar" src="${escapeHtml(avatarSrc)}" alt="" /></button>`
-                : avatarSrc
-                  ? `<img class="article-read__avatar" src="${escapeHtml(avatarSrc)}" alt="" />`
-                  : '<span class="article-read__avatar article-read__avatar--ph"></span>'
-            }
+            ${renderAuthorAvatarHtml({
+              authorId: detail.authorId,
+              avatar: detail.authorAvatar,
+              frame: detail.authorAvatarFrame,
+              size: 'article',
+              imgClass: 'article-read__avatar',
+              phClass: 'article-read__avatar--ph',
+              btnClass: 'article-read__avatar-btn',
+            })}
             <div class="article-read__author-info">
               ${
                 detail.authorId
@@ -556,6 +558,14 @@ async function loadArticlePage(preview) {
     if (authorProfile) {
       authorFans = authorProfile.fans;
       authorTotalLikes = authorProfile.totalLikes;
+      if (currentDetail) {
+        if (!currentDetail.authorAvatarFrame && authorProfile.avatarFrame) {
+          currentDetail.authorAvatarFrame = authorProfile.avatarFrame;
+        }
+        if (!currentDetail.authorAvatar && authorProfile.avatar) {
+          currentDetail.authorAvatar = authorProfile.avatar;
+        }
+      }
     }
 
     commentOrder = 'desc';

@@ -38,6 +38,7 @@ import { levelFromBadges } from './user-level.js';
  *   authorName: string,
  *   authorId: number | null,
  *   authorAvatar: string | null,
+ *   authorAvatarFrame: string | null,
  *   images: string[],
  *   resource: import('./content-api.js').ContentPreview | null,
  * }} TimelineFeedItem */
@@ -392,6 +393,7 @@ function parseTimelineFeedItem(raw) {
     authorName: `${user.name ?? user.username ?? user.nickname ?? ''}`.trim() || 'Mfuns 用户',
     authorId: asInt(user.id ?? user.user_id ?? source.user_id ?? source.author_id),
     authorAvatar: resolveCoverUrl(user.avatar ?? user.face),
+    authorAvatarFrame: pickAvatarFrameUrl(user.avatar_frame ?? user.avatarFrame),
     images: parseFeedImages(source.images ?? source.image_list ?? source.pictures ?? extra.images),
     resource,
   };

@@ -1,6 +1,7 @@
 import { materialIcon, viewCountIcon } from './icons.js';
 import { notify } from './notice-ui.js';
 import { loadSession } from './auth.js';
+import { renderFramedAvatarHtml } from './avatar-frame-ui.js';
 import { mediaSrcForCover } from './content-api.js';
 import { loadStickerUrlMap } from './emoji-pack.js';
 import { mountRichContent } from './rich-content.js';
@@ -13,7 +14,7 @@ import { requireLogin } from './login-ui.js';
 /**
  * @typedef {{
  *   domIdPrefix?: string,
- *   profileFallback?: { name?: string, avatar?: string | null } | null,
+ *   profileFallback?: { name?: string, avatar?: string | null, avatarFrame?: string | null } | null,
  *   spaceOwnerId?: number | null,
  *   hideCardActions?: boolean,
  * }} TimelineFeedContext
@@ -151,7 +152,6 @@ export function renderFeedCard(item, ctx = {}) {
   const domIdPrefix = ctx.domIdPrefix ?? 'timeline-feed';
   const profile = ctx.profileFallback;
   const authorName = item.authorName || profile?.name || 'Mfuns 用户';
-  const avatarSrc = mediaSrcForCover(item.authorAvatar || profile?.avatar);
   const dateLabel = formatFeedDate(item.createdAt);
   const viewsLabel = `${formatFeedCount(item.views)}浏览`;
   const titleSource = item.rawTitle?.trim() || item.title?.trim() || '';
@@ -184,9 +184,13 @@ export function renderFeedCard(item, ctx = {}) {
     : '';
 
   const authorId = item.authorId;
-  const avatarInner = avatarSrc
-    ? `<img class="user-space__feed-card__avatar" src="${escapeHtml(avatarSrc)}" alt="" />`
-    : '<span class="user-space__feed-card__avatar user-space__feed-card__avatar--ph"></span>';
+  const avatarInner = renderFramedAvatarHtml({
+    avatar: item.authorAvatar || profile?.avatar,
+    frame: item.authorAvatarFrame ?? profile?.avatarFrame ?? null,
+    size: 'feed',
+    imgClass: 'user-space__feed-card__avatar',
+    phClass: 'user-space__feed-card__avatar--ph',
+  });
   const avatarHtml =
     authorId != null
       ? `<button type="button" class="user-space__feed-card__profile user-space__feed-card__profile--avatar" data-author-profile="${authorId}" title="进入主页">${avatarInner}</button>`

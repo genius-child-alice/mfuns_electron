@@ -77,3 +77,33 @@ export function renderFramedAvatarHtml(options) {
   const wrapClasses = ['framed-avatar', `framed-avatar--${size}`, wrapClass].filter(Boolean).join(' ');
   return `<span class="${escapeHtml(wrapClasses)}">${photo}<img class="framed-avatar__frame" src="${escapeHtml(frameSrc)}" alt="" aria-hidden="true" /></span>`;
 }
+
+/**
+ * 详情页作者头像（可点击进入空间）。
+ * @param {{
+ *   authorId?: number | null,
+ *   avatar?: string | null,
+ *   frame?: string | null,
+ *   size: 'xs' | 'sm' | 'watch' | 'article' | 'feed' | 'lg',
+ *   imgClass: string,
+ *   phClass?: string,
+ *   btnClass?: string,
+ *   linkTitle?: string,
+ * }} options
+ * @returns {string}
+ */
+export function renderAuthorAvatarHtml(options) {
+  const inner = renderFramedAvatarHtml({
+    avatar: options.avatar,
+    frame: options.frame,
+    size: options.size,
+    imgClass: options.imgClass,
+    phClass: options.phClass ?? '',
+  });
+  const authorId = options.authorId;
+  if (authorId != null && authorId > 0 && options.btnClass) {
+    const title = options.linkTitle ?? '进入空间';
+    return `<button type="button" class="watch-user-link ${options.btnClass}" data-author-profile="${authorId}" title="${escapeHtml(title)}">${inner}</button>`;
+  }
+  return inner;
+}

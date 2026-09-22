@@ -1,5 +1,6 @@
 import { notify } from './notice-ui.js';
 import { materialIcon, videoPlayCountIcon } from './icons.js';
+import { renderAuthorAvatarHtml } from './avatar-frame-ui.js';
 import {
   formatContentArchiveNo,
   formatVideoDuration,
@@ -422,7 +423,6 @@ function renderSidePanel() {
   const detail = currentDetail;
   if (!detail) return;
   const { preview } = detail;
-  const avatarSrc = mediaSrcForCover(detail.authorAvatar);
   const side = document.getElementById('watch-side-panel');
   if (!side) return;
 
@@ -460,13 +460,15 @@ function renderSidePanel() {
         }
         <div class="watch-author">
           <div class="watch-author__main">
-            ${
-              avatarSrc && detail.authorId
-                ? `<button type="button" class="watch-user-link watch-author__avatar-btn" data-author-profile="${detail.authorId}" title="进入空间"><img class="watch-author__avatar" src="${escapeHtml(avatarSrc)}" alt="" /></button>`
-                : avatarSrc
-                  ? `<img class="watch-author__avatar" src="${escapeHtml(avatarSrc)}" alt="" />`
-                  : '<span class="watch-author__avatar watch-author__avatar--ph"></span>'
-            }
+            ${renderAuthorAvatarHtml({
+              authorId: detail.authorId,
+              avatar: detail.authorAvatar,
+              frame: detail.authorAvatarFrame,
+              size: 'watch',
+              imgClass: 'watch-author__avatar',
+              phClass: 'watch-author__avatar--ph',
+              btnClass: 'watch-author__avatar-btn',
+            })}
             <div class="watch-author__info">
               ${
                 detail.authorId
@@ -886,6 +888,14 @@ async function loadWatchPage(preview) {
     if (authorProfile) {
       authorFans = authorProfile.fans;
       authorTotalLikes = authorProfile.totalLikes;
+      if (currentDetail) {
+        if (!currentDetail.authorAvatarFrame && authorProfile.avatarFrame) {
+          currentDetail.authorAvatarFrame = authorProfile.avatarFrame;
+        }
+        if (!currentDetail.authorAvatar && authorProfile.avatar) {
+          currentDetail.authorAvatar = authorProfile.avatar;
+        }
+      }
     }
 
     commentOrder = 'desc';

@@ -1,3 +1,4 @@
+import { pickAvatarFrameUrl } from './avatar-frame-ui.js';
 import {
   apiGet,
   parseContentPreview,
@@ -13,6 +14,7 @@ import {
  *   commentAreaId: number | null,
  *   authorId: number | null,
  *   authorAvatar: string | null,
+ *   authorAvatarFrame: string | null,
  *   likes: number,
  *   rewardCount: number,
  *   favoriteCount: number,
@@ -147,6 +149,7 @@ function parseArticleDetail(seed, data) {
       asInt(resource.comment_area_id ?? root.comment_area_id ?? root.commentId) ?? null,
     authorId,
     authorAvatar: resolveCoverUrl(user.avatar ?? user.face),
+    authorAvatarFrame: pickAvatarFrameUrl(user.avatar_frame ?? user.avatarFrame),
     likes,
     rewardCount: asInt(root.reward_count) ?? 0,
     favoriteCount: asInt(root.favorite_count) ?? 0,

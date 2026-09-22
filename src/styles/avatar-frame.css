@@ -51,6 +51,36 @@
   height: 30px;
 }
 
+.framed-avatar--article {
+  width: 48px;
+  height: 48px;
+}
+
+.framed-avatar--article .framed-avatar__photo {
+  width: 40px;
+  height: 40px;
+}
+
+.framed-avatar--watch {
+  width: 56px;
+  height: 56px;
+}
+
+.framed-avatar--watch .framed-avatar__photo {
+  width: 48px;
+  height: 48px;
+}
+
+.framed-avatar--feed {
+  width: 56px;
+  height: 56px;
+}
+
+.framed-avatar--feed .framed-avatar__photo {
+  width: 48px;
+  height: 48px;
+}
+
 .framed-avatar--lg {
   width: 108px;
   height: 108px;
@@ -66,6 +96,22 @@
 .watch-comment__avatar-btn:has(.framed-avatar) {
   width: auto;
   height: auto;
+  border-radius: 0;
+}
+
+.watch-author__avatar-btn:has(.framed-avatar) {
+  width: auto;
+  height: auto;
+  border-radius: 0;
+}
+
+.article-read__avatar-btn:has(.framed-avatar) {
+  width: auto;
+  height: auto;
+  border-radius: 0;
+}
+
+.user-space__feed-card__profile--avatar:has(.framed-avatar) {
   border-radius: 0;
 }
 
