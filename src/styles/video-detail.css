@@ -22,7 +22,6 @@
 }
 
 .watch-page.watch-page--loading .watch-side {
-  opacity: 0.6;
   pointer-events: none;
 }
 

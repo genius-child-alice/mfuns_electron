@@ -7,6 +7,7 @@ import {
   mediaSrcForCover,
 } from './content-api.js';
 import { getWatchPlayer } from './watch-player.js';
+import { watchSideSkeletonHtml } from './skeleton-ui.js';
 import { mountRichContent } from './rich-content.js';
 import { loadStickerUrlMap } from './emoji-pack.js';
 import { loadSession } from './auth.js';
@@ -816,6 +817,8 @@ async function loadWatchPage(preview) {
   authorFans = 0;
   authorTotalLikes = 0;
   setLoading(true);
+  const sidePanel = document.getElementById('watch-side-panel');
+  if (sidePanel) sidePanel.innerHTML = watchSideSkeletonHtml();
 
   // 只重置播放器实例，保留主题监听（destroy 会卸掉监听且单例仍在）
   getWatchPlayer()?.reset();

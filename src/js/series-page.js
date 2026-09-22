@@ -29,6 +29,7 @@ import {
   seriesGridItemHtml,
   seriesItemsGridHtml,
 } from './series-ui.js';
+import { seriesGridSkeletonHtml } from './skeleton-ui.js';
 import { openUserSpace } from './user-space.js';
 
 
@@ -133,7 +134,7 @@ async function reloadSeries() {
   hasMore = true;
   shownItems = [];
   const body = getBody();
-  if (body) body.innerHTML = '<p class="series-page__empty">加载中…</p>';
+  if (body) body.innerHTML = seriesGridSkeletonHtml(8);
   try {
     const [info, itemsPage] = await Promise.all([
       fetchSeriesInfo(currentSeriesId),

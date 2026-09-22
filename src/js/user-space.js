@@ -3,6 +3,10 @@ import { notify } from './notice-ui.js';
 import { loadSession } from './auth.js';
 import { mediaSrcForCover } from './content-api.js';
 import { renderVideoCard } from './home-feed.js';
+import {
+  userSpaceBodySkeletonHtml,
+  userSpaceProfileSkeletonHtml,
+} from './skeleton-ui.js';
 import { getCurrentPage } from './pages.js';
 import {
   getScrollTop,
@@ -498,7 +502,9 @@ async function loadFirstPage() {
   setLoadingState(true);
   resetListState();
   syncTabsUi();
-  setBodyHtml('<p class="user-space__hint">加载中…</p>');
+  const bodyKind =
+    activeTab === 'feed' ? 'feed' : activeTab === 'article' ? 'article' : 'video';
+  setBodyHtml(userSpaceBodySkeletonHtml(bodyKind));
 
   try {
     if (activeTab === 'favorite') {
@@ -681,8 +687,9 @@ function updateCursor(items) {
 async function loadUserSpace(userId) {
   currentUserId = userId;
   setLoadingState(true);
-  setBodyHtml('');
-  document.getElementById('user-space-profile')?.replaceChildren();
+  const profileEl = document.getElementById('user-space-profile');
+  if (profileEl) profileEl.innerHTML = userSpaceProfileSkeletonHtml();
+  setBodyHtml(userSpaceBodySkeletonHtml('video'));
 
   try {
     const profile = await fetchUserProfile(userId);

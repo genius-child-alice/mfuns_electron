@@ -17,6 +17,7 @@ import {
   renderFeedListHtml,
 } from './timeline-feed-ui.js';
 import { openUserSpace } from './user-space.js';
+import { feedListSkeletonHtml } from './skeleton-ui.js';
 
 /** @typedef {import('./user-profile-api.js').UserProfile} UserProfile */
 /** @typedef {import('./user-profile-api.js').TimelineFeedItem} TimelineFeedItem */
@@ -119,8 +120,9 @@ async function loadFeedPage(first) {
   if (loading) return;
   loading = true;
   if (first) {
-    setHint(`${materialIcon('progress_activity', 'feed-page__spin')}加载中…`, true);
-    getListEl()?.replaceChildren();
+    setHint('', false);
+    const list = getListEl();
+    if (list) list.innerHTML = feedListSkeletonHtml(4);
   } else {
     setHint(`${materialIcon('progress_activity', 'feed-page__spin')}加载更多…`, true);
   }
@@ -129,6 +131,7 @@ async function loadFeedPage(first) {
     const session = loadSession();
     const selfId = sessionUserId(session?.user);
     if (!filterUserId && feedStreamMode === 'following' && !selfId) {
+      if (first) getListEl()?.replaceChildren();
       setHint('请先登录查看关注动态，或切换到全站动态', true);
       hasMore = false;
       return;
@@ -187,6 +190,7 @@ async function loadFeedPage(first) {
       hasMore = false;
     }
   } catch (err) {
+    if (first) getListEl()?.replaceChildren();
     setHint(err instanceof Error ? err.message : '加载失败', true);
     hasMore = false;
   } finally {

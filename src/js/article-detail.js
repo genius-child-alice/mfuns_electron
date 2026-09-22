@@ -13,6 +13,7 @@ import {
 } from './navigation.js';
 import { requireLogin } from './login-ui.js';
 import { fetchArticleDetail } from './article-api.js';
+import { articleReadSkeletonHtml } from './skeleton-ui.js';
 import {
   COMMENT_LIST_PAGE_SIZE,
   fetchCommentList,
@@ -508,7 +509,7 @@ async function loadArticlePage(preview) {
 
   const root = getRoot();
   if (root) {
-    root.innerHTML = '<p class="article-read__loading">正在加载文章…</p>';
+    root.innerHTML = articleReadSkeletonHtml();
   }
 
   try {

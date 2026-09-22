@@ -22,7 +22,6 @@
 }
 
 .article-page.article-page--loading .article-scroll {
-  opacity: 0.6;
   pointer-events: none;
 }
 

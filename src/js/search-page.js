@@ -12,6 +12,7 @@ import { renderFramedAvatarHtml } from './avatar-frame-ui.js';
 import { mediaSrcForCover } from './content-api.js';
 import { searchResources, searchUsers } from './search-api.js';
 import { openUserSpace } from './user-space.js';
+import { searchUserListSkeletonHtml, videoGridSkeletonHtml } from './skeleton-ui.js';
 
 /** @typedef {'all' | 'video' | 'article' | 'user'} SearchTabId */
 /** @typedef {import('./user-profile-api.js').UserProfile} UserProfile */
@@ -325,7 +326,13 @@ function renderResults() {
 
   if (resourceGrid) {
     if (!resourceItems.length) {
-      resourceGrid.innerHTML = `<p class="search-page__empty">${query ? '没有找到相关内容' : '输入关键词开始搜索'}</p>`;
+      if (loading && resourceGrid.querySelector('.skeleton-busy')) {
+        /* 保留骨架屏 */
+      } else if (loading) {
+        resourceGrid.innerHTML = videoGridSkeletonHtml(8);
+      } else {
+        resourceGrid.innerHTML = `<p class="search-page__empty">${query ? '没有找到相关内容' : '输入关键词开始搜索'}</p>`;
+      }
     } else {
       resourceGrid.innerHTML = resourceItems.map((item) => renderVideoCard(item)).join('');
     }
@@ -333,7 +340,13 @@ function renderResults() {
 
   if (userList) {
     if (!userItems.length) {
-      userList.innerHTML = `<p class="search-page__empty">${query ? '没有找到相关用户' : '输入关键词开始搜索'}</p>`;
+      if (loading && userList.querySelector('.skeleton-busy')) {
+        /* 保留骨架屏 */
+      } else if (loading) {
+        userList.innerHTML = searchUserListSkeletonHtml(8);
+      } else {
+        userList.innerHTML = `<p class="search-page__empty">${query ? '没有找到相关用户' : '输入关键词开始搜索'}</p>`;
+      }
     } else {
       userList.innerHTML = userItems.map((user) => renderUserRow(user)).join('');
     }
@@ -362,7 +375,9 @@ async function loadResourcePage(page) {
   if (page < 1) return;
   loading = true;
   renderPagination();
-  setStatus('加载中…');
+  setStatus('');
+  const resourceGrid = document.getElementById('search-page-resource');
+  if (resourceGrid) resourceGrid.innerHTML = videoGridSkeletonHtml(8);
   try {
     const result = await searchResources(query, page, PAGE_SIZE, resourceTypeForTab(activeTab));
     if (result.items.length === 0 && page > 1) {
@@ -395,7 +410,9 @@ async function loadUserPage(page) {
   if (page < 1) return;
   loading = true;
   renderPagination();
-  setStatus('加载中…');
+  setStatus('');
+  const userList = document.getElementById('search-page-users');
+  if (userList) userList.innerHTML = searchUserListSkeletonHtml(8);
   try {
     const result = await searchUsers(query, page, PAGE_SIZE);
     if (result.items.length === 0 && page > 1) {

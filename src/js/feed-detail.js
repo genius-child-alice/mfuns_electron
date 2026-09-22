@@ -8,6 +8,7 @@ import { openReportDialog } from './report-ui.js';
 import { REPORT_RESOURCE } from './member-api.js';
 import { openCommentComposer } from './comment-composer.js';
 import { requireLogin } from './login-ui.js';
+import { feedDetailSkeletonHtml } from './skeleton-ui.js';
 import {
   fetchCommentList,
   fetchReactionStatus,
@@ -221,8 +222,15 @@ function renderDetailContent(detail) {
 function setLoading(on) {
   const post = document.getElementById('feed-detail-post');
   const hint = document.getElementById('feed-detail-loading');
-  if (post) post.hidden = on;
-  if (hint) hint.hidden = !on;
+  if (on) {
+    if (post) {
+      post.hidden = false;
+      post.innerHTML = feedDetailSkeletonHtml();
+    }
+    if (hint) hint.hidden = true;
+  } else if (hint) {
+    hint.hidden = true;
+  }
 }
 
 /**
@@ -238,8 +246,6 @@ export async function openFeedDetail(feedId) {
     errEl.textContent = '';
     errEl.hidden = true;
   }
-  const post = document.getElementById('feed-detail-post');
-  if (post) post.innerHTML = '';
   detailTab = 'comment';
   commentOrder = 'desc';
   commentReplyStore.clear();

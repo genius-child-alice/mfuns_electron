@@ -9,6 +9,7 @@ import {
   restoreScrollTop,
 } from './navigation.js';
 import { renderVideoCard } from './home-feed.js';
+import { videoGridSkeletonHtml } from './skeleton-ui.js';
 import {
   fetchTagArticles,
   fetchTagVideos,
@@ -158,13 +159,19 @@ function renderResults() {
   if (!grid) return;
 
   if (!shownItems.length) {
-    grid.innerHTML = `<p class="tag-page__empty">${tagName ? '该标签下暂无内容' : '选择一个标签开始浏览'}</p>`;
+    if (loading) {
+      if (!grid.querySelector('.skeleton-busy')) {
+        grid.innerHTML = videoGridSkeletonHtml(8);
+      }
+    } else {
+      grid.innerHTML = `<p class="tag-page__empty">${tagName ? '该标签下暂无内容' : '选择一个标签开始浏览'}</p>`;
+    }
   } else {
     grid.innerHTML = shownItems.map((item) => renderVideoCard(item)).join('');
   }
 
   if (loading) {
-    setHint('加载中…');
+    setHint('');
   } else if (!currentHasMore()) {
     setHint(shownItems.length ? '没有更多了' : '');
   } else {
@@ -254,7 +261,9 @@ async function loadMore() {
 async function reloadTab() {
   resetState();
   rebuildShownItems();
-  renderResults();
+  const grid = document.getElementById('tag-page-grid');
+  if (grid) grid.innerHTML = videoGridSkeletonHtml(8);
+  setHint('');
   await loadMore();
 }
 

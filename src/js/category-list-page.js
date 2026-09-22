@@ -10,6 +10,7 @@ import {
   restoreScrollTop,
 } from './navigation.js';
 import { renderVideoCard } from './home-feed.js';
+import { videoGridSkeletonHtml } from './skeleton-ui.js';
 
 /** @typedef {import('./content-api.js').ContentPreview} ContentPreview */
 
@@ -66,7 +67,7 @@ async function loadPage(nextPage, mode = 'replace') {
   setStatus('');
   const grid = getGridEl();
   if (mode === 'replace' && grid) {
-    grid.innerHTML = `<p class="home-feed__loading">${materialIcon('progress_activity', 'home-feed__spin')}正在加载…</p>`;
+    grid.innerHTML = videoGridSkeletonHtml(12);
   }
 
   try {

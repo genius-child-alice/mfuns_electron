@@ -12,6 +12,7 @@ import {
 import { openContentDetail, previewFromCard } from './content-nav.js';
 import { openCategoryListPage } from './category-list-page.js';
 import { getScrollTop, registerPageNavigation, restoreScrollTop } from './navigation.js';
+import { videoGridSkeletonHtml } from './skeleton-ui.js';
 
 /** @typedef {'recommend' | 'hot' | 'category'} HomeTabId */
 
@@ -282,9 +283,7 @@ function setGridHtml(html) {
 }
 
 function setGridLoading() {
-  setGridHtml(
-    `<p class="home-feed__loading">${materialIcon('progress_activity', 'home-feed__spin')}正在加载…</p>`,
-  );
+  setGridHtml(videoGridSkeletonHtml(12));
 }
 
 function removeLoadMoreIndicator() {
