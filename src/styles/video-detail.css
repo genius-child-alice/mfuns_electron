@@ -1229,6 +1229,19 @@ html[data-theme='dark'] .watch-side-scroll::-webkit-scrollbar-thumb {
   font-size: 15px;
 }
 
+.watch-video-meta .material-symbols-outlined {
+  font-variation-settings:
+    'FILL' 0,
+    'wght' 400,
+    'GRAD' 0,
+    'opsz' 20;
+}
+
+.watch-video-meta .video-play-count-icon,
+.watch-video-meta .view-count-icon {
+  font-size: 15px;
+}
+
 .watch-video-meta__time time {
   font-variant-numeric: tabular-nums;
 }

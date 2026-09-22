@@ -7,7 +7,14 @@ export function materialIcon(name, className = '') {
   return `<span class="material-symbols-outlined${extra}" aria-hidden="true">${name}</span>`;
 }
 
-/** 播放量 / 阅读量统计图标（非播放器控制按钮） */
+/** 阅读量 / 动态浏览量（官网「眼睛」） */
 export function viewCountIcon(className = '') {
-  return materialIcon('visibility', className);
+  const classes = [className, 'view-count-icon'].filter(Boolean).join(' ');
+  return materialIcon('visibility', classes);
+}
+
+/** 视频播放量（Material smart_display，与文章/动态 visibility 区分） */
+export function videoPlayCountIcon(className = '') {
+  const classes = [className, 'video-play-count-icon'].filter(Boolean).join(' ');
+  return materialIcon('smart_display', classes);
 }

@@ -1,4 +1,4 @@
-import { materialIcon, viewCountIcon } from './icons.js';
+import { materialIcon, videoPlayCountIcon, viewCountIcon } from './icons.js';
 import {
   childCategoryNodes,
   fetchCategories,
@@ -149,6 +149,10 @@ export function renderVideoCard(item) {
     : `<div class="video-card__cover" style="--ph: ${hue}"></div>`;
   const dateLabel = formatDateLabel(item.createdAt);
   const durationLabel = item.type === 1 ? formatVideoDuration(item.duration) : '';
+  const viewsIcon =
+    item.type === 1
+      ? videoPlayCountIcon('video-card__stat-icon')
+      : viewCountIcon('video-card__stat-icon');
 
   return `
     <article class="video-card" data-content-id="${escapeHtml(item.id)}" data-content-type="${item.type}">
@@ -156,7 +160,7 @@ export function renderVideoCard(item) {
         ${cover}
         <div class="video-card__stats">
           <div class="video-card__stats-left">
-            <span class="video-card__stat">${viewCountIcon('video-card__stat-icon')}${formatCount(item.views)}</span>
+            <span class="video-card__stat">${viewsIcon}${formatCount(item.views)}</span>
             <span class="video-card__stat">${materialIcon('chat_bubble', 'video-card__stat-icon')}${formatCount(item.comments)}</span>
           </div>
           ${durationLabel ? `<span class="video-card__duration">${escapeHtml(durationLabel)}</span>` : ''}

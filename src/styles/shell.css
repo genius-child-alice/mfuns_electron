@@ -634,13 +634,18 @@ html[data-theme='dark'] .content::-webkit-scrollbar-corner {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
+/* 与详情页元信息一致：Outlined（非实心 FILL） */
 .video-card__stat .material-symbols-outlined {
   font-size: 14px;
   font-variation-settings:
-    'FILL' 1,
+    'FILL' 0,
     'wght' 400,
     'GRAD' 0,
     'opsz' 20;
+}
+
+.video-card__stat .video-play-count-icon {
+  font-size: 14px;
 }
 
 .video-card__duration {

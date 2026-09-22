@@ -1,5 +1,5 @@
 import { notify } from './notice-ui.js';
-import { materialIcon, viewCountIcon } from './icons.js';
+import { materialIcon, videoPlayCountIcon } from './icons.js';
 import { mediaSrcForCover, formatContentArchiveNo } from './content-api.js';
 import { getWatchPlayer } from './watch-player.js';
 import { mountRichContent } from './rich-content.js';
@@ -478,7 +478,7 @@ function renderSidePanel() {
         </div>
 
         <div class="watch-video-meta">
-          <span>${viewCountIcon('watch-meta-icon')}${formatCount(preview.views)}</span>
+          <span>${videoPlayCountIcon('watch-meta-icon')}${formatCount(preview.views)}</span>
           <span>${materialIcon('subtitles', 'watch-meta-icon')}${formatCount(danmakuCount)}</span>
           ${
             dateLabel
