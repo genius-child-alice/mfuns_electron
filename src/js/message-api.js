@@ -1,4 +1,4 @@
-import { apiGet, apiPostForm, resolveCoverUrl } from './content-api.js';
+import { apiGet, apiPostForm, pickAvatarFrameUrl, resolveCoverUrl } from './content-api.js';
 import { commentSpansFromText, messageQuillJson, quillToText } from './message-quill.js';
 import { uploadCommentImage } from './video-api.js';
 
@@ -8,6 +8,7 @@ import { uploadCommentImage } from './video-api.js';
  *   userId: number,
  *   userName: string,
  *   userAvatar: string,
+ *   userAvatarFrame: string | null,
  *   lastMessage: string,
  *   unread: number,
  *   lastTime: string | null,
@@ -41,6 +42,7 @@ import { uploadCommentImage } from './video-api.js';
  *   senderUserId: number,
  *   senderName: string,
  *   senderAvatar: string,
+ *   senderAvatarFrame: string | null,
  *   createdAt: string | null,
  *   text: string,
  *   commentId: number | null,
@@ -354,6 +356,7 @@ function parseMessageConversation(json) {
     userId,
     userName,
     userAvatar: resolveCoverUrl(user.avatar ?? user.face) ?? '',
+    userAvatarFrame: pickAvatarFrameUrl(user.avatar_frame ?? user.avatarFrame),
     lastMessage,
     unread: asInt(json.no_read ?? json.unread) ?? 0,
     lastTime: asDateTime(last.time ?? json.updated_at ?? json.time),
@@ -598,6 +601,7 @@ function parseNotifyItem(json) {
     senderUserId: asInt(json.sender_user_id ?? sender.id ?? sender.user_id) ?? 0,
     senderName: `${sender.name ?? sender.username ?? ''}`,
     senderAvatar: resolveCoverUrl(sender.avatar ?? sender.face) ?? '',
+    senderAvatarFrame: pickAvatarFrameUrl(sender.avatar_frame ?? sender.avatarFrame),
     createdAt: asDateTime(json.created_at ?? json.time),
     text: notifyBodyText(
       `${params.reply_text ?? params.text ?? params.content ?? json.content ?? json.text ?? json.title ?? ''}`,

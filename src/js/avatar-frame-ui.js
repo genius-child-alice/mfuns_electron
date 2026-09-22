@@ -1,35 +1,10 @@
-import { mediaSrcForCover, resolveCoverUrl } from './content-api.js';
+import {
+  avatarImageSrc,
+  pickAvatarFrameUrl,
+  userAvatarFrameUrl,
+} from './content-api.js';
 
-/**
- * @param {unknown} value
- */
-function asMap(value) {
-  return value && typeof value === 'object' ? /** @type {Record<string, unknown>} */ (value) : {};
-}
-
-/**
- * 从用户对象或 avatar_frame 字段解析头像框图片 URL。
- * @param {unknown} raw
- * @returns {string | null}
- */
-export function pickAvatarFrameUrl(raw) {
-  if (raw == null) return null;
-  if (typeof raw === 'string') {
-    const trimmed = raw.trim();
-    if (!trimmed) return null;
-    return resolveCoverUrl(trimmed);
-  }
-  const map = asMap(raw);
-  const nested = asMap(map.avatar_frame ?? map.avatarFrame);
-  const fromNested = resolveCoverUrl(
-    nested.image ?? nested.url ?? nested.preview ?? nested.src ?? nested.cover,
-  );
-  if (fromNested) return fromNested;
-  const direct = resolveCoverUrl(
-    map.avatar_frame_url ?? map.frame_url ?? map.avatar_frame_image ?? map.image ?? map.url,
-  );
-  return direct || null;
-}
+export { pickAvatarFrameUrl, userAvatarFrameUrl };
 
 /**
  * @param {string} text
@@ -46,7 +21,7 @@ function escapeHtml(text) {
  * @param {{
  *   avatar: string | null | undefined,
  *   frame: string | null | undefined,
- *   size?: 'xs' | 'sm' | 'lg',
+ *   size?: string,
  *   imgClass?: string,
  *   phClass?: string,
  *   wrapClass?: string,
@@ -58,8 +33,8 @@ export function renderFramedAvatarHtml(options) {
   const imgClass = options.imgClass ?? '';
   const phClass = options.phClass ?? '';
   const wrapClass = options.wrapClass ?? '';
-  const avatarSrc = options.avatar ? mediaSrcForCover(options.avatar) : null;
-  const frameSrc = options.frame ? mediaSrcForCover(options.frame) : null;
+  const avatarSrc = options.avatar ? avatarImageSrc(options.avatar) : null;
+  const frameSrc = options.frame ? avatarImageSrc(options.frame) : null;
 
   if (!frameSrc) {
     if (avatarSrc) {
@@ -79,12 +54,44 @@ export function renderFramedAvatarHtml(options) {
 }
 
 /**
+ * @param {{
+ *   user?: Record<string, unknown> | null,
+ *   avatar?: string | null,
+ *   frame?: string | null,
+ *   size: string,
+ *   imgClass: string,
+ *   phClass?: string,
+ *   fallbackAvatarSrc?: string | null,
+ * }} options
+ * @returns {string}
+ */
+export function renderUserFramedAvatarHtml(options) {
+  /** @type {string | null} */
+  let avatarRaw = options.avatar ?? null;
+  if (!avatarRaw && options.user) {
+    const u = options.user;
+    avatarRaw = `${u.avatar ?? u.face ?? u.user_avatar ?? ''}`.trim() || null;
+  }
+  if (!avatarRaw && options.fallbackAvatarSrc) {
+    avatarRaw = options.fallbackAvatarSrc;
+  }
+  const frame = options.frame ?? (options.user ? userAvatarFrameUrl(options.user) : null);
+  return renderFramedAvatarHtml({
+    avatar: avatarRaw,
+    frame,
+    size: options.size,
+    imgClass: options.imgClass,
+    phClass: options.phClass,
+  });
+}
+
+/**
  * 详情页作者头像（可点击进入空间）。
  * @param {{
  *   authorId?: number | null,
  *   avatar?: string | null,
  *   frame?: string | null,
- *   size: 'xs' | 'sm' | 'watch' | 'article' | 'feed' | 'lg',
+ *   size: string,
  *   imgClass: string,
  *   phClass?: string,
  *   btnClass?: string,

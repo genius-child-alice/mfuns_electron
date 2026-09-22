@@ -5,7 +5,7 @@ import {
   parsePreviewList,
   resolveCoverUrl,
 } from './content-api.js';
-import { pickAvatarFrameUrl } from './avatar-frame-ui.js';
+import { pickAvatarFrameUrl, userAvatarFrameUrl } from './content-api.js';
 import { levelFromBadges } from './user-level.js';
 
 /** @typedef {{
@@ -114,7 +114,7 @@ function parseUserProfile(raw) {
     id: asInt(source.id ?? source.user_id) ?? 0,
     name: `${source.name ?? source.username ?? 'Mfuns 用户'}`,
     avatar: resolveCoverUrl(source.avatar ?? source.face),
-    avatarFrame: pickAvatarFrameUrl(source.avatar_frame ?? source.avatarFrame),
+    avatarFrame: userAvatarFrameUrl(source),
     banner: resolveCoverUrl(source.banner_image ?? source.banner),
     bio,
     gender: `${source.gender ?? info.gender ?? ''}`,
@@ -393,7 +393,7 @@ function parseTimelineFeedItem(raw) {
     authorName: `${user.name ?? user.username ?? user.nickname ?? ''}`.trim() || 'Mfuns 用户',
     authorId: asInt(user.id ?? user.user_id ?? source.user_id ?? source.author_id),
     authorAvatar: resolveCoverUrl(user.avatar ?? user.face),
-    authorAvatarFrame: pickAvatarFrameUrl(user.avatar_frame ?? user.avatarFrame),
+    authorAvatarFrame: userAvatarFrameUrl(user),
     images: parseFeedImages(source.images ?? source.image_list ?? source.pictures ?? extra.images),
     resource,
   };

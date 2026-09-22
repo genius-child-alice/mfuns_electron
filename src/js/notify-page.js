@@ -1,4 +1,5 @@
 import { materialIcon } from './icons.js';
+import { renderFramedAvatarHtml } from './avatar-frame-ui.js';
 import { mediaSrcForCover } from './content-api.js';
 import { fetchArticleDetail } from './article-api.js';
 import { getCurrentPage } from './pages.js';
@@ -160,7 +161,6 @@ function renderNotifyCard(item, system = false) {
   const active = selectedNotifyKey === key;
   const time = formatNotifyTime(item.createdAt);
   const text = item.text || '（空通知）';
-  const avatar = item.senderAvatar;
   const initial = escapeHtml((item.senderName || 'U').slice(0, 1));
   const name = item.senderName || (item.senderUserId ? `用户 ${item.senderUserId}` : '用户');
 
@@ -184,8 +184,14 @@ function renderNotifyCard(item, system = false) {
     <article class="message-notify-card${active ? ' is-active' : ''}" data-notify-key="${escapeHtml(key)}">
       <button type="button" class="message-notify-card__avatar" data-notify-user="${item.senderUserId}" aria-label="查看用户">
         ${
-          avatar
-            ? `<img src="${escapeHtml(avatar)}" alt="" />`
+          item.senderAvatar || item.senderAvatarFrame
+            ? renderFramedAvatarHtml({
+                avatar: item.senderAvatar,
+                frame: item.senderAvatarFrame,
+                size: 'notify',
+                imgClass: 'message-notify-card__avatar-img',
+                phClass: 'message-notify-card__avatar-ph',
+              })
             : `<span class="message-notify-card__avatar-ph">${initial}</span>`
         }
       </button>
@@ -301,7 +307,6 @@ function renderNotifyDetailHead(item, system = false) {
   const time = formatNotifyTime(item.createdAt);
   const text = item.text || '（空通知）';
   const name = system ? '系统通知' : item.senderName || (item.senderUserId ? `用户 ${item.senderUserId}` : '用户');
-  const avatar = system ? '' : item.senderAvatar;
   const initial = escapeHtml(name.slice(0, 1) || '系');
 
   return `
@@ -310,8 +315,14 @@ function renderNotifyDetailHead(item, system = false) {
         ${
           system
             ? `<span class="message-notify-detail__sender-avatar message-notify-detail__sender-avatar--ph">${materialIcon('campaign')}</span>`
-            : avatar
-              ? `<img class="message-notify-detail__sender-avatar" src="${escapeHtml(avatar)}" alt="" />`
+            : item.senderAvatar || item.senderAvatarFrame
+              ? renderFramedAvatarHtml({
+                  avatar: item.senderAvatar,
+                  frame: item.senderAvatarFrame,
+                  size: 'notify',
+                  imgClass: 'message-notify-detail__sender-avatar',
+                  phClass: 'message-notify-detail__sender-avatar--ph',
+                })
               : `<span class="message-notify-detail__sender-avatar message-notify-detail__sender-avatar--ph">${initial}</span>`
         }
         <div>

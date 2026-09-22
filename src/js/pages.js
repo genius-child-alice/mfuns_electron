@@ -1,5 +1,6 @@
 import { materialIcon } from './icons.js';
 import { loadSession, userDisplayName } from './auth.js';
+import { renderUserFramedAvatarHtml } from './avatar-frame-ui.js';
 import { userAvatarMediaSrc } from './content-api.js';
 import { clearGlobalPlayerBlackmask, destroyWatchPlayer } from './watch-player.js';
 import { unblockUi } from './ui-unblock.js';
@@ -568,9 +569,7 @@ export function minePageHtml() {
           </div>
           <div class="mine-profile mine-profile--auth" data-auth-only hidden>
             <button type="button" class="mine-profile__avatar-entry" id="mine-open-member" aria-label="打开个人中心">
-              <span class="mine-profile__avatar-ring">
-                <img class="mine-profile__avatar-img" id="mine-avatar-img" src="${DEFAULT_AVATAR}" alt="" />
-              </span>
+              <span class="mine-profile__avatar-ring" id="mine-avatar-host"></span>
               <span class="mine-profile__avatar-entry-label">
                 ${materialIcon('manage_accounts', 'mine-profile__avatar-entry-icon')}
                 <span>个人中心</span>
@@ -729,7 +728,7 @@ export function settingsPageHtml() {
                 </div>
                 <div class="settings-row__control">
                   <button type="button" class="settings-profile-avatar-btn" id="settings-avatar-btn" aria-label="更换头像">
-                    <img class="settings-profile-avatar" id="settings-profile-avatar" src="assets/mfuns_logo.png" alt="" />
+                    <span id="settings-profile-avatar-host" class="settings-profile-avatar-host"></span>
                     <span class="settings-profile-avatar-btn__mask">更换</span>
                   </button>
                   <input type="file" id="settings-avatar-input" accept="image/*" hidden />
@@ -1102,12 +1101,20 @@ export function syncPagesAuthState() {
   });
 
   const nameEl = document.getElementById('mine-display-name');
-  const imgEl = /** @type {HTMLImageElement | null} */ (document.getElementById('mine-avatar-img'));
+  const avatarHost = document.getElementById('mine-avatar-host');
   if (loggedIn && nameEl) {
     nameEl.textContent = userDisplayName(session?.user);
   }
-  if (loggedIn && imgEl) {
-    imgEl.src = userAvatarMediaSrc(session?.user) || DEFAULT_AVATAR;
+  if (avatarHost) {
+    avatarHost.innerHTML = loggedIn
+      ? renderUserFramedAvatarHtml({
+          user: session?.user ?? null,
+          fallbackAvatarSrc: userAvatarMediaSrc(session?.user) || DEFAULT_AVATAR,
+          size: 'mine',
+          imgClass: 'mine-profile__avatar-img',
+          phClass: 'mine-profile__avatar-img--ph',
+        })
+      : '';
   }
 }
 

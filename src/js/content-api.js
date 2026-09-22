@@ -1,6 +1,6 @@
 import { API_BASE, loadSession } from './auth.js';
 
-/** @typedef {{ id: string, title: string, cover: string | null, author: string, authorId: number | null, authorAvatar: string | null, type: number, views: number, likes: number, comments: number, duration: number | null, createdAt: string | null }} ContentPreview */
+/** @typedef {{ id: string, title: string, cover: string | null, author: string, authorId: number | null, authorAvatar: string | null, authorAvatarFrame: string | null, type: number, views: number, likes: number, comments: number, duration: number | null, createdAt: string | null }} ContentPreview */
 
 /**
  * @param {Response} res
@@ -214,6 +214,23 @@ export function mediaSrcForUrl(resolvedHttpsUrl) {
 export const mediaSrcForCover = mediaSrcForUrl;
 
 /**
+ * 头像/头像框展示用 src：支持相对路径、CDN、本地 assets、已代理的 mfuns-media。
+ * @param {unknown} raw
+ * @returns {string | null}
+ */
+export function avatarImageSrc(raw) {
+  if (raw == null || raw === '') return null;
+  const s = `${raw}`.trim();
+  if (!s) return null;
+  if (s.startsWith('mfuns-media:') || s.startsWith('mfuns-offline:')) return s;
+  if (s.startsWith('assets/') || s.startsWith('data:') || s.startsWith('blob:')) return s;
+  const resolved = resolveCoverUrl(raw);
+  if (!resolved) return null;
+  if (resolved.startsWith('assets/')) return resolved;
+  return mediaSrcForUrl(resolved);
+}
+
+/**
  * 点播地址走同一代理，并支持 Range（HTMLVideoElement 分段加载）。
  * @param {string | null | undefined} playUrl
  * @returns {string | null}
@@ -241,6 +258,61 @@ export function userAvatarMediaSrc(user) {
   if (!user) return null;
   const raw = user.avatar ?? user.face ?? user.user_avatar;
   return mediaSrcForUrl(resolveCoverUrl(raw));
+}
+
+/**
+ * 从用户对象或 avatar_frame 字段解析头像框图片 URL。
+ * @param {unknown} raw
+ * @returns {string | null}
+ */
+export function pickAvatarFrameUrl(raw) {
+  if (raw == null) return null;
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (!trimmed) return null;
+    return resolveCoverUrl(trimmed);
+  }
+  if (typeof raw !== 'object') return null;
+  const map = /** @type {Record<string, unknown>} */ (raw);
+  const nested =
+    map.avatar_frame != null && typeof map.avatar_frame === 'object'
+      ? /** @type {Record<string, unknown>} */ (map.avatar_frame)
+      : map.avatarFrame != null && typeof map.avatarFrame === 'object'
+        ? /** @type {Record<string, unknown>} */ (map.avatarFrame)
+        : null;
+  if (nested) {
+    const fromNested = resolveCoverUrl(
+      nested.image ?? nested.url ?? nested.preview ?? nested.src ?? nested.cover ?? nested.icon,
+    );
+    if (fromNested) return fromNested;
+  }
+  const direct = resolveCoverUrl(
+    map.image ??
+      map.url ??
+      map.preview ??
+      map.src ??
+      map.cover ??
+      map.icon ??
+      map.avatar_frame_url ??
+      map.frame_url ??
+      map.avatar_frame_image,
+  );
+  return direct || null;
+}
+
+/**
+ * @param {Record<string, unknown> | null | undefined} user
+ * @returns {string | null}
+ */
+export function userAvatarFrameUrl(user) {
+  if (!user) return null;
+  return pickAvatarFrameUrl(
+    user.avatar_frame ??
+      user.avatarFrame ??
+      user.wearing_avatar_frame ??
+      user.wearingAvatarFrame ??
+      user.user_avatar_frame,
+  );
 }
 
 /**
@@ -364,6 +436,7 @@ export function parseContentPreview(raw) {
     author,
     authorId,
     authorAvatar: pickCoverUrl(user?.avatar ?? user?.face ?? item.author_avatar),
+    authorAvatarFrame: pickAvatarFrameUrl(user?.avatar_frame ?? user?.avatarFrame),
     type: parseContentType(raw),
     views: Number(item.view_count ?? item.views ?? resource?.view_count ?? 0) || 0,
     likes:

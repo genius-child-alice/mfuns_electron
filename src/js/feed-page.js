@@ -1,5 +1,5 @@
 import { loadSession } from './auth.js';
-import { mediaSrcForCover } from './content-api.js';
+import { renderFramedAvatarHtml } from './avatar-frame-ui.js';
 import { materialIcon } from './icons.js';
 import { isLoggedIn } from './login-ui.js';
 import { getCurrentPage } from './pages.js';
@@ -91,15 +91,16 @@ function renderFollowAside(users) {
   if (!list) return;
   list.innerHTML = users
     .map((user) => {
-      const avatar = mediaSrcForCover(user.avatar);
       const name = user.name || 'Mfuns 用户';
       return `
         <button type="button" class="feed-page__nav feed-page__nav--user" data-feed-filter="${user.id}">
-          ${
-            avatar
-              ? `<img class="feed-page__nav-avatar" src="${escapeHtml(avatar)}" alt="" />`
-              : '<span class="feed-page__nav-avatar feed-page__nav-avatar--ph"></span>'
-          }
+          ${renderFramedAvatarHtml({
+            avatar: user.avatar,
+            frame: user.avatarFrame,
+            size: 'nav',
+            imgClass: 'feed-page__nav-avatar',
+            phClass: 'feed-page__nav-avatar--ph',
+          })}
           <span class="feed-page__nav-name">${escapeHtml(name)}</span>
         </button>`;
     })

@@ -302,6 +302,16 @@
   border-radius: 50%;
 }
 
+.settings-profile-avatar-host {
+  display: block;
+  line-height: 0;
+}
+
+.settings-profile-avatar-btn:has(.framed-avatar) {
+  border-radius: 0;
+  overflow: visible;
+}
+
 .settings-profile-avatar {
   display: block;
   width: 80px;

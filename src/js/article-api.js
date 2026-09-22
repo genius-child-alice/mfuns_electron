@@ -1,4 +1,4 @@
-import { pickAvatarFrameUrl } from './avatar-frame-ui.js';
+import { pickAvatarFrameUrl } from './content-api.js';
 import {
   apiGet,
   parseContentPreview,

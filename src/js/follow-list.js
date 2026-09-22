@@ -1,6 +1,6 @@
 import { materialIcon } from './icons.js';
 import { loadSession } from './auth.js';
-import { mediaSrcForCover } from './content-api.js';
+import { renderFramedAvatarHtml } from './avatar-frame-ui.js';
 import { getCurrentPage } from './pages.js';
 import {
   getScrollTop,
@@ -130,17 +130,18 @@ function renderList() {
 
   grid.innerHTML = list
     .map((user) => {
-      const avatarSrc = mediaSrcForCover(user.avatar);
       const bio = user.bio === '暂无简介' ? '这个人很神秘，什么也没写。' : user.bio;
       const relation = relationChipHtml(user);
       return `
         <article class="follow-list__card">
           <button type="button" class="follow-list__card-main" data-open-user="${user.id}">
-            ${
-              avatarSrc
-                ? `<img class="follow-list__avatar" src="${escapeHtml(avatarSrc)}" alt="" />`
-                : '<span class="follow-list__avatar follow-list__avatar--ph"></span>'
-            }
+            ${renderFramedAvatarHtml({
+              avatar: user.avatar,
+              frame: user.avatarFrame,
+              size: 'list',
+              imgClass: 'follow-list__avatar',
+              phClass: 'follow-list__avatar--ph',
+            })}
             <div class="follow-list__card-text">
               <h3 class="follow-list__name">${escapeHtml(user.name)}</h3>
               <p class="follow-list__bio">${escapeHtml(bio)}</p>

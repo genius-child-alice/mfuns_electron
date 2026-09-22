@@ -1,4 +1,4 @@
-import { pickAvatarFrameUrl } from './avatar-frame-ui.js';
+import { pickAvatarFrameUrl } from './content-api.js';
 import { parseUserBadgeIds } from './badge-catalog.js';
 import { commentSpansFromText } from './message-quill.js';
 import { API_BASE, loadSession } from './auth.js';

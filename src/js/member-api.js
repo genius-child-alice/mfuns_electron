@@ -1,6 +1,6 @@
 import { badgeImageUrl, badgeLabelFromId } from './badge-catalog.js';
 import { sendLoginCode } from './auth.js';
-import { apiDelete, apiGet, apiPostJson, resolveCoverUrl } from './content-api.js';
+import { apiDelete, apiGet, apiPostJson, pickAvatarFrameUrl, resolveCoverUrl } from './content-api.js';
 
 /** 举报资源类型（与官网 MReportForm 一致时可再校准） */
 export const REPORT_RESOURCE = {
@@ -124,7 +124,7 @@ export async function submitReport(params) {
   });
 }
 
-/** @typedef {{ userId: number, name: string, avatar: string | null }} BlacklistUser */
+/** @typedef {{ userId: number, name: string, avatar: string | null, avatarFrame: string | null }} BlacklistUser */
 
 /**
  * @param {unknown} raw
@@ -139,6 +139,7 @@ function parseBlacklistUser(raw) {
     userId: id,
     name: `${source.name ?? source.username ?? row.name ?? '用户'}`,
     avatar: resolveCoverUrl(source.avatar ?? source.face ?? row.avatar),
+    avatarFrame: pickAvatarFrameUrl(source.avatar_frame ?? source.avatarFrame),
   };
 }
 

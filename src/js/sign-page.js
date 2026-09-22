@@ -1,4 +1,4 @@
-import { mediaSrcForCover } from './content-api.js';
+import { renderFramedAvatarHtml } from './avatar-frame-ui.js';
 import { confirmAction } from './confirm-dialog.js';
 import { materialIcon } from './icons.js';
 import { requireLogin } from './login-ui.js';
@@ -148,18 +148,19 @@ function renderRankHtml(list) {
   }
   return list
     .map((entry, index) => {
-      const avatar = mediaSrcForCover(entry.avatar);
       const rank = index + 1;
       const timeLabel = entry.time ? `${escapeHtml(entry.time)} 签到` : '今日已签到';
       const badge = renderLevelBadgeHtml({ levelId: entry.levelId, showExp: false });
       return `
         <div class="sign-rank__item">
           <button type="button" class="sign-rank__avatar-btn" data-author-profile="${entry.userId}" title="进入主页">
-            ${
-              avatar
-                ? `<img class="sign-rank__avatar" src="${avatar}" alt="" />`
-                : '<span class="sign-rank__avatar sign-rank__avatar--ph"></span>'
-            }
+            ${renderFramedAvatarHtml({
+              avatar: entry.avatar,
+              frame: entry.avatarFrame,
+              size: 'rank',
+              imgClass: 'sign-rank__avatar',
+              phClass: 'sign-rank__avatar--ph',
+            })}
           </button>
           <div class="sign-rank__info">
             <div class="sign-rank__name-row">

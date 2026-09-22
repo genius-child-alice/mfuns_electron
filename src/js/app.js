@@ -18,6 +18,7 @@ import {
   sendLoginCode,
   userDisplayName,
 } from './auth.js';
+import { renderUserFramedAvatarHtml } from './avatar-frame-ui.js';
 import { userAvatarMediaSrc } from './content-api.js';
 import { bindLegalLinks, LEGAL_URLS } from './legal.js';
 import { loadAppSettings } from './app-preferences.js';
@@ -136,7 +137,7 @@ function renderShell() {
             title="登录"
             aria-label="登录"
           >
-            <img class="sidebar__avatar-img" src="${DEFAULT_AVATAR_SRC}" alt="" width="40" height="40" />
+            <span class="sidebar__avatar-host" id="sidebar-avatar-host"></span>
           </button>
           ${SIDEBAR_TOOLS.map(
             (tool) => `
@@ -571,9 +572,7 @@ function bindSettings() {
 function syncLoginUi() {
   const session = loadSession();
   const avatarBtn = document.getElementById('btn-open-login');
-  const img = /** @type {HTMLImageElement | null} */ (
-    avatarBtn?.querySelector('.sidebar__avatar-img')
-  );
+  const avatarHost = document.getElementById('sidebar-avatar-host');
   const loggedIn = Boolean(session?.token);
 
   if (avatarBtn) {
@@ -582,10 +581,15 @@ function syncLoginUi() {
     avatarBtn.setAttribute('aria-label', loggedIn ? userDisplayName(session?.user) : '登录');
   }
 
-  if (img) {
+  if (avatarHost) {
     const remote = userAvatarMediaSrc(session?.user);
-    img.src = remote || DEFAULT_AVATAR_SRC;
-    img.classList.toggle('sidebar__avatar-img--brand', !remote);
+    avatarHost.innerHTML = renderUserFramedAvatarHtml({
+      user: session?.user ?? null,
+      fallbackAvatarSrc: DEFAULT_AVATAR_SRC,
+      size: 'sidebar',
+      imgClass: `sidebar__avatar-img${remote ? '' : ' sidebar__avatar-img--brand'}`,
+      phClass: 'sidebar__avatar-img--ph',
+    });
   }
 
   syncPagesAuthState();

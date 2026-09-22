@@ -1,6 +1,7 @@
 import { notify } from './notice-ui.js';
 import { loadSession } from './auth.js';
-import { mediaSrcForCover, userAvatarMediaSrc } from './content-api.js';
+import { renderFramedAvatarHtml } from './avatar-frame-ui.js';
+import { userAvatarFrameUrl, userAvatarMediaSrc } from './content-api.js';
 import { loadStickerUrlMap } from './emoji-pack.js';
 import { materialIcon } from './icons.js';
 import { isLoggedIn, requireLogin } from './login-ui.js';
@@ -39,7 +40,7 @@ let convPage = 1;
 let convHasMore = true;
 let convLoading = false;
 
-/** @type {{ userId: number, userName: string, userAvatar: string } | null} */
+/** @type {{ userId: number, userName: string, userAvatar: string, userAvatarFrame: string | null } | null} */
 let activePeer = null;
 
 /** @type {MessageRecord[]} */
@@ -158,7 +159,6 @@ function renderConversationList(items) {
   root.innerHTML = items
     .map((item) => {
       const active = activePeer?.userId === item.userId;
-      const avatar = mediaSrcForCover(item.userAvatar);
       const preview = item.lastMessage || '暂无消息';
       const time = formatMessageTime(item.lastTime);
       const initial = escapeHtml(item.userName.slice(0, 1) || 'U');
@@ -172,8 +172,14 @@ function renderConversationList(items) {
         >
           <span class="message-conv__avatar">
             ${
-              avatar
-                ? `<img src="${escapeHtml(avatar)}" alt="" />`
+              item.userAvatar || item.userAvatarFrame
+                ? renderFramedAvatarHtml({
+                    avatar: item.userAvatar,
+                    frame: item.userAvatarFrame,
+                    size: 'message-conv',
+                    imgClass: 'message-conv__avatar-img',
+                    phClass: 'message-conv__avatar-ph',
+                  })
                 : `<span class="message-conv__avatar-ph">${initial}</span>`
             }
           </span>
@@ -276,9 +282,14 @@ function updateThreadHeader() {
   }
 
   title.textContent = activePeer.userName;
-  const avatar = mediaSrcForCover(activePeer.userAvatar);
-  if (avatar) {
-    avatarEl.innerHTML = `<img src="${escapeHtml(avatar)}" alt="" />`;
+  if (activePeer.userAvatar || activePeer.userAvatarFrame) {
+    avatarEl.innerHTML = renderFramedAvatarHtml({
+      avatar: activePeer.userAvatar,
+      frame: activePeer.userAvatarFrame,
+      size: 'message-thread',
+      imgClass: 'message-thread__avatar-img',
+      phClass: 'message-thread__avatar-ph',
+    });
   } else {
     avatarEl.innerHTML = `<span class="message-thread__avatar-ph">${escapeHtml(activePeer.userName.slice(0, 1) || 'U')}</span>`;
   }
@@ -299,7 +310,10 @@ function renderMessageBubble(record, myId) {
   const session = loadSession();
   const myAvatar = userAvatarMediaSrc(session?.user) ?? '';
   const peerAvatar = activePeer?.userAvatar ?? '';
-  const avatarSrc = mediaSrcForCover(isMine ? myAvatar : peerAvatar);
+  const avatarUrl = isMine ? myAvatar : peerAvatar;
+  const avatarFrame = isMine
+    ? userAvatarFrameUrl(session?.user)
+    : activePeer?.userAvatarFrame ?? null;
   const initial = isMine ? '我' : activePeer?.userName?.slice(0, 1) || 'U';
   const time = formatMessageTime(record.time);
 
@@ -321,8 +335,14 @@ function renderMessageBubble(record, myId) {
     <article class="message-bubble${isMine ? ' message-bubble--mine' : ''}" data-message-id="${escapeHtml(record.id)}">
       <button type="button" class="message-bubble__avatar" data-message-user="${record.uid}" aria-label="查看用户">
         ${
-          avatarSrc
-            ? `<img src="${escapeHtml(avatarSrc)}" alt="" />`
+          avatarUrl || avatarFrame
+            ? renderFramedAvatarHtml({
+                avatar: avatarUrl,
+                frame: avatarFrame,
+                size: 'message-bubble',
+                imgClass: 'message-bubble__avatar-img',
+                phClass: 'message-bubble__avatar-ph',
+              })
             : `<span class="message-bubble__avatar-ph">${escapeHtml(initial)}</span>`
         }
       </button>
@@ -467,11 +487,12 @@ function onThreadScroll() {
  * @param {string} [userName]
  * @param {string} [userAvatar]
  */
-async function selectConversation(userId, userName = '', userAvatar = '') {
+async function selectConversation(userId, userName = '', userAvatar = '', userAvatarFrame = null) {
   activePeer = {
     userId,
     userName: userName || `用户 ${userId}`,
     userAvatar,
+    userAvatarFrame,
   };
   updateThreadHeader();
   renderConversationList(conversations);
@@ -480,11 +501,12 @@ async function selectConversation(userId, userName = '', userAvatar = '') {
   recordsHasMore = true;
   await reloadThread(true);
 
-  if (!userAvatar) {
+  if (!userAvatar || !userAvatarFrame) {
     try {
       const profile = await fetchUserProfile(userId);
       if (activePeer?.userId === userId) {
         activePeer.userAvatar = profile.avatar ?? '';
+        activePeer.userAvatarFrame = profile.avatarFrame ?? null;
         activePeer.userName = profile.name || activePeer.userName;
         updateThreadHeader();
         renderConversationList(conversations);
@@ -700,10 +722,12 @@ export function bindMessagePage() {
     if (!btn) return;
     const userId = Number.parseInt(btn.getAttribute('data-message-conv') ?? '', 10);
     if (!Number.isFinite(userId)) return;
+    const item = conversations.find((entry) => entry.userId === userId);
     void selectConversation(
       userId,
-      btn.getAttribute('data-message-name') ?? '',
-      btn.getAttribute('data-message-avatar') ?? '',
+      item?.userName ?? btn.getAttribute('data-message-name') ?? '',
+      item?.userAvatar ?? btn.getAttribute('data-message-avatar') ?? '',
+      item?.userAvatarFrame ?? null,
     );
   });
 

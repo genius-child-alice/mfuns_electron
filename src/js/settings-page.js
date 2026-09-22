@@ -4,7 +4,8 @@ import {
   saveSession,
   userDisplayName,
 } from './auth.js';
-import { mediaSrcForCover, userAvatarMediaSrc } from './content-api.js';
+import { renderUserFramedAvatarHtml } from './avatar-frame-ui.js';
+import { mediaSrcForCover, userAvatarFrameUrl, userAvatarMediaSrc } from './content-api.js';
 import { openLoginPanel, isLoggedIn } from './login-ui.js';
 import { notify } from './notice-ui.js';
 import { loadAppSettings, saveAppSettings } from './app-preferences.js';
@@ -486,13 +487,19 @@ function renderAccountCard() {
   const levelId = settingsProfileSnapshot?.level ?? resolveUserLevelId(user);
   const levelExp = settingsProfileSnapshot?.exp;
   const remoteAvatar = userAvatarMediaSrc(user);
-  const avatarSrc = remoteAvatar || DEFAULT_AVATAR_SRC;
   const brandFallback = !remoteAvatar;
+  const avatarHtml = renderUserFramedAvatarHtml({
+    user,
+    fallbackAvatarSrc: remoteAvatar || DEFAULT_AVATAR_SRC,
+    size: 'settings',
+    imgClass: `settings-account__avatar${brandFallback ? ' settings-account__avatar--brand' : ''}`,
+    phClass: 'settings-account__avatar--ph',
+  });
 
   card.innerHTML = `
     <div class="settings-account settings-account--logged">
       <div class="settings-account__avatar-wrap">
-        <img class="settings-account__avatar${brandFallback ? ' settings-account__avatar--brand' : ''}" src="${escapeHtml(avatarSrc)}" alt="" />
+        ${avatarHtml}
       </div>
       <div class="settings-account__meta">
         <div class="settings-account__name-row">
@@ -540,16 +547,22 @@ function fillProfileForm(profile) {
     if (radio) radio.checked = true;
   }
 
-  const avatarImg = /** @type {HTMLImageElement | null} */ (
-    document.getElementById('settings-profile-avatar')
-  );
+  const avatarHost = document.getElementById('settings-profile-avatar-host');
   const session = loadSession();
   const remote =
     userAvatarMediaSrc(session?.user) ||
     (profile?.avatar ? userAvatarMediaSrc({ avatar: profile.avatar }) : null);
-  if (avatarImg) {
-    avatarImg.src = remote || DEFAULT_AVATAR_SRC;
-    avatarImg.classList.toggle('settings-profile-avatar--brand', !remote);
+  const frame = profile?.avatarFrame ?? userAvatarFrameUrl(session?.user) ?? null;
+  if (avatarHost) {
+    avatarHost.innerHTML = renderUserFramedAvatarHtml({
+      user: session?.user ?? null,
+      avatar: profile?.avatar ?? null,
+      frame,
+      fallbackAvatarSrc: remote || DEFAULT_AVATAR_SRC,
+      size: 'settings',
+      imgClass: `settings-profile-avatar${remote ? '' : ' settings-profile-avatar--brand'}`,
+      phClass: 'settings-profile-avatar--ph',
+    });
   }
 }
 

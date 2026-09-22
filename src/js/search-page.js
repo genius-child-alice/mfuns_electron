@@ -8,6 +8,7 @@ import {
   restoreScrollTop,
 } from './navigation.js';
 import { renderVideoCard } from './home-feed.js';
+import { renderFramedAvatarHtml } from './avatar-frame-ui.js';
 import { mediaSrcForCover } from './content-api.js';
 import { searchResources, searchUsers } from './search-api.js';
 import { openUserSpace } from './user-space.js';
@@ -300,15 +301,16 @@ function onJumpToPage() {
 }
 
 function renderUserRow(user) {
-  const avatarSrc = mediaSrcForCover(user.avatar);
   const bio = user.bio === '暂无简介' ? '这个人很神秘，什么也没写。' : user.bio;
   return `
     <button type="button" class="search-user" data-search-user="${user.id}">
-      ${
-        avatarSrc
-          ? `<img class="search-user__avatar" src="${escapeHtml(avatarSrc)}" alt="" />`
-          : '<span class="search-user__avatar search-user__avatar--ph"></span>'
-      }
+      ${renderFramedAvatarHtml({
+        avatar: user.avatar,
+        frame: user.avatarFrame,
+        size: 'list',
+        imgClass: 'search-user__avatar',
+        phClass: 'search-user__avatar--ph',
+      })}
       <span class="search-user__text">
         <span class="search-user__name">${escapeHtml(user.name)}</span>
         <span class="search-user__bio">${escapeHtml(bio)}</span>

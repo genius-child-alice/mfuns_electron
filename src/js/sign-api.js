@@ -1,5 +1,5 @@
 import { API_BASE, loadSession } from './auth.js';
-import { apiGet, apiPostJson, resolveCoverUrl } from './content-api.js';
+import { apiGet, apiPostJson, pickAvatarFrameUrl, resolveCoverUrl } from './content-api.js';
 import { resolveUserLevelId } from './user-level.js';
 
 /** @typedef {{ day: number, signed: boolean }} SignDay */
@@ -148,6 +148,7 @@ export async function fetchSignRankToday() {
         userId,
         userName: `${user.name ?? user.username ?? '用户'}`.trim(),
         avatar: resolveCoverUrl(user.avatar ?? user.face),
+        avatarFrame: pickAvatarFrameUrl(user.avatar_frame ?? user.avatarFrame),
         count: asInt(item.count ?? item.all_times ?? item.sign_times) ?? 0,
         time: formatRankTime(item.time ?? item.sign_time),
         levelId: resolveUserLevelId(user),

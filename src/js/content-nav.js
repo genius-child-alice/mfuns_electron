@@ -38,8 +38,10 @@ export function previewFromCard(card, defaults = {}) {
     author: authorEl?.textContent?.trim() || defaults.author || '',
     authorId: defaults.authorId ?? null,
     authorAvatar: defaults.authorAvatar ?? null,
+    authorAvatarFrame: defaults.authorAvatarFrame ?? null,
     type: Number.isFinite(type) ? type : 1,
     views: defaults.views ?? 0,
+    likes: defaults.likes ?? 0,
     comments: defaults.comments ?? 0,
     createdAt: defaults.createdAt ?? null,
   };

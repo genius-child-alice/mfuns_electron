@@ -1,4 +1,5 @@
 import { loadSession, fetchUserInfo, saveSession, userDisplayName } from './auth.js';
+import { renderUserFramedAvatarHtml } from './avatar-frame-ui.js';
 import { userAvatarMediaSrc } from './content-api.js';
 import { materialIcon } from './icons.js';
 import { notify } from './notice-ui.js';
@@ -136,12 +137,18 @@ function memberHubTile(view, icon, label, desc = '') {
 function hubTiles() {
   const session = loadSession();
   const name = userDisplayName(session?.user);
-  const avatarSrc = userAvatarMediaSrc(session?.user) || 'assets/mfuns_logo.png';
+  const avatarHtml = renderUserFramedAvatarHtml({
+    user: session?.user ?? null,
+    fallbackAvatarSrc: userAvatarMediaSrc(session?.user) || 'assets/mfuns_logo.png',
+    size: 'member-hub',
+    imgClass: 'member-hub-hero__avatar-img',
+    phClass: 'member-hub-hero__avatar-img--ph',
+  });
 
   return `
     <div class="member-hub-hero">
       <div class="member-hub-hero__avatar">
-        <img src="${escapeHtml(avatarSrc)}" alt="" />
+        ${avatarHtml}
       </div>
       <div class="member-hub-hero__main">
         <p class="member-hub-hero__greet">你好，${escapeHtml(name)}</p>
@@ -333,11 +340,13 @@ async function renderView() {
                 .map(
                   (user) => `
               <div class="member-list-row">
-                ${
-                  user.avatar
-                    ? `<img class="member-list-row__avatar" src="${escapeHtml(user.avatar)}" alt="" />`
-                    : '<span class="member-list-row__avatar member-list-row__avatar--ph"></span>'
-                }
+                ${renderUserFramedAvatarHtml({
+                  avatar: user.avatar,
+                  frame: user.avatarFrame,
+                  size: 'member-list',
+                  imgClass: 'member-list-row__avatar',
+                  phClass: 'member-list-row__avatar--ph',
+                })}
                 <div class="member-list-row__main">
                   <p class="member-list-row__title">${escapeHtml(user.name)}</p>
                   <p class="member-list-row__meta">UID ${user.userId}</p>

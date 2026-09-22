@@ -109,13 +109,19 @@
   background: var(--search-bg);
 }
 
-.member-hub-hero__avatar img {
+.member-hub-hero__avatar img,
+.member-hub-hero__avatar-img {
   width: 100%;
   height: 100%;
   border-radius: 50%;
   object-fit: cover;
   border: none;
   box-sizing: border-box;
+}
+
+.member-hub-hero__avatar-img--ph {
+  display: block;
+  background: var(--search-bg);
 }
 
 .member-hub-hero__greet {
