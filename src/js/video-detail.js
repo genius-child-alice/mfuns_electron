@@ -24,6 +24,7 @@ import {
   fetchCommentAreaDetail,
   fetchRootCommentPage,
   fetchFollowStatus,
+  resolveContentAuthorId,
   resolveInitialCommentOrder,
   fetchReactionStatus,
   fetchRelatedVideos,
@@ -822,6 +823,7 @@ async function loadWatchPage(preview) {
   offlineDownloading = false;
   authorFans = 0;
   authorTotalLikes = 0;
+  following = false;
   setLoading(true);
   const sidePanel = document.getElementById('watch-side-panel');
   if (sidePanel) sidePanel.innerHTML = watchSideSkeletonHtml();
@@ -836,6 +838,14 @@ async function loadWatchPage(preview) {
       fetchVideoPlayParts(preview.id),
       fetchRelatedVideos(preview),
     ]);
+    const authorIdForFollow = resolveContentAuthorId(
+      detail.authorId,
+      detail.preview?.authorId,
+      preview.authorId,
+    );
+    if (authorIdForFollow && !detail.authorId) {
+      detail.authorId = authorIdForFollow;
+    }
     currentDetail = detail;
     currentParts = parts;
     rewardCount = detail.rewardCount;
@@ -862,9 +872,10 @@ async function loadWatchPage(preview) {
       likes: detail.likes,
       dislikes: 0,
     }));
+    const selfId = resolveMineUserId(null);
     const followPromise =
-      detail.authorId && session?.token
-        ? fetchFollowStatus(detail.authorId).catch(() => false)
+      authorIdForFollow && session?.token && selfId !== authorIdForFollow
+        ? fetchFollowStatus(authorIdForFollow).catch(() => false)
         : Promise.resolve(false);
     const favoritePromise =
       session?.token
@@ -1031,7 +1042,23 @@ function applyWatchPageState(state) {
     loadWatchPlayerWithContext(null);
   }
   refreshCommentsUi();
+  void refreshWatchFollowState();
   restoreScrollTop('main-content', state.scrollTop ?? 0);
+}
+
+async function refreshWatchFollowState() {
+  const authorId = resolveContentAuthorId(
+    currentDetail?.authorId,
+    currentDetail?.preview?.authorId,
+  );
+  const selfId = resolveMineUserId(null);
+  if (!authorId || !loadSession()?.token || selfId === authorId) {
+    following = false;
+    renderSidePanel();
+    return;
+  }
+  following = await fetchFollowStatus(authorId).catch(() => false);
+  renderSidePanel();
 }
 
 /**

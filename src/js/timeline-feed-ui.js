@@ -6,7 +6,7 @@ import { mediaSrcForCover } from './content-api.js';
 import { loadStickerUrlMap } from './emoji-pack.js';
 import { mountRichContent } from './rich-content.js';
 import { openVideoDetail } from './video-detail.js';
-import { setFollow } from './video-api.js';
+import { fetchFollowStatus, setFollow } from './video-api.js';
 import { requireLogin } from './login-ui.js';
 
 /** @typedef {import('./user-profile-api.js').TimelineFeedItem} TimelineFeedItem */
@@ -414,6 +414,30 @@ export function renderFeedListHtml(items, ctx = {}) {
  * @param {string} [domIdPrefix]
  * @param {{ clampBody?: boolean }} [opts]
  */
+/**
+ * @param {ParentNode} [root]
+ */
+async function hydrateFeedVideoFollowButtons(root = document) {
+  if (!loadSession()?.token) return;
+  const selfId = sessionUserId(loadSession()?.user);
+  const buttons = root.querySelectorAll('.user-space__feed-video__follow[data-follow-user-id]');
+  await Promise.all(
+    [...buttons].map(async (btn) => {
+      if (!(btn instanceof HTMLButtonElement)) return;
+      const userId = Number.parseInt(btn.getAttribute('data-follow-user-id') ?? '', 10);
+      if (!Number.isFinite(userId) || userId === selfId) return;
+      try {
+        const followed = await fetchFollowStatus(userId);
+        if (!followed) return;
+        btn.textContent = '已关注';
+        btn.classList.add('is-followed');
+      } catch {
+        /* ignore */
+      }
+    }),
+  );
+}
+
 export function hydrateFeedCards(items, domIdPrefix = 'timeline-feed', opts = {}) {
   const clampBody = opts.clampBody !== false;
   void loadStickerUrlMap().catch(() => {});
@@ -431,6 +455,7 @@ export function hydrateFeedCards(items, domIdPrefix = 'timeline-feed', opts = {}
       if (clampBody) setupFeedTextExpand(bodyEl);
     }
   });
+  void hydrateFeedVideoFollowButtons(document);
 }
 
 async function handleFeedVideoFollow(btn) {

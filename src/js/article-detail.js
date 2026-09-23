@@ -19,6 +19,7 @@ import {
   fetchCommentAreaDetail,
   fetchRootCommentPage,
   fetchFollowStatus,
+  resolveContentAuthorId,
   resolveInitialCommentOrder,
   fetchReactionStatus,
   setFollow,
@@ -509,6 +510,7 @@ async function loadArticlePage(preview) {
   canManageSeries = false;
   authorFans = 0;
   authorTotalLikes = 0;
+  following = false;
   setLoading(true);
 
   void loadStickerUrlMap().catch(() => {});
@@ -520,6 +522,14 @@ async function loadArticlePage(preview) {
 
   try {
     const detail = await fetchArticleDetail(preview);
+    const authorIdForFollow = resolveContentAuthorId(
+      detail.authorId,
+      detail.preview?.authorId,
+      preview.authorId,
+    );
+    if (authorIdForFollow && !detail.authorId) {
+      detail.authorId = authorIdForFollow;
+    }
     currentDetail = detail;
     rewardCount = detail.rewardCount;
     favoriteCount = detail.favoriteCount;
@@ -532,9 +542,10 @@ async function loadArticlePage(preview) {
       likes: detail.likes,
       dislikes: 0,
     }));
+    const selfId = resolveMineUserId(null);
     const followPromise =
-      detail.authorId && session?.token
-        ? fetchFollowStatus(detail.authorId).catch(() => false)
+      authorIdForFollow && session?.token && selfId !== authorIdForFollow
+        ? fetchFollowStatus(authorIdForFollow).catch(() => false)
         : Promise.resolve(false);
     const favoritePromise =
       session?.token
@@ -682,7 +693,23 @@ function applyArticlePageState(state) {
   } else if (currentDetail) {
     renderPage();
   }
+  void refreshArticleFollowState();
   restoreScrollTop('article-scroll', state.scrollTop ?? 0);
+}
+
+async function refreshArticleFollowState() {
+  const authorId = resolveContentAuthorId(
+    currentDetail?.authorId,
+    currentDetail?.preview?.authorId,
+  );
+  const selfId = resolveMineUserId(null);
+  if (!authorId || !loadSession()?.token || selfId === authorId) {
+    following = false;
+    renderPage();
+    return;
+  }
+  following = await fetchFollowStatus(authorId).catch(() => false);
+  renderPage();
 }
 
 export async function openArticleDetail(preview) {

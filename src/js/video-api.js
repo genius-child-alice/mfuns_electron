@@ -215,7 +215,15 @@ function parseVideoDetail(seed, data) {
       }
     : seed;
 
-  const authorId = asInt(user.id ?? user.user_id ?? root.user_id);
+  const authorId =
+    resolveContentAuthorId(
+      user.id,
+      user.user_id,
+      mergedRaw.user_id,
+      mergedRaw.author_id,
+      parsed?.authorId,
+      seed.authorId,
+    ) ?? null;
   const avatarRaw = user.avatar ?? user.face;
   const likes = asInt(like.count) ?? asInt(resource.like_count ?? root.like_count) ?? 0;
 
@@ -742,12 +750,54 @@ export async function deleteComment(commentId) {
 }
 
 /**
+ * @param {unknown} value
+ */
+function isFollowStatusTruthy(value) {
+  return value === true || value === 1 || value === '1';
+}
+
+/**
+ * @param {unknown} data
+ */
+function parseFollowStatusPayload(data) {
+  if (isFollowStatusTruthy(data)) return true;
+  if (data === false || data === 0 || data === '0') return false;
+
+  const root = asMap(data);
+  const direct =
+    root.status ??
+    root.is_follow ??
+    root.is_followed ??
+    root.followed ??
+    root.follow_status;
+  if (isFollowStatusTruthy(direct)) return true;
+  if (direct === false || direct === 0 || direct === '0') return false;
+
+  const nested = asMap(root.follow ?? root.relation);
+  const inner = nested.status ?? nested.is_follow ?? nested.is_followed ?? nested.followed;
+  return isFollowStatusTruthy(inner);
+}
+
+/**
+ * @param {...unknown} candidates
+ * @returns {number | null}
+ */
+export function resolveContentAuthorId(...candidates) {
+  for (const value of candidates) {
+    const id = asInt(value);
+    if (id != null && id > 0) return id;
+  }
+  return null;
+}
+
+/**
  * @param {number} userId
  */
 export async function fetchFollowStatus(userId) {
-  const data = await apiGet('/v1/follow/status', { user_id: userId });
-  const status = asMap(data).status;
-  return status === true || status === 1 || status === '1';
+  const id = asInt(userId);
+  if (id == null || id <= 0) return false;
+  const data = await apiGet('/v1/follow/status', { user_id: id });
+  return parseFollowStatusPayload(data);
 }
 
 /**

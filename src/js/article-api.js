@@ -4,6 +4,7 @@ import {
   parseContentPreview,
   resolveCoverUrl,
 } from './content-api.js';
+import { resolveContentAuthorId } from './video-api.js';
 
 /** @typedef {import('./content-api.js').ContentPreview} ContentPreview */
 
@@ -115,7 +116,16 @@ function parseArticleDetail(seed, data) {
       }
     : { ...seed, type: 0 };
 
-  const authorId = asInt(user.id ?? user.user_id ?? root.user_id);
+  const authorId =
+    resolveContentAuthorId(
+      user.id,
+      user.user_id,
+      resource.user_id,
+      root.user_id,
+      root.author_id,
+      parsed?.authorId,
+      seed.authorId,
+    ) ?? null;
   const likes = asInt(like.count) ?? asInt(resource.like_count ?? root.like_count) ?? 0;
   const rawContent = `${resource.content ?? resource.summary ?? root.content ?? ''}`;
   const publishedAt = parsePublishTime(
