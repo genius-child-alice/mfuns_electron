@@ -33,7 +33,8 @@ let loading = false;
 let hasMore = true;
 let asideBound = false;
 
-const SCROLL_PREFETCH_MIN_PX = 480;
+/** 距列表底部不足该像素时才加载下一页 */
+const SCROLL_LOAD_MORE_PX = 320;
 const GLOBAL_FEED_PAGE_SIZE = 20;
 
 /**
@@ -266,18 +267,16 @@ function onAsideClick(event) {
 /**
  * @param {HTMLElement | null} container
  */
-function shouldPrefetchMore(container) {
+function shouldLoadMoreNearBottom(container) {
   if (!container) return false;
+  if (container.scrollHeight <= container.clientHeight + 1) return false;
   const remaining = container.scrollHeight - container.scrollTop - container.clientHeight;
-  const threshold = Math.max(SCROLL_PREFETCH_MIN_PX, container.clientHeight * 0.8);
-  return remaining < threshold;
+  return remaining <= SCROLL_LOAD_MORE_PX;
 }
 
 function onFeedScroll() {
   if (getCurrentPage() !== 'feed' || loading || !hasMore) return;
-  const inner = getScrollEl();
-  const main = document.getElementById('main-content');
-  if (!shouldPrefetchMore(inner) && !shouldPrefetchMore(main)) return;
+  if (!shouldLoadMoreNearBottom(getScrollEl())) return;
   void loadFeedPage(false);
 }
 
@@ -335,7 +334,6 @@ export function bindFeedPage() {
 
   document.getElementById('feed-page-aside')?.addEventListener('click', onAsideClick);
   getScrollEl()?.addEventListener('scroll', onFeedScroll, { passive: true });
-  document.getElementById('main-content')?.addEventListener('scroll', onFeedScroll, { passive: true });
 
   bindTimelineFeedClick(document.getElementById('feed-page-list'), {
     onOpenUserSpace: (uid) => openUserSpace(uid),
