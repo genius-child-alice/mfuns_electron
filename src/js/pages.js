@@ -783,12 +783,13 @@ export function settingsPageHtml() {
               <div class="settings-row">
                 <div class="settings-row__label">
                   <span class="settings-row__title">主题模式</span>
-                  <span class="settings-row__hint">（更改后即时生效）</span>
+                  <span class="settings-row__hint">浅色、深色或追随系统，更改后即时生效</span>
                 </div>
                 <div class="settings-row__control">
                   <select class="settings-select" id="setting-color-scheme">
                     <option value="light">浅色</option>
                     <option value="dark">深色</option>
+                    <option value="system">追随系统</option>
                   </select>
                 </div>
               </div>

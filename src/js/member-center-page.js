@@ -445,7 +445,7 @@ async function renderView() {
               <span class="member-field__label">弹幕默认不透明度（%）</span>
               <input type="range" id="member-a11y-danmaku-opacity" min="20" max="100" value="${Math.round(app.danmakuOpacity * 100)}" />
             </label>
-            <p class="member-hint">当前主题：${prefs.colorScheme === 'dark' ? '深色' : '浅色'}。可在设置 → 外观中调整。</p>
+            <p class="member-hint">当前主题：${prefs.colorScheme === 'system' ? '追随系统' : prefs.colorScheme === 'dark' ? '深色' : '浅色'}。可在设置 → 外观中调整。</p>
           </div>`;
         break;
       }

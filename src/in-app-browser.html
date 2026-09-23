@@ -19,6 +19,11 @@
           if (raw) {
             var prefs = JSON.parse(raw);
             if (prefs.colorScheme === 'dark') scheme = 'dark';
+            else if (prefs.colorScheme === 'system') {
+              try {
+                if (window.matchMedia('(prefers-color-scheme: dark)').matches) scheme = 'dark';
+              } catch (e) {}
+            }
           }
         } catch (e) {}
         root.dataset.theme = scheme;

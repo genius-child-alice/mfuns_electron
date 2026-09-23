@@ -20,6 +20,11 @@
           if (raw) {
             var prefs = JSON.parse(raw);
             if (prefs.colorScheme === 'dark') scheme = 'dark';
+            else if (prefs.colorScheme === 'system') {
+              try {
+                if (window.matchMedia('(prefers-color-scheme: dark)').matches) scheme = 'dark';
+              } catch (e) {}
+            }
             if (prefs.accent && prefs.accent.r != null) accent = prefs.accent;
           }
         } catch (e) {}

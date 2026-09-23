@@ -1,4 +1,4 @@
-import { loadPreferences } from './theme.js';
+import { resolveColorScheme } from './theme.js';
 
 const PLAYER_CONFIG_KEY = 'mfuns.player.config.v1';
 const DANMAKU_CONFIG_KEY = 'playerDanmakuConfigV2';
@@ -93,7 +93,7 @@ export function setPreferredResolution(name) {
 
 /** @returns {boolean} */
 export function isAppDarkMode() {
-  return loadPreferences().colorScheme === 'dark';
+  return resolveColorScheme() === 'dark';
 }
 
 /** 本会话内播放器「关灯」覆盖（不写 localStorage，避免一直卡在深色） */

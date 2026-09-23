@@ -567,7 +567,7 @@ function bindSettings() {
 
   schemeSelect?.addEventListener('change', () => {
     setColorSchemeWithReveal(
-      /** @type {'light'|'dark'} */ (schemeSelect.value),
+      /** @type {'light'|'dark'|'system'} */ (schemeSelect.value),
       schemeSelect,
     );
     syncSettingsForm();
@@ -596,7 +596,9 @@ function bindSettings() {
 
   document.getElementById('btn-theme-toggle')?.addEventListener('click', (event) => {
     const prefs = loadPreferences();
-    const next = prefs.colorScheme === 'dark' ? 'light' : 'dark';
+    const order = /** @type {const} */ (['light', 'dark', 'system']);
+    const index = order.indexOf(prefs.colorScheme);
+    const next = order[(index + 1) % order.length];
     setColorSchemeWithReveal(next, event.currentTarget, event);
     syncSettingsForm();
   });
@@ -814,8 +816,13 @@ function bindLogin() {
 function updateThemeToggleIcon(scheme) {
   const btn = document.getElementById('btn-theme-toggle');
   if (!btn) return;
-  const icon = scheme === 'dark' ? 'light_mode' : 'dark_mode';
-  btn.innerHTML = `${materialIcon(icon, 'material-symbols-outlined--nav')}<span class="sr-only">外观</span>`;
+  const icon =
+    scheme === 'system' ? 'brightness_auto' : scheme === 'dark' ? 'light_mode' : 'dark_mode';
+  const label =
+    scheme === 'system' ? '外观：追随系统' : scheme === 'dark' ? '外观：深色' : '外观：浅色';
+  btn.title = label;
+  btn.setAttribute('aria-label', label);
+  btn.innerHTML = `${materialIcon(icon, 'material-symbols-outlined--nav')}<span class="sr-only">${label}</span>`;
 }
 
 function bootApp() {

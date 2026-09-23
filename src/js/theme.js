@@ -2,7 +2,27 @@ const STORAGE_KEY = 'mfuns.preferences';
 
 export const DEFAULT_ACCENT = { r: 123, g: 127, b: 247 };
 
-/** @typedef {{ colorScheme: 'light' | 'dark', accent: { r: number, g: number, b: number } }} Preferences */
+/** @typedef {'light' | 'dark' | 'system'} ColorSchemePreference */
+/** @typedef {'light' | 'dark'} ResolvedColorScheme */
+/** @typedef {{ colorScheme: ColorSchemePreference, accent: { r: number, g: number, b: number } }} Preferences */
+
+/** @type {MediaQueryList | null} */
+let systemSchemeQuery = null;
+
+/** @returns {boolean} */
+export function systemPrefersDark() {
+  return window.matchMedia?.('(prefers-color-scheme: dark)').matches === true;
+}
+
+/**
+ * @param {ColorSchemePreference} [preference]
+ * @returns {ResolvedColorScheme}
+ */
+export function resolveColorScheme(preference) {
+  const scheme = preference ?? loadPreferences().colorScheme;
+  if (scheme === 'system') return systemPrefersDark() ? 'dark' : 'light';
+  return scheme === 'dark' ? 'dark' : 'light';
+}
 
 /** @returns {Preferences} */
 export function loadPreferences() {
@@ -73,20 +93,31 @@ function clearRevealOrigin() {
 }
 
 /**
+ * @param {unknown} value
+ * @returns {ColorSchemePreference}
+ */
+function normalizeColorScheme(value) {
+  if (value === 'dark' || value === 'system') return value;
+  return 'light';
+}
+
+/**
  * 深浅色切换：从 origin 处圆形扩散至全屏（需 Chromium View Transitions）。
- * @param {'light' | 'dark'} nextScheme
+ * @param {ColorSchemePreference} nextScheme
  * @param {Element | null | undefined} [originEl]
  * @param {MouseEvent | null} [event]
  * @returns {Preferences}
  */
 export function setColorSchemeWithReveal(nextScheme, originEl, event = null) {
   const current = loadPreferences();
-  const scheme = nextScheme === 'dark' ? 'dark' : 'light';
+  const scheme = normalizeColorScheme(nextScheme);
   if (current.colorScheme === scheme) return current;
 
   // 桌面端暂不用 View Transition：Electron 下偶发残留层会挡住全部点击
   void originEl;
   void event;
+  void revealOriginFromElement;
+  void setRevealOrigin;
   clearRevealOrigin();
   const next = writePreferences({ colorScheme: scheme });
   applyPreferences(next);
@@ -106,7 +137,7 @@ function normalizePreferences(value) {
   const base = defaultPreferences();
   if (!value || typeof value !== 'object') return base;
   const obj = /** @type {Record<string, unknown>} */ (value);
-  const colorScheme = obj.colorScheme === 'dark' ? 'dark' : 'light';
+  const colorScheme = normalizeColorScheme(obj.colorScheme);
   const accent = normalizeAccent(obj.accent) ?? base.accent;
   return { colorScheme, accent };
 }
@@ -138,7 +169,9 @@ export function accentToHex(accent) {
 /** @param {Preferences} prefs */
 export function applyPreferences(prefs) {
   const root = document.documentElement;
-  root.dataset.theme = prefs.colorScheme;
+  const resolved = resolveColorScheme(prefs.colorScheme);
+  root.dataset.theme = resolved;
+  root.dataset.themePref = prefs.colorScheme;
   const { r, g, b } = prefs.accent;
   root.style.setProperty('--accent-r', `${r}`);
   root.style.setProperty('--accent-g', `${g}`);
@@ -146,14 +179,31 @@ export function applyPreferences(prefs) {
   root.style.setProperty('--accent', `rgb(${r}, ${g}, ${b})`);
   root.style.setProperty(
     '--accent-soft',
-    `rgba(${r}, ${g}, ${b}, ${prefs.colorScheme === 'dark' ? 0.22 : 0.14})`,
+    `rgba(${r}, ${g}, ${b}, ${resolved === 'dark' ? 0.22 : 0.14})`,
   );
   root.style.setProperty('--color-primary', `rgb(${r}, ${g}, ${b})`);
   window.dispatchEvent(
-    new CustomEvent('mfuns:theme-change', { detail: { colorScheme: prefs.colorScheme } }),
+    new CustomEvent('mfuns:theme-change', {
+      detail: { colorScheme: resolved, preference: prefs.colorScheme },
+    }),
   );
 }
 
+function onSystemSchemeChange() {
+  const prefs = loadPreferences();
+  if (prefs.colorScheme !== 'system') return;
+  applyPreferences(prefs);
+}
+
+function bindSystemSchemeListener() {
+  const mq = window.matchMedia?.('(prefers-color-scheme: dark)');
+  if (!mq || systemSchemeQuery === mq) return;
+  systemSchemeQuery?.removeEventListener('change', onSystemSchemeChange);
+  systemSchemeQuery = mq;
+  mq.addEventListener('change', onSystemSchemeChange);
+}
+
 export function initTheme() {
+  bindSystemSchemeListener();
   applyPreferences(loadPreferences());
 }
