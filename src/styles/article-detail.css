@@ -220,6 +220,8 @@ button.article-read__author-name:hover {
 
 .article-interact.watch-interact-bar {
   gap: 6px;
+  margin-bottom: 0;
+  padding-bottom: 14px;
 }
 
 .article-interact .watch-interact-bar__item {
@@ -227,9 +229,8 @@ button.article-read__author-name:hover {
 }
 
 .article-read__comments {
-  margin-top: 36px;
-  padding-top: 24px;
-  border-top: 1px solid var(--border-subtle);
+  margin-top: 14px;
+  padding-top: 0;
 }
 
 .article-read__comments-title {
