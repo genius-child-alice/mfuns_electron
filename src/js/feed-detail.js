@@ -393,7 +393,6 @@ export function bindFeedDetail() {
 
   const dialog = getDialog();
   dialog?.addEventListener('click', onDialogClick);
-  document.getElementById('feed-detail-close')?.addEventListener('click', () => closeFeedDetail());
 
   document.querySelectorAll('[data-feed-detail-tab]').forEach((btn) => {
     btn.addEventListener('click', () => {

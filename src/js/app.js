@@ -250,9 +250,6 @@ function renderShell() {
 
     <dialog class="feed-detail app-no-drag" id="feed-detail-dialog" aria-labelledby="feed-detail-title">
       <div class="feed-detail__shell">
-        <div class="feed-detail__head">
-          <button type="button" class="feed-detail__close" id="feed-detail-close" aria-label="关闭">${materialIcon('close')}</button>
-        </div>
         <div class="feed-detail__scroll">
           <p class="feed-detail__loading" id="feed-detail-loading" hidden>${materialIcon('progress_activity', 'feed-page__spin')}加载中…</p>
           <p class="feed-detail__error" id="feed-detail-error" hidden role="alert"></p>
