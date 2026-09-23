@@ -76,6 +76,133 @@ function sessionUserId(user) {
 }
 
 /**
+ * @param {import('./user-profile-api.js').TimelineFeedItem} item
+ */
+function feedCardMetaTitle(item) {
+  return (
+    item.rawTitle?.trim() ||
+    item.title?.trim() ||
+    item.rawContent?.trim() ||
+    item.content?.trim() ||
+    ''
+  ).slice(0, 240);
+}
+
+/**
+ * @param {import('./user-profile-api.js').TimelineFeedItem} item
+ */
+function feedCardMetaCover(item) {
+  const img = item.images?.[0];
+  if (img) return img;
+  const cover = item.resource?.cover;
+  return cover ? mediaSrcForCover(cover) : '';
+}
+
+let feedCardMenuDocBound = false;
+
+function closeAllFeedCardMenus() {
+  document.querySelectorAll('.user-space__feed-card__menu').forEach((menu) => {
+    menu.hidden = true;
+  });
+  document.querySelectorAll('.user-space__feed-card__more[aria-expanded="true"]').forEach((btn) => {
+    btn.setAttribute('aria-expanded', 'false');
+  });
+}
+
+/**
+ * @param {HTMLElement} card
+ */
+function syncFeedCardMenuItems(card) {
+  const menu = card.querySelector('.user-space__feed-card__menu');
+  if (!menu) return;
+  const viewerId = sessionUserId(loadSession()?.user);
+  const authorId = Number.parseInt(card.getAttribute('data-feed-author-id') ?? '', 10);
+  const isOwner = viewerId != null && authorId === viewerId;
+  const loggedIn = Boolean(loadSession()?.token);
+
+  menu.querySelector('[data-feed-action="forward"]')?.toggleAttribute('hidden', !loggedIn);
+  menu.querySelector('[data-feed-action="delete"]')?.toggleAttribute('hidden', !isOwner);
+  menu.querySelector('[data-feed-action="report"]')?.toggleAttribute('hidden', isOwner);
+}
+
+/**
+ * @param {string} action
+ * @param {HTMLElement} card
+ */
+async function runFeedCardAction(action, card) {
+  const feedId = Number.parseInt(card.getAttribute('data-feed-id') ?? '', 10);
+  if (!Number.isFinite(feedId)) return;
+
+  const title = card.getAttribute('data-feed-title') ?? '';
+  const cover = card.getAttribute('data-feed-cover') ?? '';
+  closeAllFeedCardMenus();
+
+  if (action === 'forward') {
+    if (!requireLogin()) return;
+    const { openFeedForward } = await import('./feed-forward.js');
+    void openFeedForward({
+      resourceId: feedId,
+      resourceType: 3,
+      resourceTitle: title,
+      resourceCover: cover,
+    });
+    return;
+  }
+
+  if (action === 'report') {
+    if (!requireLogin()) return;
+    const [{ openReportDialog }, { REPORT_RESOURCE }] = await Promise.all([
+      import('./report-ui.js'),
+      import('./member-api.js'),
+    ]);
+    void openReportDialog({
+      resourceId: feedId,
+      resourceType: REPORT_RESOURCE.feed,
+      title: title || '动态',
+    });
+    return;
+  }
+
+  if (action === 'delete') {
+    if (!requireLogin()) return;
+    const { confirmAction } = await import('./confirm-dialog.js');
+    const { deleteFeed } = await import('./feed-api.js');
+    const confirmed = await confirmAction({
+      title: '删除动态',
+      message: '确定删除这条动态吗？删除后无法恢复。',
+      confirmText: '删除',
+      variant: 'danger',
+    });
+    if (!confirmed) return;
+    try {
+      await deleteFeed(feedId);
+      notify('已删除', 'success');
+      const wasInDetail = Boolean(card.closest('#feed-detail-post'));
+      card.remove();
+      if (wasInDetail) {
+        const { closeFeedDetail } = await import('./feed-detail.js');
+        closeFeedDetail();
+      }
+    } catch (err) {
+      notify(err instanceof Error ? err.message : '删除失败', 'error');
+    }
+  }
+}
+
+function ensureFeedCardMenuDocumentClose() {
+  if (feedCardMenuDocBound) return;
+  feedCardMenuDocBound = true;
+  document.addEventListener('click', (event) => {
+    const target = /** @type {HTMLElement} */ (event.target);
+    if (target.closest('.user-space__feed-card__more-wrap')) return;
+    closeAllFeedCardMenus();
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') closeAllFeedCardMenus();
+  });
+}
+
+/**
  * @param {HTMLElement} el
  */
 function setupFeedTextExpand(el) {
@@ -200,8 +327,17 @@ export function renderFeedCard(item, ctx = {}) {
       ? `<button type="button" class="user-space__feed-card__profile user-space__feed-card__name" data-author-profile="${authorId}" title="进入主页">${escapeHtml(authorName)}</button>`
       : `<span class="user-space__feed-card__name">${escapeHtml(authorName)}</span>`;
 
+  const metaTitle = escapeHtml(feedCardMetaTitle(item));
+  const metaCover = escapeHtml(feedCardMetaCover(item));
+
   return `
-    <article class="user-space__feed-card" data-feed-id="${item.id}">
+    <article
+      class="user-space__feed-card"
+      data-feed-id="${item.id}"
+      data-feed-author-id="${authorId ?? ''}"
+      data-feed-title="${metaTitle}"
+      data-feed-cover="${metaCover}"
+    >
       <div class="user-space__feed-card__top">
         <header class="user-space__feed-card__head">
           ${avatarHtml}
@@ -222,7 +358,26 @@ export function renderFeedCard(item, ctx = {}) {
             </div>
           </div>
         </header>
-        <button type="button" class="user-space__feed-card__more" aria-label="更多">${materialIcon('more_vert')}</button>
+        <div class="user-space__feed-card__more-wrap">
+          <button
+            type="button"
+            class="user-space__feed-card__more"
+            aria-label="更多"
+            aria-haspopup="menu"
+            aria-expanded="false"
+          >${materialIcon('more_vert')}</button>
+          <div class="user-space__feed-card__menu" role="menu" hidden>
+            <button type="button" class="user-space__feed-card__menu-item" role="menuitem" data-feed-action="forward">
+              ${materialIcon('forward', 'user-space__feed-card__menu-icon')}转发
+            </button>
+            <button type="button" class="user-space__feed-card__menu-item user-space__feed-card__menu-item--danger" role="menuitem" data-feed-action="delete" hidden>
+              ${materialIcon('delete', 'user-space__feed-card__menu-icon')}删除
+            </button>
+            <button type="button" class="user-space__feed-card__menu-item" role="menuitem" data-feed-action="report">
+              ${materialIcon('flag', 'user-space__feed-card__menu-icon')}举报
+            </button>
+          </div>
+        </div>
       </div>
       <div class="user-space__feed-card__body">
         ${
@@ -302,6 +457,34 @@ async function handleFeedVideoFollow(btn) {
  */
 export function handleTimelineFeedClick(event, options = {}) {
   const target = /** @type {HTMLElement} */ (event.target);
+
+  const menuAction = target.closest('[data-feed-action]');
+  if (menuAction instanceof HTMLElement) {
+    event.preventDefault();
+    event.stopPropagation();
+    const card = menuAction.closest('.user-space__feed-card');
+    const action = menuAction.getAttribute('data-feed-action');
+    if (card && action) void runFeedCardAction(action, card);
+    return true;
+  }
+
+  const moreBtn = target.closest('.user-space__feed-card__more');
+  if (moreBtn instanceof HTMLButtonElement) {
+    event.preventDefault();
+    event.stopPropagation();
+    const wrap = moreBtn.closest('.user-space__feed-card__more-wrap');
+    const card = moreBtn.closest('.user-space__feed-card');
+    const menu = wrap?.querySelector('.user-space__feed-card__menu');
+    if (!card || !menu) return true;
+    const wasOpen = !menu.hidden;
+    closeAllFeedCardMenus();
+    if (!wasOpen) {
+      syncFeedCardMenuItems(card);
+      menu.hidden = false;
+      moreBtn.setAttribute('aria-expanded', 'true');
+    }
+    return true;
+  }
 
   const feedFollow = target.closest('.user-space__feed-video__follow');
   if (feedFollow instanceof HTMLButtonElement) {
@@ -392,6 +575,7 @@ export function handleTimelineFeedClick(event, options = {}) {
  * }} options
  */
 export function bindTimelineFeedClick(root, options = {}) {
+  ensureFeedCardMenuDocumentClose();
   root?.addEventListener('click', (event) => {
     handleTimelineFeedClick(event, options);
   });
