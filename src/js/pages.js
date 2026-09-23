@@ -963,7 +963,20 @@ export function settingsPageHtml() {
                 </div>
                 <div class="settings-row__control" id="settings-app-version">-</div>
               </div>
-              <p class="settings-about__text">Mfuns 桌面客户端 · 社区 API <code>api.mfuns.net</code></p>
+              <div class="settings-row">
+                <div class="settings-row__label">
+                  <span class="settings-row__title">官网</span>
+                </div>
+                <div class="settings-row__control">
+                  <a
+                    class="settings-about__link"
+                    href="https://www.mfuns.net"
+                    data-legal-link="https://www.mfuns.net"
+                    data-legal-title="Mfuns 官网"
+                  >www.mfuns.net</a>
+                </div>
+              </div>
+              <p class="settings-about__text">Mfuns 第三方桌面客户端 · 天才儿童爱丽丝制作</p>
             </section>
           </div>
           <nav class="settings-anchor" aria-label="设置目录">

@@ -478,9 +478,20 @@
 }
 
 .settings-about__text {
-  margin: 0;
+  margin: 24px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-subtle);
   font-size: 13px;
   color: var(--text-secondary);
+}
+
+.settings-about__link {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.settings-about__link:hover {
+  text-decoration: underline;
 }
 
 .mine-sign-card {

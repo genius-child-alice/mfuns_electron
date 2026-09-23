@@ -39,6 +39,7 @@ import {
   resolveUserLevelId,
 } from './user-level.js';
 import { uploadCommentImage } from './video-api.js';
+import { bindLegalLinks } from './legal.js';
 
 const DEFAULT_AVATAR_SRC = 'assets/mfuns_logo.png';
 
@@ -149,6 +150,8 @@ export function bindSettingsPage(options = {}) {
 
   bindSettingsMemberLinks();
   bindSettingsAnchorNav();
+  const aboutSection = document.getElementById('settings-section-about');
+  if (aboutSection) bindLegalLinks(aboutSection);
   bindAppSettingsControls();
   bindDesktopSettingsControls();
 
