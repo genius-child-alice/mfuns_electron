@@ -18,20 +18,27 @@ import {
 } from './timeline-feed-ui.js';
 import { openUserSpace } from './user-space.js';
 import { feedListSkeletonHtml } from './skeleton-ui.js';
+import { fetchLatestMfunsPage, latestMfunsUserParam, latestItemToContentPreview } from './latest-mfuns-api.js';
+import { renderLatestFeedCard, renderLatestFeedListHtml } from './latest-feed-ui.js';
+import { openContentDetail } from './content-nav.js';
 
 /** @typedef {import('./user-profile-api.js').UserProfile} UserProfile */
 /** @typedef {import('./user-profile-api.js').TimelineFeedItem} TimelineFeedItem */
+/** @typedef {import('./latest-mfuns-api.js').LatestMfunsItem} LatestMfunsItem */
 
 /** @type {number | null} */
 let filterUserId = null;
 
 let feedStartId = -1;
 let globalPage = 1;
-/** @type {'following' | 'global'} */
+/** @type {'following' | 'global' | 'latest'} */
 let feedStreamMode = 'following';
 let loading = false;
 let hasMore = true;
 let asideBound = false;
+
+/** @type {number | null} */
+let latestBefore = null;
 
 /** 距列表底部不足该像素时才加载下一页 */
 const SCROLL_LOAD_MORE_PX = 320;
@@ -80,6 +87,7 @@ function syncAsideActive() {
     let active = false;
     if (raw === 'all') active = filterUserId == null && feedStreamMode === 'following';
     else if (raw === 'global') active = filterUserId == null && feedStreamMode === 'global';
+    else if (raw === 'latest') active = filterUserId == null && feedStreamMode === 'latest';
     else active = Number(raw) === filterUserId;
     btn.classList.toggle('is-active', active);
   });
@@ -111,7 +119,58 @@ function renderFollowAside(users) {
 
 function resetFeedState() {
   feedStartId = -1;
+  latestBefore = null;
   hasMore = true;
+}
+
+/**
+ * @param {boolean} first
+ */
+async function loadLatestStream(first) {
+  if (first) {
+    latestBefore = null;
+  } else if (latestBefore == null) {
+    hasMore = false;
+    setHint('没有更多了', true);
+    return;
+  }
+
+  const page = await fetchLatestMfunsPage(
+    first ? null : latestBefore,
+    GLOBAL_FEED_PAGE_SIZE,
+    latestMfunsUserParam(),
+  );
+
+  const seen = new Set();
+  if (!first) {
+    getListEl()
+      ?.querySelectorAll('[data-latest-stable-id]')
+      .forEach((el) => seen.add(el.getAttribute('data-latest-stable-id') ?? ''));
+  }
+  const additions = page.items.filter((item) => !seen.has(item.stableId));
+
+  if (first) {
+    getListEl()?.replaceChildren();
+    if (additions.length === 0) {
+      setHint('最新内容暂时没有可展示的帖子', true);
+      hasMore = false;
+      return;
+    }
+    setHint('', false);
+    getListEl()?.insertAdjacentHTML('beforeend', renderLatestFeedListHtml(additions));
+  } else if (additions.length > 0) {
+    setHint('', false);
+    getListEl()
+      ?.querySelector('.latest-feed-list')
+      ?.insertAdjacentHTML('beforeend', additions.map((item) => renderLatestFeedCard(item)).join(''));
+  } else {
+    hasMore = false;
+    setHint('没有更多了', true);
+    return;
+  }
+
+  latestBefore = page.nextBefore;
+  hasMore = additions.length > 0 && page.nextBefore != null;
 }
 
 /**
@@ -129,6 +188,11 @@ async function loadFeedPage(first) {
   }
 
   try {
+    if (!filterUserId && feedStreamMode === 'latest') {
+      await loadLatestStream(first);
+      return;
+    }
+
     const session = loadSession();
     const selfId = sessionUserId(session?.user);
     if (!filterUserId && feedStreamMode === 'following' && !selfId) {
@@ -159,7 +223,9 @@ async function loadFeedPage(first) {
             ? 'TA 还没有发布动态'
             : feedStreamMode === 'global'
               ? '暂无全站动态'
-              : '暂无关注动态，去关注一些 UP 主吧',
+              : feedStreamMode === 'latest'
+                ? '最新内容暂时没有可展示的帖子'
+                : '暂无关注动态，去关注一些 UP 主吧',
           true,
         );
         hasMore = false;
@@ -236,7 +302,7 @@ function selectFeedFilter(userId) {
 }
 
 /**
- * @param {'following' | 'global'} mode
+ * @param {'following' | 'global' | 'latest'} mode
  */
 function selectFeedStream(mode) {
   feedStreamMode = mode;
@@ -257,6 +323,10 @@ function onAsideClick(event) {
   }
   if (raw === 'global') {
     selectFeedStream('global');
+    return;
+  }
+  if (raw === 'latest') {
+    selectFeedStream('latest');
     return;
   }
   const id = Number.parseInt(raw ?? '', 10);
@@ -284,7 +354,7 @@ export function onFeedPageEnter() {
   if (getCurrentPage() !== 'feed') return;
   resetFeedState();
   filterUserId = null;
-  feedStreamMode = isLoggedIn() ? 'following' : 'global';
+  feedStreamMode = isLoggedIn() ? 'following' : 'latest';
   globalPage = 1;
   syncAsideActive();
   if (isLoggedIn()) void loadAside();
@@ -298,6 +368,7 @@ export function captureFeedPageState() {
     feedStreamMode,
     feedStartId,
     globalPage,
+    latestBefore,
     hasMore,
     loading: false,
     listHtml: getListEl()?.innerHTML ?? '',
@@ -315,6 +386,7 @@ export function restoreFeedPageState(state) {
   feedStreamMode = state.feedStreamMode ?? 'following';
   feedStartId = state.feedStartId ?? -1;
   globalPage = state.globalPage ?? 1;
+  latestBefore = state.latestBefore ?? null;
   hasMore = state.hasMore ?? true;
   loading = false;
   syncAsideActive();
@@ -335,8 +407,56 @@ export function bindFeedPage() {
   document.getElementById('feed-page-aside')?.addEventListener('click', onAsideClick);
   getScrollEl()?.addEventListener('scroll', onFeedScroll, { passive: true });
 
-  bindTimelineFeedClick(document.getElementById('feed-page-list'), {
+  const listRoot = document.getElementById('feed-page-list');
+  bindTimelineFeedClick(listRoot, {
     onOpenUserSpace: (uid) => openUserSpace(uid),
+  });
+
+  listRoot?.addEventListener('click', (event) => {
+    const target = /** @type {HTMLElement} */ (event.target);
+    const card = target.closest('.latest-feed-card');
+    if (!card) return;
+
+    const authorBtn = target.closest('.latest-feed-card__author');
+    if (authorBtn) {
+      const uid = Number.parseInt(authorBtn.getAttribute('data-latest-author-id') ?? '', 10);
+      if (Number.isFinite(uid) && uid > 0) {
+        event.preventDefault();
+        event.stopPropagation();
+        openUserSpace(uid);
+        return;
+      }
+    }
+
+    const type = card.getAttribute('data-latest-type') ?? 'feed';
+    const id = Number.parseInt(card.getAttribute('data-latest-id') ?? '', 10);
+    if (!Number.isFinite(id)) return;
+    if (type === 'feed') {
+      void import('./feed-detail.js').then((mod) => mod.openFeedDetail(id));
+      return;
+    }
+    if (type === 'video' || type === 'article') {
+      const authorIdRaw = card.querySelector('.latest-feed-card__author')?.getAttribute('data-latest-author-id');
+      void openContentDetail(
+        latestItemToContentPreview({
+          id,
+          type,
+          title: card.querySelector('.latest-feed-card__title')?.textContent?.trim() ?? '',
+          content: card.querySelector('.latest-feed-card__excerpt')?.textContent?.trim() ?? '',
+          cover: card.querySelector('.latest-feed-card__cover')?.getAttribute('src') ?? '',
+          createdAtIso: null,
+          author: card.querySelector('.latest-feed-card__author-name')?.textContent?.trim() ?? '',
+          authorId: Number.parseInt(authorIdRaw ?? '', 10) || null,
+          authorAvatar: '',
+          likes: 0,
+          comments: 0,
+          views: 0,
+          category: '',
+          sourceUrl: '',
+          stableId: `${type}-${id}`,
+        }),
+      );
+    }
   });
 
   document.getElementById('feed-page-compose-btn')?.addEventListener('click', () => {

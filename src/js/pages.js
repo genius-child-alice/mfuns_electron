@@ -510,17 +510,24 @@ export function feedPageHtml() {
     <div class="page-view page-view--feed" data-page="feed" hidden>
       <div class="feed-page">
         <aside class="feed-page__aside" aria-label="关注的人">
-          <nav class="feed-page__aside-inner" id="feed-page-aside" data-auth-only hidden>
-            <button type="button" class="feed-page__nav feed-page__nav--all is-active" data-feed-filter="all">
-              ${materialIcon('auto_awesome', 'feed-page__nav-icon')}
-              <span>关注动态</span>
+          <nav class="feed-page__aside-inner" id="feed-page-aside">
+            <button type="button" class="feed-page__nav feed-page__nav--latest" data-feed-filter="latest">
+              ${materialIcon('new_releases', 'feed-page__nav-icon')}
+              <span>最新动态</span>
             </button>
             <button type="button" class="feed-page__nav feed-page__nav--global" data-feed-filter="global">
               ${materialIcon('public', 'feed-page__nav-icon')}
               <span>全站动态</span>
             </button>
-            <div class="feed-page__aside-divider" aria-hidden="true"></div>
-            <div class="feed-page__follow-list" id="feed-page-follow-list"></div>
+            <div class="feed-page__aside-auth" data-auth-only hidden>
+              <div class="feed-page__aside-divider" aria-hidden="true"></div>
+              <button type="button" class="feed-page__nav feed-page__nav--all is-active" data-feed-filter="all">
+                ${materialIcon('auto_awesome', 'feed-page__nav-icon')}
+                <span>关注动态</span>
+              </button>
+              <div class="feed-page__aside-divider" aria-hidden="true"></div>
+              <div class="feed-page__follow-list" id="feed-page-follow-list"></div>
+            </div>
           </nav>
           <p class="feed-page__aside-guest" data-guest-only>登录后查看关注列表</p>
         </aside>
