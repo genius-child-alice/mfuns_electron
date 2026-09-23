@@ -21,8 +21,10 @@ import {
 import { requireLogin } from './login-ui.js';
 import {
   COMMENT_LIST_PAGE_SIZE,
-  fetchCommentList,
+  fetchCommentAreaDetail,
+  fetchRootCommentPage,
   fetchFollowStatus,
+  resolveInitialCommentOrder,
   fetchReactionStatus,
   fetchRelatedVideos,
   fetchVideoDetail,
@@ -114,11 +116,13 @@ const commentReplyStore = createCommentReplyStore();
 const COMMENT_BODY_PREFIX = 'watch-comment-body';
 const COMMENT_REPLY_PREFIX = 'watch-comment-reply';
 
-/** @type {'desc' | 'asc'} */
+/** @type {import('./video-api.js').CommentListOrder} */
 let commentOrder = 'desc';
 let commentListPage = 1;
 let commentListHasMore = false;
 let commentListLoading = false;
+let commentPinFloorId = 0;
+let commentAreaOwnerId = null;
 
 function syncCommentChrome() {
   const toolbar = document.getElementById('watch-comments-toolbar');
@@ -139,6 +143,7 @@ function refreshCommentsUi() {
     replyBodyIdPrefix: COMMENT_REPLY_PREFIX,
     replyStore: commentReplyStore,
     resourceAuthorId: currentDetail?.authorId ?? null,
+    commentAreaOwnerId,
   });
   mountAllCommentRichText(commentItems, commentReplyStore, {
     bodyIdPrefix: COMMENT_BODY_PREFIX,
@@ -153,7 +158,8 @@ async function loadRootComments(page, { append = false } = {}) {
   commentListLoading = true;
   syncCommentChrome();
   try {
-    const batch = await fetchCommentList(areaId, page, commentOrder);
+    const pinId = append ? 0 : commentPinFloorId;
+    const batch = await fetchRootCommentPage(areaId, page, commentOrder, pinId);
     commentListPage = page;
     commentListHasMore = batch.length >= COMMENT_LIST_PAGE_SIZE;
     if (append) {
@@ -900,12 +906,18 @@ async function loadWatchPage(preview) {
       }
     }
 
-    commentOrder = 'desc';
     commentListPage = 1;
     commentListHasMore = false;
+    commentPinFloorId = 0;
+    commentAreaOwnerId = null;
     if (detail.commentAreaId) {
+      const area = await fetchCommentAreaDetail(detail.commentAreaId).catch(() => null);
+      commentPinFloorId = area?.pinFloorId ?? 0;
+      commentAreaOwnerId = area?.userId ?? null;
+      commentOrder = area ? resolveInitialCommentOrder(area) : 'desc';
       await loadRootComments(1, { append: false });
     } else {
+      commentOrder = 'desc';
       commentItems = [];
     }
 
@@ -1003,7 +1015,10 @@ function applyWatchPageState(state) {
   offlineDownloading = state.offlineDownloading ?? false;
   relatedItems = state.relatedItems ?? [];
   commentItems = state.commentItems ?? [];
-  commentOrder = state.commentOrder === 'asc' ? 'asc' : 'desc';
+  commentOrder =
+    state.commentOrder === 'hot' || state.commentOrder === 'asc' || state.commentOrder === 'desc'
+      ? state.commentOrder
+      : 'desc';
   commentListPage = state.commentListPage ?? 1;
   commentListHasMore = state.commentListHasMore ?? false;
   commentListLoading = false;
@@ -1063,6 +1078,7 @@ export function bindVideoDetail() {
       if (commentListLoading || !commentListHasMore) return;
       void loadRootComments(commentListPage + 1, { append: true });
     },
+    onCommentsReload: () => loadRootComments(1, { append: false }),
   });
 
   document.getElementById('watch-back-btn')?.addEventListener('click', closeVideoDetail);

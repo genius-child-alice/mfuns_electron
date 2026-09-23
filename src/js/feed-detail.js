@@ -10,8 +10,11 @@ import { openCommentComposer } from './comment-composer.js';
 import { requireLogin } from './login-ui.js';
 import { feedDetailSkeletonHtml } from './skeleton-ui.js';
 import {
-  fetchCommentList,
+  COMMENT_LIST_PAGE_SIZE,
+  fetchCommentAreaDetail,
+  fetchRootCommentPage,
   fetchReactionStatus,
+  resolveInitialCommentOrder,
   setResourceReaction,
 } from './video-api.js';
 import { fetchFeedDetail } from './user-profile-api.js';
@@ -23,6 +26,8 @@ import {
 } from './timeline-feed-ui.js';
 import {
   bindCommentSection,
+  commentListFooterHtml,
+  commentSortToolbarHtml,
   createCommentReplyStore,
   mountAllCommentRichText,
   renderCommentsHtml,
@@ -43,7 +48,13 @@ let commentItems = [];
 
 const commentReplyStore = createCommentReplyStore();
 
+/** @type {import('./video-api.js').CommentListOrder} */
 let commentOrder = 'desc';
+let commentListPage = 1;
+let commentListHasMore = false;
+let commentListLoading = false;
+let commentPinFloorId = 0;
+let commentAreaOwnerId = null;
 
 let detailTab = 'comment';
 
@@ -209,6 +220,17 @@ function getDialog() {
   return /** @type {HTMLDialogElement | null} */ (document.getElementById('feed-detail-dialog'));
 }
 
+function syncCommentChrome() {
+  const sort = document.getElementById('feed-detail-comment-sort');
+  if (sort) {
+    sort.innerHTML = commentSortToolbarHtml(commentOrder, 'feed-detail-comment-sort-toolbar');
+  }
+  const footer = document.getElementById('feed-detail-comment-footer');
+  if (footer) {
+    footer.innerHTML = commentListFooterHtml(commentListHasMore, commentListLoading);
+  }
+}
+
 function refreshCommentsUi() {
   const list = document.getElementById('feed-detail-comment-list');
   if (!list) return;
@@ -217,11 +239,39 @@ function refreshCommentsUi() {
     replyBodyIdPrefix: COMMENT_REPLY_PREFIX,
     replyStore: commentReplyStore,
     resourceAuthorId: currentDetail?.feed?.authorId ?? null,
+    commentAreaOwnerId,
   });
   mountAllCommentRichText(commentItems, commentReplyStore, {
     bodyIdPrefix: COMMENT_BODY_PREFIX,
     replyBodyIdPrefix: COMMENT_REPLY_PREFIX,
   });
+  syncCommentChrome();
+}
+
+async function loadRootComments(page, { append = false } = {}) {
+  const areaId = currentDetail?.commentAreaId;
+  if (!areaId) return;
+  commentListLoading = true;
+  syncCommentChrome();
+  try {
+    const pinId = append ? 0 : commentPinFloorId;
+    const batch = await fetchRootCommentPage(areaId, page, commentOrder, pinId);
+    commentListPage = page;
+    commentListHasMore = batch.length >= COMMENT_LIST_PAGE_SIZE;
+    if (append) {
+      const seen = new Set(commentItems.map((item) => item.id));
+      commentItems = [...commentItems, ...batch.filter((item) => !seen.has(item.id))];
+    } else {
+      commentItems = batch;
+      commentReplyStore.clear();
+    }
+  } catch {
+    if (!append) commentItems = [];
+    commentListHasMore = false;
+  } finally {
+    commentListLoading = false;
+    refreshCommentsUi();
+  }
 }
 
 function syncTabsUi() {
@@ -234,18 +284,8 @@ function syncTabsUi() {
   if (comment) comment.hidden = detailTab !== 'comment';
 }
 
-function syncSortUi() {
-  document.querySelectorAll('[data-feed-comment-order]').forEach((btn) => {
-    btn.classList.toggle('is-active', btn.getAttribute('data-feed-comment-order') === commentOrder);
-  });
-}
-
 async function reloadComments() {
-  if (!currentDetail?.commentAreaId) return;
-  commentItems = await fetchCommentList(currentDetail.commentAreaId, 1, commentOrder).catch(
-    () => [],
-  );
-  refreshCommentsUi();
+  await loadRootComments(1, { append: false });
 }
 
 /**
@@ -279,7 +319,7 @@ function renderDetailContent(detail) {
   }
 
   syncTabsUi();
-  syncSortUi();
+  syncCommentChrome();
   void loadFeedReactionStatus();
 }
 
@@ -315,6 +355,10 @@ export async function openFeedDetail(feedId) {
   }
   detailTab = 'comment';
   commentOrder = 'desc';
+  commentListPage = 1;
+  commentListHasMore = false;
+  commentPinFloorId = 0;
+  commentAreaOwnerId = null;
   commentReplyStore.clear();
   const interact = document.getElementById('feed-detail-interact');
   if (interact) {
@@ -327,6 +371,10 @@ export async function openFeedDetail(feedId) {
     renderDetailContent(currentDetail);
     setLoading(false);
     if (currentDetail.commentAreaId) {
+      const area = await fetchCommentAreaDetail(currentDetail.commentAreaId).catch(() => null);
+      commentPinFloorId = area?.pinFloorId ?? 0;
+      commentAreaOwnerId = area?.userId ?? null;
+      commentOrder = area ? resolveInitialCommentOrder(area) : 'desc';
       await reloadComments();
     } else {
       const list = document.getElementById('feed-detail-comment-list');
@@ -389,6 +437,16 @@ export function bindFeedDetail() {
     bodyIdPrefix: COMMENT_BODY_PREFIX,
     replyBodyIdPrefix: COMMENT_REPLY_PREFIX,
     onRefresh: refreshCommentsUi,
+    onOrderChange: (order) => {
+      if (order === commentOrder) return;
+      commentOrder = order;
+      void loadRootComments(1, { append: false });
+    },
+    onLoadMoreComments: () => {
+      if (commentListLoading || !commentListHasMore) return;
+      void loadRootComments(commentListPage + 1, { append: true });
+    },
+    onCommentsReload: () => loadRootComments(1, { append: false }),
   });
 
   const dialog = getDialog();
@@ -400,17 +458,6 @@ export function bindFeedDetail() {
       if (tab !== 'repost' && tab !== 'comment') return;
       detailTab = tab;
       syncTabsUi();
-    });
-  });
-
-  document.querySelectorAll('[data-feed-comment-order]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const order = btn.getAttribute('data-feed-comment-order');
-      if (order !== 'desc' && order !== 'asc') return;
-      if (order === commentOrder) return;
-      commentOrder = order;
-      syncSortUi();
-      void reloadComments();
     });
   });
 

@@ -263,12 +263,9 @@ function renderShell() {
             <p class="feed-detail__repost-empty">暂无转发内容</p>
           </div>
           <div id="feed-detail-comment-panel">
-            <div class="feed-detail__sort">
-              <button type="button" class="feed-detail__sort-btn is-active" data-feed-comment-order="desc">最热</button>
-              <span class="feed-detail__sort-sep">|</span>
-              <button type="button" class="feed-detail__sort-btn" data-feed-comment-order="asc">最新</button>
-            </div>
+            <div class="feed-detail__sort" id="feed-detail-comment-sort"></div>
             <div class="watch-comments" id="feed-detail-comment-list"></div>
+            <div id="feed-detail-comment-footer"></div>
           </div>
         </div>
         <div class="feed-detail__composer" id="feed-detail-composer">

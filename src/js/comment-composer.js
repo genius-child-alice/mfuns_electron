@@ -1,10 +1,15 @@
 import { notify } from './notice-ui.js';
 import { materialIcon } from './icons.js';
 import { requireLogin } from './login-ui.js';
-import { createComment, createCommentReply, uploadCommentImage } from './video-api.js';
+import {
+  COMMENT_MAX_LENGTH,
+  createComment,
+  createCommentReply,
+  uploadCommentImage,
+} from './video-api.js';
 import { fetchEmojiPackGroups } from './emoji-pack.js';
 
-const DEFAULT_MAX_LENGTH = 200;
+const DEFAULT_MAX_LENGTH = COMMENT_MAX_LENGTH;
 const MAX_IMAGES = 9;
 
 const EMOJI_ITEMS = ['😀', '😂', '🥰', '😊', '😭', '👍', '❤️', '🎉', '🙏', '🔥', '✨', '🤔'];
@@ -122,6 +127,12 @@ function syncCount() {
   }
 }
 
+function syncComposerReplyMode() {
+  const isReply = context?.commentId != null;
+  const imagesRoot = getImagesRoot();
+  if (imagesRoot) imagesRoot.hidden = isReply;
+}
+
 function resetComposer() {
   imagePaths = [];
   const input = getInput();
@@ -130,6 +141,7 @@ function resetComposer() {
   if (fileInput) fileInput.value = '';
   renderImagePreviews();
   hideEmojiPanel();
+  syncComposerReplyMode();
   syncCount();
 }
 
@@ -312,6 +324,7 @@ export async function openCommentComposer(options) {
 
   if (titleEl) titleEl.textContent = context.title;
   resetComposer();
+  syncComposerReplyMode();
 
   if (!dialog.open) dialog.showModal();
   window.requestAnimationFrame(() => input.focus());
@@ -341,7 +354,7 @@ async function submitComposer() {
     if (context.areaId != null) {
       await createComment(context.areaId, text, imagePaths);
     } else if (context.commentId != null) {
-      await createCommentReply(context.commentId, text, context.mention, imagePaths);
+      await createCommentReply(context.commentId, text, context.mention);
     } else {
       throw new Error('无法发布评论');
     }

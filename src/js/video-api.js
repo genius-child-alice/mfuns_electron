@@ -1,6 +1,6 @@
 import { pickAvatarFrameUrl } from './content-api.js';
 import { parseUserBadgeIds } from './badge-catalog.js';
-import { commentSpansFromText } from './message-quill.js';
+import { commentSpansFromText, messageQuillJson } from './message-quill.js';
 import { API_BASE, loadSession } from './auth.js';
 import { loadAppSettings } from './app-preferences.js';
 import {
@@ -61,7 +61,13 @@ import {
  *   badges: number[],
  *   createdAt: number | string | null,
  *   pinned: boolean,
+ *   secondReply: CommunityComment[],
  * }} CommunityComment */
+
+/** @typedef {'hot' | 'desc' | 'asc'} CommentListOrder */
+
+export const COMMENT_LIST_PAGE_SIZE = 5;
+export const COMMENT_MAX_LENGTH = 1000;
 
 /**
  * @param {unknown} value
@@ -121,12 +127,32 @@ function detailCommentCount(root, resource) {
 function commentPlainText(raw) {
   if (typeof raw !== 'string') return '';
   const text = raw.trim();
-  if (!text.startsWith('[')) return text;
+  if (/<[A-Za-z][^>]*>/.test(text)) {
+    try {
+      const doc = new DOMParser().parseFromString(text, 'text/html');
+      return `${doc.body.textContent ?? ''}`.trim();
+    } catch {
+      return text;
+    }
+  }
+  if (!text.startsWith('[') && !text.startsWith('{')) return text;
   try {
-    const ops = JSON.parse(text);
+    const decoded = JSON.parse(text);
+    const ops = Array.isArray(decoded) ? decoded : decoded?.ops;
     if (!Array.isArray(ops)) return text;
     return ops
-      .map((op) => (op && typeof op.insert === 'string' ? op.insert : ''))
+      .map((op) => {
+        if (!op || typeof op !== 'object') return '';
+        const insert = /** @type {Record<string, unknown>} */ (op).insert;
+        if (typeof insert === 'string') return insert;
+        if (insert && typeof insert === 'object') {
+          const mention = /** @type {Record<string, unknown>} */ (insert).mention;
+          if (mention && typeof mention === 'object') {
+            return `@${mention.value ?? ''}`;
+          }
+        }
+        return '';
+      })
       .join('')
       .trim();
   } catch {
@@ -353,10 +379,18 @@ function parseComment(raw) {
       json.is_pinned === 1 ||
       json.is_pinned === true ||
       json.pinned === true,
+    secondReply: parseSecondReplyList(json.second_reply),
   };
 }
 
-export const COMMENT_LIST_PAGE_SIZE = 20;
+/**
+ * @param {unknown} raw
+ * @returns {CommunityComment[]}
+ */
+function parseSecondReplyList(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((item) => parseComment(item)).filter((item) => item != null);
+}
 
 /**
  * @param {CommunityComment[]} comments
@@ -415,7 +449,8 @@ export async function fetchCommentList(areaId, page = 1, order = 'desc') {
     area_id: areaId,
     page,
     order,
-    html: 0,
+    html: 1,
+    size: COMMENT_LIST_PAGE_SIZE,
   });
   return parseCommentList(data);
 }
@@ -428,9 +463,79 @@ export async function fetchCommentReplies(commentId, page = 1) {
   const data = await apiGet('/v1/comment/reply_list', {
     comment_id: commentId,
     page,
-    html: 0,
+    html: 1,
   });
   return parseCommentList(data);
+}
+
+/**
+ * @param {number} areaId
+ */
+export async function fetchCommentAreaDetail(areaId) {
+  const data = await apiGet('/v1/comment/area_info', { area_id: areaId });
+  const root = asMap(data);
+  return {
+    userId: asInt(root.user_id),
+    floorCount: asInt(root.floor_count) ?? 0,
+    hasHotComments: root.has_hot_comments === true || root.has_hot_comments === 1,
+    pinFloorId: asInt(root.pin_floor_id) ?? 0,
+    resourceId: asInt(root.resource_id),
+    resourceType: asInt(root.resource_type),
+  };
+}
+
+/**
+ * @param {{ hasHotComments?: boolean }} areaDetail
+ * @returns {CommentListOrder}
+ */
+export function resolveInitialCommentOrder(areaDetail) {
+  return areaDetail.hasHotComments ? 'hot' : 'desc';
+}
+
+/**
+ * @param {number} areaId
+ * @param {number} page
+ * @param {CommentListOrder} order
+ * @param {number} [pinFloorId]
+ */
+export async function fetchRootCommentPage(areaId, page, order, pinFloorId = 0) {
+  const batch = await fetchCommentList(areaId, page, order);
+  if (page !== 1 || !pinFloorId || pinFloorId <= 0) return batch;
+
+  const withoutDup = batch.filter((entry) => entry.id !== pinFloorId);
+  const fromList = batch.find((entry) => entry.id === pinFloorId);
+  if (fromList) {
+    return sortCommentsForDisplay([fromList, ...withoutDup]);
+  }
+  try {
+    const pinned = await fetchCommentById(pinFloorId);
+    if (pinned) return [pinned, ...withoutDup];
+  } catch {
+    /* ignore */
+  }
+  return batch;
+}
+
+/**
+ * @param {number} commentId
+ */
+export async function fetchCommentById(commentId) {
+  const data = await apiGet('/v1/comment/get', { id: commentId, html: 1 });
+  const comment = asMap(asMap(data).comment);
+  const parsed = parseComment(comment);
+  if (!parsed) throw new Error('评论不存在');
+  return parsed;
+}
+
+/**
+ * @param {number} commentId
+ * @param {boolean} [cancel]
+ */
+export async function pinComment(commentId, cancel = false) {
+  await apiPostJson('/v1/comment/pin', {
+    id: commentId,
+    ...(cancel ? { cancel: 1 } : {}),
+  });
 }
 
 /**
@@ -555,38 +660,18 @@ export async function setCommentReaction(commentId, action) {
 
 /**
  * @param {string} text
+ * @param {{ userId?: number | null, name?: string | null }} [mention]
  */
-function commentQuillJson(text) {
-  const spans = commentSpansFromText(text);
-  /** @type {Record<string, unknown>[]} */
-  const ops = [];
-  for (const span of spans) {
-    if (span.stickerKey) {
-      ops.push({ insert: { sticker: span.stickerKey } });
-      continue;
-    }
-    if (span.mentionName) {
-      ops.push({
-        insert: `[@${span.mentionId ?? ''}:${span.mentionName}]`,
-      });
-      continue;
-    }
-    const chunk = `${span.text ?? ''}`;
-    if (!chunk) continue;
-    const lines = chunk.split('\n');
-    for (const line of lines) {
-      ops.push({ insert: `${line}\n` });
-    }
+export function buildCommentReplyQuillContent(text, mention) {
+  /** @type {import('./message-quill.js').CommentSpan[]} */
+  const spans = [];
+  if (mention?.name) {
+    spans.push({ text: '回复' });
+    spans.push({ mentionId: `${mention.userId ?? ''}`, mentionName: mention.name });
+    spans.push({ text: '：' });
   }
-  if (ops.length === 0) {
-    ops.push({ insert: '\n' });
-  } else {
-    const last = ops[ops.length - 1];
-    if (typeof last.insert !== 'string' || !`${last.insert}`.endsWith('\n')) {
-      ops.push({ insert: '\n' });
-    }
-  }
-  return JSON.stringify(ops);
+  spans.push(...commentSpansFromText(text.trim()));
+  return messageQuillJson(spans, []);
 }
 
 /**
@@ -635,19 +720,14 @@ export async function uploadCommentImage(file) {
  * @param {{ userId?: number | null, name?: string | null }} [mention]
  * @param {string[]} [imagePaths]
  */
-export async function createCommentReply(commentId, text, mention, imagePaths = []) {
-  let payload = text.trim();
-  if (!payload && imagePaths.length === 0) {
+export async function createCommentReply(commentId, text, mention) {
+  const payload = text.trim();
+  if (!payload) {
     throw new Error('请填写回复内容');
-  }
-  if (mention?.name) {
-    const userId = mention.userId ?? '';
-    payload = `[@${userId}:${mention.name}] ${payload}`;
   }
   await apiPostJson('/v1/comment/create_reply', {
     comment_id: commentId,
-    content: commentQuillJson(payload),
-    images: JSON.stringify(imagePaths),
+    content: buildCommentReplyQuillContent(payload, mention),
   });
 }
 
@@ -693,9 +773,8 @@ export async function createComment(areaId, text, imagePaths = []) {
   }
   await apiPostJson('/v1/comment/create', {
     area_id: areaId,
-    content: commentQuillJson(trimmed),
+    content: messageQuillJson(commentSpansFromText(trimmed), imagePaths),
     images: JSON.stringify(imagePaths),
-    html: 1,
   });
 }
 

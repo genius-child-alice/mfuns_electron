@@ -2133,6 +2133,50 @@ html[data-theme='dark'] .watch-side-scroll::-webkit-scrollbar-thumb {
   font-size: 18px;
 }
 
+.watch-comment__pin-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  margin-left: auto;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+}
+
+.watch-comment__pin-btn:hover {
+  color: #e67e22;
+  background: color-mix(in srgb, #e67e22 10%, transparent);
+}
+
+.watch-comment__pin-btn .material-symbols-outlined {
+  font-size: 18px;
+}
+
+.watch-comment-second-replies {
+  margin: 4px 0 8px 44px;
+  padding-left: 10px;
+  border-left: 2px solid var(--border-subtle, rgba(128, 128, 128, 0.25));
+}
+
+.watch-comment-second-replies__more {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
 .feed-detail__interact.watch-interact-bar {
   margin: 0 16px 8px;
   padding: 8px 0 0;

@@ -5,8 +5,10 @@ import { requireLogin } from './login-ui.js';
 import { resolveMineUserId } from './favorite-api.js';
 import {
   deleteComment,
+  fetchCommentById,
   fetchCommentReplies,
   fetchReactionStatus,
+  pinComment,
   setCommentReaction,
   sortCommentsForDisplay,
 } from './video-api.js';
@@ -16,6 +18,7 @@ import { openCommentComposer } from './comment-composer.js';
 import { confirmAction } from './confirm-dialog.js';
 
 /** @typedef {import('./video-api.js').CommunityComment} CommunityComment */
+/** @typedef {import('./video-api.js').CommentListOrder} CommentListOrder */
 
 /** @typedef {{
  *   items: CommunityComment[],
@@ -204,6 +207,7 @@ function renderNestedReplyButton(reply, rootCommentId) {
  *   replyActionHtml?: string,
  *   currentUserId?: number | null,
  *   resourceAuthorId?: number | null,
+ *   commentAreaOwnerId?: number | null,
  *   rootCommentId?: number,
  * }} options
  */
@@ -248,6 +252,14 @@ function renderCommentRow(item, options) {
     item.authorId === options.currentUserId
       ? `<button type="button" class="watch-comment__delete" data-comment-delete="${item.id}" data-comment-delete-root="${rootCommentId}" aria-label="删除" title="删除">${materialIcon('delete_outline')}</button>`
       : '';
+  const canPin =
+    !compact &&
+    options.commentAreaOwnerId != null &&
+    options.currentUserId != null &&
+    options.commentAreaOwnerId === options.currentUserId;
+  const pinBtn = canPin
+    ? `<button type="button" class="watch-comment__pin-btn" data-comment-pin="${item.id}" data-comment-pin-cancel="${item.pinned ? '1' : '0'}" aria-label="${item.pinned ? '取消置顶' : '置顶'}" title="${item.pinned ? '取消置顶' : '置顶'}">${materialIcon(item.pinned ? 'push_pin' : 'keep')}</button>`
+    : '';
 
   return `
     <article class="watch-comment ${compact ? 'watch-comment--reply' : ''}" data-comment-id="${item.id}">
@@ -267,10 +279,52 @@ function renderCommentRow(item, options) {
             ${renderCommentReactionButtons(item)}
             ${extraMeta}
           </div>
+          ${pinBtn}
           ${deleteBtn}
         </div>
       </div>
     </article>`;
+}
+
+/**
+ * @param {CommunityComment} item
+ * @param {CommentReplyThread} thread
+ * @param {number} rootCommentId
+ * @param {{
+ *   replyBodyIdPrefix: string,
+ *   currentUserId?: number | null,
+ *   resourceAuthorId?: number | null,
+ *   replyStore: CommentReplyStore,
+ * }} options
+ */
+function renderSecondReplyPreviewHtml(item, thread, rootCommentId, options) {
+  if (thread.expanded) return '';
+  const previews = item.secondReply ?? [];
+  if (previews.length === 0) return '';
+
+  const total = options.replyStore.replyTotal(item, rootCommentId);
+  const rows = previews
+    .map((reply) =>
+      renderCommentRow(reply, {
+        bodyIdPrefix: options.replyBodyIdPrefix,
+        compact: true,
+        currentUserId: options.currentUserId,
+        resourceAuthorId: options.resourceAuthorId ?? null,
+        rootCommentId,
+        replyActionHtml: renderNestedReplyButton(reply, rootCommentId),
+      }),
+    )
+    .join('');
+
+  const moreHtml =
+    total > previews.length
+      ? `<button type="button" class="watch-comment-second-replies__more" data-comment-replies-toggle="${rootCommentId}">
+          ${materialIcon('expand_more', 'watch-comment-second-replies__more-icon')}
+          <span>查看全部 ${formatCount(total)} 条回复</span>
+        </button>`
+      : '';
+
+  return `<div class="watch-comment-second-replies" data-comment-second-replies="${rootCommentId}">${rows}${moreHtml}</div>`;
 }
 
 /**
@@ -332,15 +386,16 @@ function renderReplyThreadHtml(comment, thread, rootCommentId, options) {
  * }} options
  */
 /**
- * @param {'desc' | 'asc'} [activeOrder]
+ * @param {CommentListOrder} [activeOrder]
  * @param {string} [toolbarId]
  */
 export function commentSortToolbarHtml(activeOrder = 'desc', toolbarId = 'watch-comments-toolbar') {
   return `
     <div class="watch-comments__chrome" id="${toolbarId}" role="toolbar" aria-label="评论排序">
       <div class="watch-comments__sort" role="tablist" aria-label="评论排序">
-        <button type="button" class="watch-comments__sort-btn ${activeOrder === 'desc' ? 'is-active' : ''}" data-comment-order="desc" role="tab" aria-selected="${activeOrder === 'desc'}">最热</button>
-        <button type="button" class="watch-comments__sort-btn ${activeOrder === 'asc' ? 'is-active' : ''}" data-comment-order="asc" role="tab" aria-selected="${activeOrder === 'asc'}">最新</button>
+        <button type="button" class="watch-comments__sort-btn ${activeOrder === 'hot' ? 'is-active' : ''}" data-comment-order="hot" role="tab" aria-selected="${activeOrder === 'hot'}">热门</button>
+        <button type="button" class="watch-comments__sort-btn ${activeOrder === 'desc' ? 'is-active' : ''}" data-comment-order="desc" role="tab" aria-selected="${activeOrder === 'desc'}">最新</button>
+        <button type="button" class="watch-comments__sort-btn ${activeOrder === 'asc' ? 'is-active' : ''}" data-comment-order="asc" role="tab" aria-selected="${activeOrder === 'asc'}">最早</button>
       </div>
     </div>`;
 }
@@ -365,6 +420,7 @@ export function renderCommentsHtml(comments, options) {
 
   const currentUserId = options.currentUserId ?? resolveMineUserId(null);
   const resourceAuthorId = options.resourceAuthorId ?? null;
+  const commentAreaOwnerId = options.commentAreaOwnerId ?? null;
 
   return sorted
     .map((item) => {
@@ -378,6 +434,12 @@ export function renderCommentsHtml(comments, options) {
             resourceAuthorId,
           })
         : '';
+      const secondReplyHtml = renderSecondReplyPreviewHtml(item, thread, item.id, {
+        replyBodyIdPrefix: options.replyBodyIdPrefix,
+        currentUserId,
+        resourceAuthorId,
+        replyStore: options.replyStore,
+      });
 
       const replyToggleHtml =
         replyTotal > 0 || thread.expanded
@@ -395,10 +457,12 @@ export function renderCommentsHtml(comments, options) {
             bodyIdPrefix: options.bodyIdPrefix,
             currentUserId,
             resourceAuthorId,
+            commentAreaOwnerId,
             rootCommentId: item.id,
             replyActionHtml: renderRootReplyButton(item.id),
           })}
           ${replyToggleHtml}
+          ${secondReplyHtml}
           ${threadHtml}
         </div>`;
     })
@@ -410,16 +474,47 @@ export function renderCommentsHtml(comments, options) {
  * @param {CommentReplyStore} replyStore
  * @param {{ bodyIdPrefix: string, replyBodyIdPrefix: string }} options
  */
+function mountCommentRichTextById(bodyIdPrefix, comment) {
+  const el = document.getElementById(`${bodyIdPrefix}-${comment.id}`);
+  if (el && comment.rawContent) mountRichContent(el, comment.rawContent);
+}
+
 export function mountAllCommentRichText(comments, replyStore, options) {
   comments.forEach((item) => {
-    const el = document.getElementById(`${options.bodyIdPrefix}-${item.id}`);
-    if (el && item.rawContent) mountRichContent(el, item.rawContent);
+    mountCommentRichTextById(options.bodyIdPrefix, item);
+    (item.secondReply ?? []).forEach((reply) => {
+      mountCommentRichTextById(options.replyBodyIdPrefix, reply);
+    });
     const thread = replyStore.get(item.id);
     thread?.items.forEach((reply) => {
-      const replyEl = document.getElementById(`${options.replyBodyIdPrefix}-${reply.id}`);
-      if (replyEl && reply.rawContent) mountRichContent(replyEl, reply.rawContent);
+      mountCommentRichTextById(options.replyBodyIdPrefix, reply);
     });
   });
+}
+
+/**
+ * @param {number} rootCommentId
+ * @param {() => CommunityComment[]} getComments
+ * @param {(comments: CommunityComment[]) => void} setComments
+ */
+async function mergeRootCommentFromServer(rootCommentId, getComments, setComments) {
+  try {
+    const updated = await fetchCommentById(rootCommentId);
+    const list = getComments();
+    const next = list.map((entry) =>
+      entry.id === rootCommentId
+        ? {
+            ...entry,
+            ...updated,
+            secondReply: updated.secondReply ?? [],
+            replyCount: updated.replyCount,
+          }
+        : entry,
+    );
+    setComments(next);
+  } catch {
+    /* ignore */
+  }
 }
 
 /**
@@ -615,8 +710,9 @@ export function openCommentReplyDialog(options) {
  *   bodyIdPrefix: string,
  *   replyBodyIdPrefix: string,
  *   onRefresh: () => void,
- *   onOrderChange?: (order: 'desc' | 'asc') => void,
+ *   onOrderChange?: (order: CommentListOrder) => void,
  *   onLoadMoreComments?: () => void,
+ *   onCommentsReload?: () => void | Promise<void>,
  * }} options
  */
 export function bindCommentSection(root, options) {
@@ -629,9 +725,33 @@ export function bindCommentSection(root, options) {
     const orderBtn = target.closest('[data-comment-order]');
     if (orderBtn instanceof HTMLButtonElement && options.onOrderChange) {
       const order = orderBtn.getAttribute('data-comment-order');
-      if (order === 'desc' || order === 'asc') {
+      if (order === 'hot' || order === 'desc' || order === 'asc') {
         options.onOrderChange(order);
       }
+      return;
+    }
+
+    const pinBtn = target.closest('[data-comment-pin]');
+    if (pinBtn instanceof HTMLButtonElement) {
+      const commentId = Number(pinBtn.getAttribute('data-comment-pin'));
+      const cancel = pinBtn.getAttribute('data-comment-pin-cancel') === '1';
+      if (!Number.isFinite(commentId)) return;
+      if (!requireLogin()) return;
+      pinBtn.disabled = true;
+      void pinComment(commentId, cancel)
+        .then(async () => {
+          if (options.onCommentsReload) {
+            await options.onCommentsReload();
+          } else {
+            options.onRefresh();
+          }
+        })
+        .catch((err) => {
+          notify(err instanceof Error ? err.message : '置顶操作失败', 'error');
+        })
+        .finally(() => {
+          pinBtn.disabled = false;
+        });
       return;
     }
 
@@ -671,7 +791,11 @@ export function bindCommentSection(root, options) {
               () => options.onRefresh(),
             );
           } else {
-            options.onRefresh();
+            void mergeRootCommentFromServer(
+              rootCommentId,
+              options.getComments,
+              options.setComments,
+            ).then(() => options.onRefresh());
           }
         },
       });
@@ -699,7 +823,11 @@ export function bindCommentSection(root, options) {
               () => options.onRefresh(),
             );
           } else {
-            options.onRefresh();
+            void mergeRootCommentFromServer(
+              rootCommentId,
+              options.getComments,
+              options.setComments,
+            ).then(() => options.onRefresh());
           }
         },
       });
