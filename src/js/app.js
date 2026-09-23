@@ -115,7 +115,7 @@ function renderShell() {
 
   app.innerHTML = `
     <div class="shell">
-      <aside class="sidebar" aria-label="主导航">
+      <aside class="sidebar app-no-drag" aria-label="主导航">
         <div class="sidebar__main">
           ${NAV_ITEMS.map(
             (item, index) => `
@@ -491,13 +491,24 @@ function renderShell() {
   `;
 }
 
+function onSidebarInteract() {
+  resetNavigationLock();
+  unblockUi('sidebar', { keepLogin: true });
+  void import('./comment-composer.js')
+    .then((mod) => mod.closeCommentComposer?.())
+    .catch(() => {});
+}
+
 function bindNavigation() {
+  document.querySelectorAll('.sidebar button, .sidebar a').forEach((el) => {
+    el.classList.add('app-no-drag');
+  });
+
   document.querySelectorAll('.sidebar__main [data-nav]').forEach((el) => {
     el.addEventListener('click', () => {
+      onSidebarInteract();
       const pageId = el.getAttribute('data-nav');
       if (pageId === 'home' || pageId === 'feed' || pageId === 'mine') {
-        resetNavigationLock();
-        unblockUi('sidebar-nav');
         void navigateTo(pageId);
       }
     });
@@ -507,12 +518,12 @@ function bindNavigation() {
 
   document.querySelector('.topbar__logo-link')?.addEventListener('click', (e) => {
     e.preventDefault();
-    resetNavigationLock();
-    unblockUi('logo-home');
+    onSidebarInteract();
     void navigateTo('home');
   });
 
   document.querySelector('[data-sidebar-tool="upload"]')?.addEventListener('click', () => {
+    onSidebarInteract();
     void ensurePageBound('contribute')
       .then(() => import('./contribute-page.js'))
       .then((mod) => mod.openContributePage())
@@ -523,10 +534,12 @@ function bindNavigation() {
   });
 
   document.querySelector('[data-sidebar-tool="message"]')?.addEventListener('click', () => {
+    onSidebarInteract();
     void import('./message-page.js').then((mod) => mod.openMessagePage());
   });
 
   document.getElementById('btn-open-settings')?.addEventListener('click', () => {
+    onSidebarInteract();
     goToSettingsPage();
   });
 }

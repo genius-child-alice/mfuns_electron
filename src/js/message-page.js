@@ -25,6 +25,7 @@ import { mountRichContent } from './rich-content.js';
 import { fetchUserProfile } from './user-profile-api.js';
 import { openUserSpace } from './user-space.js';
 import { bindNotifyPage, onNotifyPageEnter, renderNotifySummary } from './notify-page.js';
+import { bindTextareaMentionAutocomplete } from './mention-autocomplete.js';
 
 /** @typedef {import('./message-api.js').MessageConversation} MessageConversation */
 /** @typedef {import('./message-api.js').MessageRecord} MessageRecord */
@@ -62,6 +63,7 @@ let pendingPeerAvatar = '';
 let lastDmUnread = -1;
 let pollTimer = null;
 let bound = false;
+let messageMentionController = null;
 
 /**
  * @param {Record<string, unknown> | null | undefined} user
@@ -750,7 +752,13 @@ export function bindMessagePage() {
     void submitMessage();
   });
 
-  document.getElementById('message-composer-input')?.addEventListener('keydown', (event) => {
+  const messageInput = document.getElementById('message-composer-input');
+  if (messageInput instanceof HTMLTextAreaElement && !messageMentionController) {
+    messageMentionController = bindTextareaMentionAutocomplete(messageInput);
+  }
+
+  messageInput?.addEventListener('keydown', (event) => {
+    if (messageMentionController?.handleKeydown(event)) return;
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       void submitMessage();

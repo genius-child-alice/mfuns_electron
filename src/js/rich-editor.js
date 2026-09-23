@@ -1,6 +1,8 @@
 import { notify } from './notice-ui.js';
 import { marked } from '../../node_modules/marked/lib/marked.esm.js';
 import { normalizeRichContent, quillOpsToMarkdown } from './rich-content.js';
+import { bindQuillMentionAutocomplete } from './mention-autocomplete.js';
+import { registerQuillMention } from './quill-mention.js';
 
 /** @typedef {'article' | 'video' | 'feed'} EditorContentMode */
 /** @typedef {import('../vendor/quill.mjs').default} QuillCtor */
@@ -11,6 +13,7 @@ import { normalizeRichContent, quillOpsToMarkdown } from './rich-content.js';
  *   placeholder: string,
  *   compact: boolean,
  *   quill: import('../vendor/quill.mjs').default | null,
+ *   mentionBound: boolean,
  * }} RichEditorSlot */
 
 /** @type {Promise<QuillCtor> | null} */
@@ -52,6 +55,7 @@ function registerEditorSlot(editorKey, config) {
     placeholder: config.placeholder ?? '请输入内容',
     compact: config.compact === true,
     quill: null,
+    mentionBound: false,
   });
 }
 
@@ -76,6 +80,7 @@ function loadQuillClass() {
     quillLoadPromise = import('../vendor/quill.mjs')
       .then((mod) => {
         QuillClass = mod.default;
+        registerQuillMention(QuillClass);
         return QuillClass;
       })
       .catch((err) => {
@@ -160,6 +165,11 @@ export async function ensureRichEditor(editorKey = 'contribute') {
       placeholder: slot.placeholder,
     });
     bindImageHandler(slot.quill, editorKey);
+    const wrap = slot.wrapId ? document.getElementById(slot.wrapId) : container.parentElement;
+    if (wrap && !slot.mentionBound) {
+      bindQuillMentionAutocomplete(slot.quill, wrap);
+      slot.mentionBound = true;
+    }
   }
 
   return slot.quill;

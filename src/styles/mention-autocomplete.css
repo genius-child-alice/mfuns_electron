@@ -1,0 +1,90 @@
+.mention-autocomplete-anchor {
+  position: relative;
+  width: 100%;
+}
+
+.mention-autocomplete {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  z-index: 40;
+  margin-top: 4px;
+  max-height: 280px;
+  overflow: auto;
+  padding: 6px 0;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-elevated, #fff);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.mention-autocomplete--floating {
+  position: fixed;
+  top: 0;
+  margin-top: 0;
+  z-index: 10050;
+  max-width: calc(100vw - 16px);
+}
+
+.mention-autocomplete__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  color: var(--text-primary);
+  font: inherit;
+}
+
+.mention-autocomplete__item:hover,
+.mention-autocomplete__item.is-active {
+  background: rgba(0, 174, 236, 0.12);
+}
+
+.mention-autocomplete__avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.mention-autocomplete__avatar--ph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.mention-autocomplete__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+}
+
+.mention-autocomplete__empty {
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.ql-mention {
+  color: #00aeec;
+  font-weight: 500;
+}
+
+.contribute-rich-editor .mention-autocomplete-anchor .ql-container {
+  position: relative;
+}

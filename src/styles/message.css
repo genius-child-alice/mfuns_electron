@@ -398,6 +398,11 @@
   background: var(--bg-pane);
 }
 
+.message-composer__row .mention-autocomplete-anchor {
+  flex: 1;
+  min-width: 0;
+}
+
 .message-composer__row {
   display: flex;
   align-items: flex-end;

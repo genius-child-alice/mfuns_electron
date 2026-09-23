@@ -8,6 +8,10 @@ import {
   uploadCommentImage,
 } from './video-api.js';
 import { fetchEmojiPackGroups } from './emoji-pack.js';
+import {
+  bindTextareaMentionAutocomplete,
+  insertMentionTokenAtCursor,
+} from './mention-autocomplete.js';
 
 const DEFAULT_MAX_LENGTH = COMMENT_MAX_LENGTH;
 const MAX_IMAGES = 9;
@@ -34,6 +38,7 @@ let context = null;
 let imagePaths = [];
 
 let bound = false;
+let mentionController = null;
 
 /**
  * @param {string} [placeholder]
@@ -326,6 +331,13 @@ export async function openCommentComposer(options) {
   resetComposer();
   syncComposerReplyMode();
 
+  if (context.commentId != null && context.mention?.name) {
+    insertAtCursor(input, '回复');
+    insertMentionTokenAtCursor(input, context.mention.userId, context.mention.name);
+    insertAtCursor(input, '：');
+    syncCount();
+  }
+
   if (!dialog.open) dialog.showModal();
   window.requestAnimationFrame(() => input.focus());
 }
@@ -399,6 +411,10 @@ export function bindCommentComposer() {
     void submitComposer();
   });
 
+  if (input && !mentionController) {
+    mentionController = bindTextareaMentionAutocomplete(input, { onSync: syncCount });
+  }
+
   input?.addEventListener('input', syncCount);
 
   document.getElementById('comment-composer-images')?.addEventListener('click', (event) => {
@@ -435,6 +451,7 @@ export function bindCommentComposer() {
     }
     if (action === 'mention') {
       insertAtCursor(input, '@');
+      mentionController?.onInput();
       hideEmojiPanel();
       return;
     }
