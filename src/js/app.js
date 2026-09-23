@@ -251,11 +251,6 @@ function renderShell() {
     <dialog class="feed-detail app-no-drag" id="feed-detail-dialog" aria-labelledby="feed-detail-title">
       <div class="feed-detail__shell">
         <div class="feed-detail__head">
-          <div class="feed-detail__head-actions" id="feed-detail-owner-actions" hidden>
-            <button type="button" class="feed-detail__owner-btn" id="feed-detail-forward-btn" title="转发到动态">${materialIcon('share')}</button>
-            <button type="button" class="feed-detail__owner-btn" id="feed-detail-report-btn" title="举报">${materialIcon('flag')}</button>
-            <button type="button" class="feed-detail__owner-btn feed-detail__owner-btn--danger" id="feed-detail-delete-btn" title="删除动态">${materialIcon('delete')}</button>
-          </div>
           <button type="button" class="feed-detail__close" id="feed-detail-close" aria-label="关闭">${materialIcon('close')}</button>
         </div>
         <div class="feed-detail__scroll">

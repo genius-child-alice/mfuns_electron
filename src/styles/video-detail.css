@@ -1298,6 +1298,10 @@ html[data-theme='dark'] .watch-side-scroll::-webkit-scrollbar-thumb {
   cursor: not-allowed;
 }
 
+.watch-interact-bar__item--danger:hover:not(:disabled) {
+  color: #e53935;
+}
+
 .watch-interact-bar__icon {
   font-size: 22px;
   line-height: 1;
@@ -2129,11 +2133,10 @@ html[data-theme='dark'] .watch-side-scroll::-webkit-scrollbar-thumb {
   font-size: 18px;
 }
 
-.feed-detail__interact {
-  margin: 0 16px 12px;
-  padding: 8px 0;
-  border-top: 1px solid var(--border-subtle);
-  border-bottom: 1px solid var(--border-subtle);
+.feed-detail__interact.watch-interact-bar {
+  margin: 0 16px 8px;
+  padding: 8px 0 0;
+  border-bottom: none;
 }
 
 .watch-error {

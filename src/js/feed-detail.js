@@ -63,9 +63,56 @@ function formatCount(n) {
   return String(n);
 }
 
+function feedDetailViewerIsOwner() {
+  if (!currentDetail) return false;
+  const viewerId = sessionUserId(loadSession()?.user);
+  return viewerId != null && currentDetail.feed.authorId === viewerId;
+}
+
+function onFeedDetailForward() {
+  if (!currentDetail || !requireLogin()) return;
+  openFeedForward({
+    resourceId: currentDetail.feed.id,
+    resourceType: 3,
+    resourceTitle: currentDetail.feed.title || currentDetail.feed.content,
+    resourceCover: currentDetail.feed.images[0] ?? currentDetail.feed.resource?.cover ?? '',
+  });
+}
+
+function onFeedDetailReport() {
+  if (!currentDetail || !requireLogin()) return;
+  openReportDialog({
+    resourceId: currentDetail.feed.id,
+    resourceType: REPORT_RESOURCE.feed,
+    title: currentDetail.feed.title || '动态',
+  });
+}
+
+function onFeedDetailDelete() {
+  if (!currentDetail || !requireLogin()) return;
+  void (async () => {
+    const confirmed = await confirmAction({
+      title: '删除动态',
+      message: '确定删除这条动态吗？删除后无法恢复。',
+      confirmText: '删除',
+      variant: 'danger',
+    });
+    if (!confirmed) return;
+    try {
+      await deleteFeed(currentDetail.feed.id);
+      closeFeedDetail();
+    } catch (err) {
+      notify(err instanceof Error ? err.message : '删除失败', 'error');
+    }
+  })();
+}
+
 function renderFeedInteractBar() {
   const bar = document.getElementById('feed-detail-interact');
   if (!bar) return;
+  const loggedIn = Boolean(loadSession()?.token);
+  const isOwner = feedDetailViewerIsOwner();
+
   bar.hidden = false;
   bar.innerHTML = `
     <button type="button" class="watch-interact-bar__item ${liked ? 'is-active' : ''}" id="feed-detail-like-btn">
@@ -75,13 +122,46 @@ function renderFeedInteractBar() {
     <button type="button" class="watch-interact-bar__item ${disliked ? 'is-active' : ''}" id="feed-detail-dislike-btn">
       <span class="watch-interact-bar__icon">${materialIcon('thumb_down')}</span>
       <span class="watch-interact-bar__label">${formatCount(dislikeCount)}</span>
-    </button>`;
+    </button>
+    ${
+      loggedIn
+        ? `<button type="button" class="watch-interact-bar__item" id="feed-detail-forward-btn" title="转发到动态">
+      <span class="watch-interact-bar__icon">${materialIcon('forward')}</span>
+      <span class="watch-interact-bar__label">转发</span>
+    </button>`
+        : ''
+    }
+    ${
+      loggedIn && !isOwner
+        ? `<button type="button" class="watch-interact-bar__item" id="feed-detail-report-btn" title="举报">
+      <span class="watch-interact-bar__icon">${materialIcon('flag')}</span>
+      <span class="watch-interact-bar__label">举报</span>
+    </button>`
+        : ''
+    }
+    ${
+      isOwner
+        ? `<button type="button" class="watch-interact-bar__item watch-interact-bar__item--danger" id="feed-detail-delete-btn" title="删除动态">
+      <span class="watch-interact-bar__icon">${materialIcon('delete')}</span>
+      <span class="watch-interact-bar__label">删除</span>
+    </button>`
+        : ''
+    }`;
 
   document.getElementById('feed-detail-like-btn')?.addEventListener('click', () => {
     void toggleFeedReaction(false);
   });
   document.getElementById('feed-detail-dislike-btn')?.addEventListener('click', () => {
     void toggleFeedReaction(true);
+  });
+  document.getElementById('feed-detail-forward-btn')?.addEventListener('click', () => {
+    onFeedDetailForward();
+  });
+  document.getElementById('feed-detail-report-btn')?.addEventListener('click', () => {
+    onFeedDetailReport();
+  });
+  document.getElementById('feed-detail-delete-btn')?.addEventListener('click', () => {
+    onFeedDetailDelete();
   });
 }
 
@@ -182,25 +262,9 @@ function sessionUserId(user) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function syncFeedOwnerActions(detail) {
-  const actions = document.getElementById('feed-detail-owner-actions');
-  const forwardBtn = document.getElementById('feed-detail-forward-btn');
-  const reportBtn = document.getElementById('feed-detail-report-btn');
-  const deleteBtn = document.getElementById('feed-detail-delete-btn');
-  if (!actions || !forwardBtn || !deleteBtn) return;
-  const viewerId = sessionUserId(loadSession()?.user);
-  const isOwner = viewerId != null && detail.feed.authorId === viewerId;
-  const loggedIn = Boolean(loadSession()?.token);
-  forwardBtn.hidden = !loggedIn;
-  if (reportBtn) reportBtn.hidden = !loggedIn || isOwner;
-  deleteBtn.hidden = !isOwner;
-  actions.hidden = !loggedIn && !isOwner;
-}
-
 function renderDetailContent(detail) {
   const post = document.getElementById('feed-detail-post');
   if (!post) return;
-  syncFeedOwnerActions(detail);
   post.innerHTML = renderFeedCard(detail.feed, {
     domIdPrefix: FEED_DETAIL_DOM,
     profileFallback: null,
@@ -368,43 +432,5 @@ export function bindFeedDetail() {
       closeFeedDetail();
       void import('./user-space.js').then((mod) => mod.openUserSpace(uid));
     },
-  });
-
-  document.getElementById('feed-detail-forward-btn')?.addEventListener('click', () => {
-    if (!currentDetail || !requireLogin()) return;
-    openFeedForward({
-      resourceId: currentDetail.feed.id,
-      resourceType: 3,
-      resourceTitle: currentDetail.feed.title || currentDetail.feed.content,
-      resourceCover: currentDetail.feed.images[0] ?? currentDetail.feed.resource?.cover ?? '',
-    });
-  });
-
-  document.getElementById('feed-detail-report-btn')?.addEventListener('click', () => {
-    if (!currentDetail || !requireLogin()) return;
-    openReportDialog({
-      resourceId: currentDetail.feed.id,
-      resourceType: REPORT_RESOURCE.feed,
-      title: currentDetail.feed.title || '动态',
-    });
-  });
-
-  document.getElementById('feed-detail-delete-btn')?.addEventListener('click', () => {
-    if (!currentDetail || !requireLogin()) return;
-    void (async () => {
-      const confirmed = await confirmAction({
-        title: '删除动态',
-        message: '确定删除这条动态吗？删除后无法恢复。',
-        confirmText: '删除',
-        variant: 'danger',
-      });
-      if (!confirmed) return;
-      try {
-        await deleteFeed(currentDetail.feed.id);
-        closeFeedDetail();
-      } catch (err) {
-        notify(err instanceof Error ? err.message : '删除失败', 'error');
-      }
-    })();
   });
 }
