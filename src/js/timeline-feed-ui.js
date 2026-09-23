@@ -8,6 +8,7 @@ import { mountRichContent } from './rich-content.js';
 import { openVideoDetail } from './video-detail.js';
 import { fetchFollowStatus, setFollow } from './video-api.js';
 import { requireLogin } from './login-ui.js';
+import { openImageViewer } from './image-viewer.js';
 
 /** @typedef {import('./user-profile-api.js').TimelineFeedItem} TimelineFeedItem */
 
@@ -505,6 +506,17 @@ async function handleFeedVideoFollow(btn) {
 export function handleTimelineFeedClick(event, options = {}) {
   const target = /** @type {HTMLElement} */ (event.target);
 
+  const feedCard = target.closest('.user-space__feed-card');
+  const feedImage = target.closest(
+    '.user-space__feed-card__img, .user-space__feed-card__text img, .user-space__feed-card__images img',
+  );
+  if (feedCard && feedImage instanceof HTMLImageElement) {
+    event.preventDefault();
+    event.stopPropagation();
+    void openImageViewer(feedImage);
+    return true;
+  }
+
   const menuAction = target.closest('[data-feed-action]');
   if (menuAction instanceof HTMLElement) {
     event.preventDefault();
@@ -578,11 +590,10 @@ export function handleTimelineFeedClick(event, options = {}) {
     return true;
   }
 
-  const feedCard = target.closest('.user-space__feed-card');
   if (
     feedCard &&
     !target.closest(
-      'button, a, .user-space__feed-video, .user-space__feed-card__expand, .user-space__feed-card__more',
+      'button, a, img, .user-space__feed-video, .user-space__feed-card__expand, .user-space__feed-card__more',
     )
   ) {
     const id = Number.parseInt(feedCard.getAttribute('data-feed-id') ?? '', 10);
@@ -625,6 +636,7 @@ export function handleTimelineFeedClick(event, options = {}) {
  */
 export function bindTimelineFeedClick(root, options = {}) {
   ensureFeedCardMenuDocumentClose();
+  void import('./lazy-page-bind.js').then((mod) => mod.ensureFeatureBound('image-viewer'));
   root?.addEventListener('click', (event) => {
     handleTimelineFeedClick(event, options);
   });
