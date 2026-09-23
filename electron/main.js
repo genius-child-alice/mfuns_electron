@@ -7,6 +7,11 @@ const {
   writeDesktopSettings,
   readDesktopSettingsForStartup,
 } = require('./desktop-settings');
+const {
+  attachWindowDragPerf,
+  handleDragPrepareFromRenderer,
+  handleDragReleaseFromRenderer,
+} = require('./window-drag-perf');
 
 app.setName('Mfuns');
 
@@ -316,6 +321,8 @@ function openInAppBrowser(url, title) {
     browserWindow.show();
   });
 
+  attachWindowDragPerf(browserWindow);
+
   return browserWindow;
 }
 
@@ -358,8 +365,18 @@ function createWindow() {
     mainWindow.webContents.openDevTools({ mode: 'detach' });
   }
 
+  attachWindowDragPerf(mainWindow);
+
   ensureTray();
 }
+
+ipcMain.on('window:drag-prepare', (event) => {
+  if (event.sender) handleDragPrepareFromRenderer(event.sender);
+});
+
+ipcMain.on('window:drag-release', (event) => {
+  if (event.sender) handleDragReleaseFromRenderer(event.sender);
+});
 
 ipcMain.on('window:minimize', () => mainWindow?.minimize());
 ipcMain.on('window:maximize', () => {

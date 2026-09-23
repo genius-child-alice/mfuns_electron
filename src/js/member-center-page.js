@@ -871,23 +871,6 @@ function onMemberBodyInput(event) {
   }
 }
 
-export function memberCenterPageHtml() {
-  return `
-    <div class="page-view page-view--member" data-page="member" hidden>
-      <div class="member-center-page">
-        <header class="member-center-page__head app-no-drag">
-          <button type="button" class="member-center-page__back" id="member-center-back" aria-label="返回">
-            ${materialIcon('arrow_back', 'member-center-page__back-icon')}
-          </button>
-          <h1 class="member-center-page__title" id="member-center-title">个人中心</h1>
-        </header>
-        <div class="member-center-page__scroll" id="member-center-scroll">
-          <div id="member-center-body" class="member-center-page__body"></div>
-        </div>
-      </div>
-    </div>`;
-}
-
 export function bindMemberCenterPage() {
   if (bound) return;
   bound = true;

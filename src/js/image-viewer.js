@@ -99,7 +99,10 @@ function resolveViewerImageUrl(img) {
 /**
  * @param {HTMLImageElement} img
  */
-export function openImageViewer(img) {
+export async function openImageViewer(img) {
+  const { ensureFeatureBound } = await import('./lazy-page-bind.js');
+  await ensureFeatureBound('image-viewer');
+
   ensureViewerDom();
   if (!viewerEl || !viewerImg) return;
 

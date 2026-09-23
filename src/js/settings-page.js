@@ -48,10 +48,15 @@ let onUserUpdated = null;
 /** @type {import('./user-profile-api.js').UserProfile | null} */
 let settingsProfileSnapshot = null;
 
+let settingsBound = false;
+
 /**
  * @param {{ onUserUpdated?: () => void }} [options]
  */
 export function bindSettingsPage(options = {}) {
+  if (settingsBound) return;
+  settingsBound = true;
+
   onUserUpdated = options.onUserUpdated ?? null;
 
   document.getElementById('settings-account-card')?.addEventListener('click', (event) => {

@@ -237,6 +237,9 @@ function setLoading(on) {
  * @param {number} feedId
  */
 export async function openFeedDetail(feedId) {
+  const { ensureFeatureBound } = await import('./lazy-page-bind.js');
+  await ensureFeatureBound('feed-detail');
+
   const dialog = getDialog();
   if (!dialog) return;
   if (!dialog.open) dialog.showModal();

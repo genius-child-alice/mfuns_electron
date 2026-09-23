@@ -39,40 +39,21 @@ import {
   seriesPageHtml,
   messagePageHtml,
   contributePageHtml,
+  memberCenterPageHtml,
   getCurrentPage,
   syncPagesAuthState,
 } from './pages.js';
-import { bindSettingsPage, refreshSettingsProfile } from './settings-page.js';
-import { bindMessagePage, openMessagePage } from './message-page.js';
 import { bindConfirmDialog } from './confirm-dialog.js';
 import { bindCloseAppDialog } from './close-app-dialog.js';
 import { bindNavigationShortcuts, navigateTo, resetNavigationLock } from './navigation.js';
+import { initWindowDragPerf } from './window-drag-perf.js';
+import { initLazyPageBind, ensurePageBound } from './lazy-page-bind.js';
 import { registerOpenLoginHandler, requireLogin } from './login-ui.js';
-import { bindHomeFeed } from './home-feed.js';
-import { bindFeedPage } from './feed-page.js';
-import { bindFeedDetail } from './feed-detail.js';
-import { bindFeedForward, feedForwardDialogHtml } from './feed-forward.js';
-import { bindVideoDetail } from './video-detail.js';
-import { bindArticleDetail } from './article-detail.js';
-import { bindFavoritePicker } from './favorite-ui.js';
-import { bindRewardDialog } from './reward-ui.js';
-import { bindShareDialog, shareDialogHtml } from './share-ui.js';
+import { feedForwardDialogHtml } from './feed-forward.js';
+import { shareDialogHtml } from './share-ui.js';
 import { bindPromptDialog, promptDialogHtml } from './prompt-dialog.js';
-import { bindUserSpace } from './user-space.js';
-import { bindFollowList } from './follow-list.js';
-import { bindMinePage, refreshMinePage } from './mine-page.js';
 import { mergeGuestWatchLaterIntoUser } from './watch-later-store.js';
-import { bindSearchPage } from './search-page.js';
-import { bindTagPage } from './tag-page.js';
-import { bindCategoryListPage } from './category-list-page.js';
-import { bindSignPage } from './sign-page.js';
-import { bindSeriesPage } from './series-page.js';
-import { bindSeriesPickerDialog } from './series-ui.js';
-import { bindImageViewer } from './image-viewer.js';
-import { bindCommentComposer } from './comment-composer.js';
-import { bindDanmakuManagerDialog } from './danmaku-manager-ui.js';
-import { bindMemberCenterPage, memberCenterPageHtml } from './member-center-page.js';
-import { bindReportDialog, reportDialogHtml } from './report-ui.js';
+import { reportDialogHtml } from './report-ui.js';
 
 /** @type {() => void} */
 let syncSettingsForm = () => {};
@@ -492,7 +473,8 @@ function bindNavigation() {
   });
 
   document.querySelector('[data-sidebar-tool="upload"]')?.addEventListener('click', () => {
-    void import('./contribute-page.js')
+    void ensurePageBound('contribute')
+      .then(() => import('./contribute-page.js'))
       .then((mod) => mod.openContributePage())
       .catch((err) => {
         console.error('创作中心模块加载失败', err);
@@ -501,7 +483,7 @@ function bindNavigation() {
   });
 
   document.querySelector('[data-sidebar-tool="message"]')?.addEventListener('click', () => {
-    openMessagePage();
+    void import('./message-page.js').then((mod) => mod.openMessagePage());
   });
 
   document.getElementById('btn-open-settings')?.addEventListener('click', () => {
@@ -593,9 +575,9 @@ function syncLoginUi() {
   }
 
   syncPagesAuthState();
-  refreshMinePage();
+  void import('./mine-page.js').then((mod) => mod.refreshMinePage());
   if (getCurrentPage() === 'settings') {
-    void refreshSettingsProfile();
+    void import('./settings-page.js').then((mod) => mod.refreshSettingsProfile());
   }
 }
 
@@ -784,6 +766,7 @@ function updateThemeToggleIcon(scheme) {
 }
 
 function bootApp() {
+  initWindowDragPerf();
   initTheme();
   ensureHeimuGuard();
   clearGlobalPlayerBlackmask();
@@ -795,39 +778,12 @@ function bootApp() {
   bindNavigation();
   bindNavigationShortcuts();
   bindSettings();
-  bindSettingsPage({ onUserUpdated: syncLoginUi });
-  void refreshSettingsProfile();
+  initLazyPageBind({ onSettingsUserUpdated: () => syncLoginUi() });
   bindLogin();
-  bindHomeFeed();
-  bindFeedPage();
-  bindFeedDetail();
-  bindFeedForward();
-  bindReportDialog();
-  bindMemberCenterPage();
-  bindVideoDetail();
-  bindDanmakuManagerDialog();
-  bindArticleDetail();
-  bindFavoritePicker();
-  bindRewardDialog();
-  bindShareDialog();
-  bindUserSpace();
-  bindFollowList();
-  bindSearchPage();
-  bindTagPage();
-  bindCategoryListPage();
-  bindSignPage();
-  bindSeriesPage();
-  bindSeriesPickerDialog();
-  bindImageViewer();
-  bindCommentComposer();
   bindConfirmDialog();
   bindCloseAppDialog();
   bindPromptDialog();
-  bindMessagePage();
-  void import('./contribute-page.js')
-    .then((mod) => mod.bindContributePage())
-    .catch((err) => console.error('创作中心模块加载失败', err));
-  bindMinePage();
+  void ensurePageBound('home');
 }
 
 try {

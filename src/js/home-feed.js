@@ -10,7 +10,6 @@ import {
   rootCategoryNodes,
 } from './content-api.js';
 import { openContentDetail, previewFromCard } from './content-nav.js';
-import { openCategoryListPage } from './category-list-page.js';
 import { getScrollTop, registerPageNavigation, restoreScrollTop } from './navigation.js';
 import { videoGridSkeletonHtml } from './skeleton-ui.js';
 
@@ -67,6 +66,8 @@ let selectedCategoryId = null;
 let categoryRecommendSize = PAGE_SIZE;
 
 let categoryStripBound = false;
+
+let homeFeedBound = false;
 
 /**
  * @param {import('./content-api.js').CategoryNode[]} all
@@ -684,6 +685,9 @@ export function restoreHomeFeedState(state) {
 }
 
 export function bindHomeFeed() {
+  if (homeFeedBound) return;
+  homeFeedBound = true;
+
   document.querySelectorAll('[data-tab]').forEach((tab) => {
     tab.addEventListener('click', () => {
       const id = tab.getAttribute('data-tab');
@@ -712,10 +716,12 @@ export function bindHomeFeed() {
 
   document.getElementById('home-category-open-list')?.addEventListener('click', () => {
     if (selectedCategoryId == null) return;
-    void openCategoryListPage({
-      categoryId: selectedCategoryId,
-      categoryName: selectedCategoryLabel(),
-    });
+    void import('./category-list-page.js').then((mod) =>
+      mod.openCategoryListPage({
+        categoryId: selectedCategoryId,
+        categoryName: selectedCategoryLabel(),
+      }),
+    );
   });
 
   document.getElementById('main-content')?.addEventListener('scroll', onMainContentScroll, {

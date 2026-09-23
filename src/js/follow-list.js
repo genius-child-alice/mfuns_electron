@@ -237,7 +237,12 @@ function onListClick(event) {
   }
 }
 
+let followListBound = false;
+
 export function bindFollowList() {
+  if (followListBound) return;
+  followListBound = true;
+
   document.getElementById('follow-list-back')?.addEventListener('click', closeFollowList);
 
   document.getElementById('follow-list-grid')?.addEventListener('click', onListClick);

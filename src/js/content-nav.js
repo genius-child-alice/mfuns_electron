@@ -1,16 +1,19 @@
-import { openArticleDetail } from './article-detail.js';
-import { openVideoDetail } from './video-detail.js';
+import { ensurePageBound } from './lazy-page-bind.js';
 
 /** @typedef {import('./content-api.js').ContentPreview} ContentPreview */
 
 /**
  * @param {ContentPreview} preview
  */
-export function openContentDetail(preview) {
+export async function openContentDetail(preview) {
   if (preview.type === 1) {
+    await ensurePageBound('watch');
+    const { openVideoDetail } = await import('./video-detail.js');
     return openVideoDetail(preview);
   }
   if (preview.type === 0) {
+    await ensurePageBound('article');
+    const { openArticleDetail } = await import('./article-detail.js');
     return openArticleDetail(preview);
   }
 }

@@ -679,7 +679,12 @@ export function closeArticleDetail() {
   void navigateBack();
 }
 
+let articleDetailBound = false;
+
 export function bindArticleDetail() {
+  if (articleDetailBound) return;
+  articleDetailBound = true;
+
   const articleRoot = document.getElementById('article-page-root');
   if (articleRoot) {
     bindTagButtons(articleRoot);

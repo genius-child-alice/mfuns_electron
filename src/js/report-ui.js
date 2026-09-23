@@ -70,7 +70,10 @@ function closeDialog() {
 /**
  * @param {{ resourceId: number, resourceType: number, title?: string }} options
  */
-export function openReportDialog(options) {
+export async function openReportDialog(options) {
+  const { ensureFeatureBound } = await import('./lazy-page-bind.js');
+  await ensureFeatureBound('report-dialog');
+
   if (!requireLogin()) return;
   pending = options;
   selectedImages = [];

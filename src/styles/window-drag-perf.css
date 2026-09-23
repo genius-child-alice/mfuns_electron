@@ -1,0 +1,29 @@
+/**
+ * 窗口拖动期间暂停非必要绘制（外观不变，松手后动画继续）。
+ * 与主进程 webContents.setFrameRate 配合使用。
+ */
+
+html.is-window-dragging,
+html.is-window-dragging * {
+  animation-play-state: paused !important;
+}
+
+html.is-window-dragging * {
+  transition-duration: 0s !important;
+  transition-delay: 0s !important;
+}
+
+html.is-window-dragging .skeleton-block::after {
+  animation: none !important;
+}
+
+html.is-window-dragging .shell {
+  contain: layout style paint;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.is-window-dragging,
+  html.is-window-dragging * {
+    animation-play-state: paused !important;
+  }
+}

@@ -290,7 +290,10 @@ async function handleImageFiles(files) {
 /**
  * @param {CommentComposerOptions} options
  */
-export function openCommentComposer(options) {
+export async function openCommentComposer(options) {
+  const { ensureFeatureBound } = await import('./lazy-page-bind.js');
+  await ensureFeatureBound('comment-composer');
+
   if (!requireLogin()) return;
 
   context = {

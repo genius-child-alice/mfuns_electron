@@ -5,6 +5,8 @@ import { rewardResource } from './video-api.js';
 /** @type {{ resourceId: number, resourceType: number, onSuccess?: (count: number) => void } | null} */
 let rewardContext = null;
 
+let bound = false;
+
 function getDialog() {
   return /** @type {HTMLDialogElement | null} */ (document.getElementById('reward-dialog'));
 }
@@ -16,7 +18,10 @@ function setDialogLoading(loading) {
 /**
  * @param {{ resourceId: number | string, resourceType: 0 | 1, onSuccess?: (count: number) => void }} options
  */
-export function openRewardDialog(options) {
+export async function openRewardDialog(options) {
+  const { ensureFeatureBound } = await import('./lazy-page-bind.js');
+  await ensureFeatureBound('reward-dialog');
+
   if (!requireLogin()) return;
   const resourceId = Number(options.resourceId);
   if (!Number.isFinite(resourceId) || resourceId <= 0) return;
@@ -56,6 +61,9 @@ async function submitReward(count) {
 }
 
 export function bindRewardDialog() {
+  if (bound) return;
+  bound = true;
+
   const dialog = getDialog();
   document.getElementById('reward-dialog-close')?.addEventListener('click', () => dialog?.close());
   document.getElementById('reward-dialog-cancel')?.addEventListener('click', () => dialog?.close());

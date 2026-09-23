@@ -854,7 +854,12 @@ function onBodyClick(event) {
   void openContentDetail(preview);
 }
 
+let userSpaceBound = false;
+
 export function bindUserSpace() {
+  if (userSpaceBound) return;
+  userSpaceBound = true;
+
   document.getElementById('user-space-back')?.addEventListener('click', closeUserSpace);
   document.getElementById('btn-open-my-space')?.addEventListener('click', openMySpace);
 

@@ -1,4 +1,5 @@
 import { destroyWatchPlayer } from './watch-player.js';
+import { ensurePageBound } from './lazy-page-bind.js';
 import { setPage } from './pages.js';
 
 /** @typedef {import('./pages.js').PageId} PageId */
@@ -131,6 +132,7 @@ async function triggerLegacyPageEnter(pageId) {
  * @param {{ restored: boolean }} options
  */
 async function applyEntry(entry, { restored }) {
+  await ensurePageBound(entry.pageId);
   setPage(entry.pageId, { skipEnter: true });
   const handler = handlers.get(entry.pageId);
   if (restored && entry.state && handler?.restore) {

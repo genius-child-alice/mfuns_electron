@@ -1146,7 +1146,12 @@ export function restoreMinePageState(state) {
   restoreScrollTop('main-content', state.scrollTop ?? 0);
 }
 
+let mineBound = false;
+
 export function bindMinePage() {
+  if (mineBound) return;
+  mineBound = true;
+
   document.getElementById('mine-open-member')?.addEventListener('click', () => {
     void import('./member-center-page.js').then((mod) => mod.openMemberCenter('hub'));
   });

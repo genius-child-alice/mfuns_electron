@@ -1033,7 +1033,12 @@ export function closeVideoDetail() {
   });
 }
 
+let videoDetailBound = false;
+
 export function bindVideoDetail() {
+  if (videoDetailBound) return;
+  videoDetailBound = true;
+
   const watchRoot = document.getElementById('watch-page-root');
   if (watchRoot) bindTagButtons(watchRoot);
 

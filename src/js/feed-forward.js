@@ -91,7 +91,10 @@ async function submitForward() {
 /**
  * @param {FeedForwardContext} options
  */
-export function openFeedForward(options) {
+export async function openFeedForward(options) {
+  const { ensureFeatureBound } = await import('./lazy-page-bind.js');
+  await ensureFeatureBound('feed-forward');
+
   if (!requireLogin()) return;
   context = options;
   const dialog = getDialog();

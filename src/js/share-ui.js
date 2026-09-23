@@ -71,7 +71,10 @@ function setCopyState(success) {
 /**
  * @param {{ url: string, title?: string, subtitle?: string }} options
  */
-export function openShareDialog(options) {
+export async function openShareDialog(options) {
+  const { ensureFeatureBound } = await import('./lazy-page-bind.js');
+  await ensureFeatureBound('share-dialog');
+
   const dialog = getDialog();
   const input = /** @type {HTMLInputElement | null} */ (document.getElementById('share-dialog-url'));
   const titleEl = document.getElementById('share-dialog-title');

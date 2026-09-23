@@ -241,7 +241,10 @@ async function loadPickerFolders() {
 /**
  * @param {{ resourceId: string | number, resourceType: number, onChange?: (next: { favorited: boolean, listId: number | null }) => void }} options
  */
-export function openFavoriteManager(options) {
+export async function openFavoriteManager(options) {
+  const { ensureFeatureBound } = await import('./lazy-page-bind.js');
+  await ensureFeatureBound('favorite-picker');
+
   if (!requireLogin()) return;
   pickerContext = {
     resourceId: String(options.resourceId),
@@ -513,7 +516,12 @@ export function bindFavoriteFolderListActions(root, options) {
   }
 }
 
+let favoritePickerBound = false;
+
 export function bindFavoritePicker() {
+  if (favoritePickerBound) return;
+  favoritePickerBound = true;
+
   const dialog = getDialog();
   document.getElementById('favorite-picker-close')?.addEventListener('click', () => dialog?.close());
   dialog?.addEventListener('click', (event) => {
