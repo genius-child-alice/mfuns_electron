@@ -772,17 +772,41 @@ function parseFollowStatusPayload(data) {
   if (data === false || data === 0 || data === '0') return false;
 
   const root = asMap(data);
+  const innerData = asMap(root.data);
+  const payload =
+    innerData.status != null ||
+    innerData.is_follow != null ||
+    innerData.is_followed != null ||
+    innerData.is_following != null ||
+    innerData.followed != null
+      ? { ...root, ...innerData }
+      : root;
+
   const direct =
-    root.status ??
-    root.is_follow ??
-    root.is_followed ??
-    root.followed ??
-    root.follow_status;
+    payload.status ??
+    payload.is_follow ??
+    payload.is_followed ??
+    payload.is_following ??
+    payload.followed ??
+    payload.following ??
+    payload.follow_status;
+  if (typeof direct === 'number' && Number.isFinite(direct)) return direct > 0;
   if (isFollowStatusTruthy(direct)) return true;
   if (direct === false || direct === 0 || direct === '0') return false;
 
-  const nested = asMap(root.follow ?? root.relation);
-  const inner = nested.status ?? nested.is_follow ?? nested.is_followed ?? nested.followed;
+  const followField = payload.follow;
+  if (typeof followField === 'boolean') return followField;
+  if (typeof followField === 'number' && Number.isFinite(followField)) return followField > 0;
+
+  const nested = asMap(payload.follow ?? payload.relation);
+  const inner =
+    nested.status ??
+    nested.is_follow ??
+    nested.is_followed ??
+    nested.is_following ??
+    nested.followed ??
+    nested.following;
+  if (typeof inner === 'number' && Number.isFinite(inner)) return inner > 0;
   return isFollowStatusTruthy(inner);
 }
 
@@ -796,6 +820,26 @@ export function resolveContentAuthorId(...candidates) {
     if (id != null && id > 0) return id;
   }
   return null;
+}
+
+/**
+ * @param {number | null | undefined} a
+ * @param {number | null | undefined} b
+ */
+export function isSameUserId(a, b) {
+  const left = asInt(a);
+  const right = asInt(b);
+  if (left == null || right == null) return false;
+  return left === right;
+}
+
+function notifyFollowChanged(userId, following) {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(
+    new CustomEvent('mfuns:follow-changed', {
+      detail: { userId, following },
+    }),
+  );
 }
 
 /**
@@ -813,10 +857,13 @@ export async function fetchFollowStatus(userId) {
  * @param {boolean} follow
  */
 export async function setFollow(userId, follow) {
+  const id = asInt(userId);
+  if (id == null || id <= 0) return;
   await apiPostJson('/v1/follow/follow', {
-    user_id: userId,
+    user_id: id,
     ...(follow ? {} : { unfollow: 1 }),
   });
+  notifyFollowChanged(id, follow);
 }
 
 /**

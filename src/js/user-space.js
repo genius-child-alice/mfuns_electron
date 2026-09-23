@@ -17,7 +17,7 @@ import {
 } from './navigation.js';
 import { requireLogin } from './login-ui.js';
 import { openContentDetail, previewFromCard } from './content-nav.js';
-import { fetchFollowStatus, setFollow } from './video-api.js';
+import { fetchFollowStatus, isSameUserId, setFollow } from './video-api.js';
 import {
   handleTimelineFeedClick,
   hydrateFeedCards as hydrateTimelineFeedCards,
@@ -147,7 +147,7 @@ function renderProfileHeader(profile) {
 
   const session = loadSession();
   const selfId = sessionUserId(session?.user);
-  const isSelf = selfId != null && selfId === profile.id;
+  const isSelf = isSameUserId(selfId, profile.id);
   const bannerSrc = mediaSrcForCover(profile.banner);
 
   if (bannerSrc) {
@@ -697,7 +697,7 @@ async function loadUserSpace(userId) {
 
     const session = loadSession();
     const selfId = sessionUserId(session?.user);
-    if (selfId != null && selfId !== userId && session?.token) {
+    if (!isSameUserId(selfId, userId) && session?.token) {
       following = await fetchFollowStatus(userId).catch(() => false);
     } else {
       following = false;
@@ -759,13 +759,43 @@ export function restoreUserSpaceState(state) {
   seriesListPage = state.seriesListPage ?? 1;
   seriesItems = state.seriesItems ?? [];
   syncTabsUi();
-  const profile = document.getElementById('user-space-profile');
-  if (profile) profile.innerHTML = state.profileHtml ?? '';
   const body = document.getElementById('user-space-body');
   if (body) body.innerHTML = state.bodyHtml ?? '';
   const barTitle = document.getElementById('user-space-bar-title');
   if (barTitle && state.barTitle) barTitle.textContent = state.barTitle;
+  if (currentProfile) {
+    renderProfileHeader(currentProfile);
+  } else {
+    const profile = document.getElementById('user-space-profile');
+    if (profile) profile.innerHTML = state.profileHtml ?? '';
+  }
+  void refreshSpaceFollowState();
   restoreScrollTop(getScrollEl() ?? 'main-content', state.scrollTop ?? 0);
+}
+
+async function refreshSpaceFollowState() {
+  if (!currentProfile) return;
+  const session = loadSession();
+  const selfId = sessionUserId(session?.user);
+  if (!session?.token || isSameUserId(selfId, currentProfile.id)) {
+    following = false;
+    renderProfileHeader(currentProfile);
+    return;
+  }
+  following = await fetchFollowStatus(currentProfile.id).catch(() => false);
+  renderProfileHeader(currentProfile);
+}
+
+function onSpaceFollowChanged(event) {
+  const detail = /** @type {CustomEvent<{ userId?: number, following?: boolean }>} */ (
+    event
+  ).detail;
+  const userId = Number(detail?.userId);
+  if (!currentProfile || !Number.isFinite(userId) || !isSameUserId(currentProfile.id, userId)) {
+    return;
+  }
+  following = Boolean(detail.following);
+  renderProfileHeader(currentProfile);
 }
 
 /**
@@ -887,6 +917,8 @@ export function bindUserSpace() {
       void loadFavoriteFirstPage().then(() => mountFavoriteFolderListActions());
     }
   });
+
+  window.addEventListener('mfuns:follow-changed', onSpaceFollowChanged);
 
   registerPageNavigation('space', {
     capture: () => captureUserSpaceState(),

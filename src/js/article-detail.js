@@ -19,6 +19,7 @@ import {
   fetchCommentAreaDetail,
   fetchRootCommentPage,
   fetchFollowStatus,
+  isSameUserId,
   resolveContentAuthorId,
   resolveInitialCommentOrder,
   fetchReactionStatus,
@@ -267,6 +268,10 @@ function renderPage() {
   if (!detail || !root) return;
 
   const { preview } = detail;
+  const authorIdForUi = resolveContentAuthorId(detail.authorId, preview.authorId);
+  const selfId = resolveMineUserId(null);
+  const showAuthorFollow =
+    authorIdForUi != null && !isSameUserId(selfId, authorIdForUi);
   const coverSrc = mediaSrcForCover(preview.cover);
   const coverHtml = coverSrc
     ? `<figure class="article-read__cover"><img src="${escapeHtml(coverSrc)}" alt="${escapeHtml(preview.title)}" decoding="async" /></figure>`
@@ -286,7 +291,7 @@ function renderPage() {
         <div class="article-read__meta">
           <div class="article-read__author">
             ${renderAuthorAvatarHtml({
-              authorId: detail.authorId,
+              authorId: authorIdForUi,
               avatar: detail.authorAvatar,
               frame: detail.authorAvatarFrame,
               size: 'article',
@@ -296,9 +301,9 @@ function renderPage() {
             })}
             <div class="article-read__author-info">
               ${
-                detail.authorId
+                authorIdForUi
                   ? authorProfileLink(
-                      detail.authorId,
+                      authorIdForUi,
                       escapeHtml(preview.author),
                       'article-read__author-name',
                     )
@@ -307,7 +312,7 @@ function renderPage() {
               <p class="article-read__author-meta">${escapeHtml(authorMeta)}</p>
             </div>
             ${
-              detail.authorId
+              showAuthorFollow
                 ? `<button type="button" class="watch-follow-btn ${following ? 'is-followed' : ''}" id="article-follow-btn">${following ? '已关注' : '+ 关注'}</button>`
                 : ''
             }
@@ -466,10 +471,14 @@ function bindPageEvents() {
   });
 
   document.getElementById('article-follow-btn')?.addEventListener('click', async () => {
-    if (!currentDetail?.authorId || !requireLogin()) return;
+    const authorId = resolveContentAuthorId(
+      currentDetail?.authorId,
+      currentDetail?.preview?.authorId,
+    );
+    if (!authorId || !requireLogin()) return;
     try {
       const next = !following;
-      await setFollow(currentDetail.authorId, next);
+      await setFollow(authorId, next);
       following = next;
       renderPage();
     } catch (err) {
@@ -544,7 +553,7 @@ async function loadArticlePage(preview) {
     }));
     const selfId = resolveMineUserId(null);
     const followPromise =
-      authorIdForFollow && session?.token && selfId !== authorIdForFollow
+      authorIdForFollow && session?.token && !isSameUserId(selfId, authorIdForFollow)
         ? fetchFollowStatus(authorIdForFollow).catch(() => false)
         : Promise.resolve(false);
     const favoritePromise =
@@ -703,12 +712,27 @@ async function refreshArticleFollowState() {
     currentDetail?.preview?.authorId,
   );
   const selfId = resolveMineUserId(null);
-  if (!authorId || !loadSession()?.token || selfId === authorId) {
+  if (!authorId || !loadSession()?.token || isSameUserId(selfId, authorId)) {
     following = false;
     renderPage();
     return;
   }
   following = await fetchFollowStatus(authorId).catch(() => false);
+  renderPage();
+}
+
+function onArticleFollowChanged(event) {
+  const detail = /** @type {CustomEvent<{ userId?: number, following?: boolean }>} */ (
+    event
+  ).detail;
+  const userId = Number(detail?.userId);
+  if (!Number.isFinite(userId)) return;
+  const authorId = resolveContentAuthorId(
+    currentDetail?.authorId,
+    currentDetail?.preview?.authorId,
+  );
+  if (!authorId || !isSameUserId(authorId, userId)) return;
+  following = Boolean(detail.following);
   renderPage();
 }
 
@@ -775,6 +799,8 @@ export function bindArticleDetail() {
       },
     });
   });
+
+  window.addEventListener('mfuns:follow-changed', onArticleFollowChanged);
 
   registerPageNavigation('article', {
     capture: () => captureArticlePageState(),

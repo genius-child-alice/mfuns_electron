@@ -24,6 +24,7 @@ import {
   fetchCommentAreaDetail,
   fetchRootCommentPage,
   fetchFollowStatus,
+  isSameUserId,
   resolveContentAuthorId,
   resolveInitialCommentOrder,
   fetchReactionStatus,
@@ -435,6 +436,11 @@ function renderSidePanel() {
   const side = document.getElementById('watch-side-panel');
   if (!side) return;
 
+  const authorIdForUi = resolveContentAuthorId(detail.authorId, preview.authorId);
+  const selfId = resolveMineUserId(null);
+  const showAuthorFollow =
+    authorIdForUi != null && !isSameUserId(selfId, authorIdForUi);
+
   const authorMeta =
     authorFans > 0 || authorTotalLikes > 0
       ? `${formatCount(authorFans)}粉丝 · ${formatCount(authorTotalLikes)}获赞`
@@ -470,7 +476,7 @@ function renderSidePanel() {
         <div class="watch-author">
           <div class="watch-author__main">
             ${renderAuthorAvatarHtml({
-              authorId: detail.authorId,
+              authorId: authorIdForUi,
               avatar: detail.authorAvatar,
               frame: detail.authorAvatarFrame,
               size: 'watch',
@@ -480,9 +486,9 @@ function renderSidePanel() {
             })}
             <div class="watch-author__info">
               ${
-                detail.authorId
+                authorIdForUi
                   ? authorProfileLink(
-                      detail.authorId,
+                      authorIdForUi,
                       escapeHtml(preview.author),
                       'watch-author__name',
                     )
@@ -492,7 +498,7 @@ function renderSidePanel() {
             </div>
           </div>
           ${
-            detail.authorId
+            showAuthorFollow
               ? `<button type="button" class="watch-follow-btn ${following ? 'is-followed' : ''}" id="watch-follow-btn">${following ? '已关注' : '+ 关注'}</button>`
               : ''
           }
@@ -717,10 +723,14 @@ function bindSidePanelEvents() {
   });
 
   document.getElementById('watch-follow-btn')?.addEventListener('click', async () => {
-    if (!currentDetail?.authorId || !requireLogin()) return;
+    const authorId = resolveContentAuthorId(
+      currentDetail?.authorId,
+      currentDetail?.preview?.authorId,
+    );
+    if (!authorId || !requireLogin()) return;
     try {
       const next = !following;
-      await setFollow(currentDetail.authorId, next);
+      await setFollow(authorId, next);
       following = next;
       renderSidePanel();
     } catch (err) {
@@ -878,7 +888,7 @@ async function loadWatchPage(preview) {
     }));
     const selfId = resolveMineUserId(null);
     const followPromise =
-      authorIdForFollow && session?.token && selfId !== authorIdForFollow
+      authorIdForFollow && session?.token && !isSameUserId(selfId, authorIdForFollow)
         ? fetchFollowStatus(authorIdForFollow).catch(() => false)
         : Promise.resolve(false);
     const favoritePromise =
@@ -1056,12 +1066,27 @@ async function refreshWatchFollowState() {
     currentDetail?.preview?.authorId,
   );
   const selfId = resolveMineUserId(null);
-  if (!authorId || !loadSession()?.token || selfId === authorId) {
+  if (!authorId || !loadSession()?.token || isSameUserId(selfId, authorId)) {
     following = false;
     renderSidePanel();
     return;
   }
   following = await fetchFollowStatus(authorId).catch(() => false);
+  renderSidePanel();
+}
+
+function onWatchFollowChanged(event) {
+  const detail = /** @type {CustomEvent<{ userId?: number, following?: boolean }>} */ (
+    event
+  ).detail;
+  const userId = Number(detail?.userId);
+  if (!Number.isFinite(userId)) return;
+  const authorId = resolveContentAuthorId(
+    currentDetail?.authorId,
+    currentDetail?.preview?.authorId,
+  );
+  if (!authorId || !isSameUserId(authorId, userId)) return;
+  following = Boolean(detail.following);
   renderSidePanel();
 }
 
@@ -1149,6 +1174,8 @@ export function bindVideoDetail() {
       renderSidePanel();
     }
   });
+
+  window.addEventListener('mfuns:follow-changed', onWatchFollowChanged);
 
   registerPageNavigation('watch', {
     capture: () => captureWatchPageState(),

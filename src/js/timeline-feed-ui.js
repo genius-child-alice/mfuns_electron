@@ -189,6 +189,19 @@ async function runFeedCardAction(action, card) {
   }
 }
 
+function syncFeedVideoFollowButtons(userId, followed) {
+  document
+    .querySelectorAll('.user-space__feed-video__follow[data-follow-user-id]')
+    .forEach((btn) => {
+      if (!(btn instanceof HTMLButtonElement)) return;
+      const id = Number.parseInt(btn.getAttribute('data-follow-user-id') ?? '', 10);
+      if (!Number.isFinite(id) || id !== userId) return;
+      btn.textContent = followed ? '已关注' : '+ 关注';
+      btn.classList.toggle('is-followed', followed);
+      btn.disabled = false;
+    });
+}
+
 function ensureFeedCardMenuDocumentClose() {
   if (feedCardMenuDocBound) return;
   feedCardMenuDocBound = true;
@@ -199,6 +212,14 @@ function ensureFeedCardMenuDocumentClose() {
   });
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') closeAllFeedCardMenus();
+  });
+  window.addEventListener('mfuns:follow-changed', (event) => {
+    const detail = /** @type {CustomEvent<{ userId?: number, following?: boolean }>} */ (
+      event
+    ).detail;
+    const userId = Number(detail?.userId);
+    if (!Number.isFinite(userId)) return;
+    syncFeedVideoFollowButtons(userId, Boolean(detail.following));
   });
 }
 
@@ -462,11 +483,11 @@ async function handleFeedVideoFollow(btn) {
   if (!requireLogin()) return;
   const userId = Number.parseInt(btn.getAttribute('data-follow-user-id') ?? '', 10);
   if (!Number.isFinite(userId)) return;
+  const next = !btn.classList.contains('is-followed');
   btn.disabled = true;
   try {
-    await setFollow(userId, true);
-    btn.textContent = '已关注';
-    btn.classList.add('is-followed');
+    await setFollow(userId, next);
+    syncFeedVideoFollowButtons(userId, next);
   } catch (err) {
     btn.disabled = false;
     notify(err instanceof Error ? err.message : '关注失败', 'error');
