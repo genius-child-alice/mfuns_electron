@@ -12,6 +12,7 @@ import {
   bindVisualMentionInput,
   clearComposerInput,
   getVisualMentionInput,
+  insertComposerSticker,
   insertComposerText,
   insertMentionTokenAtCursor,
   wrapComposerSelection,
@@ -458,7 +459,14 @@ export function bindCommentComposer() {
     }
   });
 
-  document.getElementById('comment-composer-emoji-panel')?.addEventListener('click', (event) => {
+  const emojiPanel = document.getElementById('comment-composer-emoji-panel');
+  emojiPanel?.addEventListener('mousedown', (event) => {
+    const target = /** @type {HTMLElement} */ (event.target);
+    if (target.closest('[data-composer-sticker], [data-composer-emoji]')) {
+      event.preventDefault();
+    }
+  });
+  emojiPanel?.addEventListener('click', (event) => {
     const target = /** @type {HTMLElement} */ (event.target);
     const packTab = target.closest('[data-sticker-pack]');
     if (packTab instanceof HTMLElement) {
@@ -472,8 +480,10 @@ export function bindCommentComposer() {
     if (stickerBtn instanceof HTMLElement && input) {
       const key = stickerBtn.getAttribute('data-composer-sticker');
       if (!key) return;
-      insertAtCursor(input, `[${key}]`);
-      hideEmojiPanel();
+      const src = stickerBtn.querySelector('img')?.getAttribute('src') ?? '';
+      insertComposerSticker(input, key, src);
+      focusComposerInput(input);
+      syncCount();
       return;
     }
 
@@ -482,6 +492,5 @@ export function bindCommentComposer() {
     const emoji = btn.getAttribute('data-composer-emoji');
     if (!emoji) return;
     insertAtCursor(input, emoji);
-    hideEmojiPanel();
   });
 }

@@ -441,6 +441,25 @@ export function getVisualMentionInput(textarea) {
  * @param {HTMLTextAreaElement} textarea
  * @param {string} text
  */
+export function insertComposerSticker(textarea, key, src = '') {
+  const visual = getVisualMentionInput(textarea);
+  if (visual) {
+    visual.insertSticker(key, src);
+    return;
+  }
+  const token = `[${`${key ?? ''}`.trim()}]`;
+  if (token === '[]') return;
+  const start = textarea.selectionStart ?? textarea.value.length;
+  const end = textarea.selectionEnd ?? start;
+  textarea.value = `${textarea.value.slice(0, start)}${token}${textarea.value.slice(end)}`;
+  const cursor = start + token.length;
+  textarea.setSelectionRange(cursor, cursor);
+}
+
+/**
+ * @param {HTMLTextAreaElement} textarea
+ * @param {string} text
+ */
 export function insertComposerText(textarea, text) {
   const visual = getVisualMentionInput(textarea);
   if (visual) {
@@ -557,6 +576,10 @@ function serializeUntilMarker(root, marker) {
       out += '@';
       return;
     }
+    if (node.classList.contains('mention-sticker')) {
+      out += ' ';
+      return;
+    }
     if (node.tagName === 'BR') {
       out += '\n';
       return;
@@ -581,6 +604,11 @@ function serializeVisualEditor(root) {
     if (!(node instanceof HTMLElement)) return;
     if (node.classList.contains('mention-chip')) {
       out += formatMentionToken(node.getAttribute('data-mention-id'), node.getAttribute('data-mention-name') ?? '');
+      return;
+    }
+    if (node.classList.contains('mention-sticker')) {
+      const key = `${node.getAttribute('data-sticker-key') ?? ''}`.trim();
+      if (key) out += `[${key}]`;
       return;
     }
     if (node.tagName === 'BR') {
@@ -627,7 +655,58 @@ class VisualMentionInput {
     textarea.setAttribute('aria-hidden', 'true');
     textarea.tabIndex = -1;
     textarea.parentNode?.insertBefore(this.editor, textarea);
+    /** @type {Range | null} */
+    this.savedRange = null;
+    const saveRange = () => this.saveRange();
+    this.editor.addEventListener('mouseup', saveRange);
+    this.editor.addEventListener('keyup', saveRange);
+    this.editor.addEventListener('input', saveRange);
+    this.editor.addEventListener('focus', saveRange);
     this.syncEmpty();
+  }
+
+  saveRange() {
+    const sel = this.editor.ownerDocument.getSelection();
+    if (!sel || sel.rangeCount === 0 || !this.editor.contains(sel.anchorNode)) return;
+    this.savedRange = sel.getRangeAt(0).cloneRange();
+  }
+
+  restoreRange() {
+    const sel = this.editor.ownerDocument.getSelection();
+    if (!sel) return;
+    if (this.savedRange && this.editor.contains(this.savedRange.startContainer)) {
+      sel.removeAllRanges();
+      sel.addRange(this.savedRange);
+      return;
+    }
+    this.editor.focus();
+    placeCaretAtEnd(this.editor);
+    this.saveRange();
+  }
+
+  /**
+   * @param {Node} node
+   */
+  insertNode(node) {
+    this.editor.focus();
+    this.restoreRange();
+    const sel = this.editor.ownerDocument.getSelection();
+    if (!sel || sel.rangeCount === 0 || !this.editor.contains(sel.anchorNode)) {
+      this.editor.appendChild(node);
+      placeCaretAtEnd(this.editor);
+      this.saveRange();
+      this.syncTextarea();
+      return;
+    }
+    const range = sel.getRangeAt(0);
+    range.deleteContents();
+    range.insertNode(node);
+    range.setStartAfter(node);
+    range.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(range);
+    this.saveRange();
+    this.syncTextarea();
   }
 
   syncTextarea() {
@@ -670,20 +749,7 @@ class VisualMentionInput {
   insertChip(userId, name) {
     const id = `${userId ?? ''}`.trim();
     if (!id || !`${name ?? ''}`.trim()) return;
-    const sel = this.editor.ownerDocument.getSelection();
-    if (!sel || sel.rangeCount === 0 || !this.editor.contains(sel.anchorNode)) {
-      this.editor.appendChild(createMentionChip(document, id, name));
-      placeCaretAtEnd(this.editor);
-      return;
-    }
-    const range = sel.getRangeAt(0);
-    range.deleteContents();
-    const chip = createMentionChip(document, id, name);
-    range.insertNode(chip);
-    range.setStartAfter(chip);
-    range.collapse(true);
-    sel.removeAllRanges();
-    sel.addRange(range);
+    this.insertNode(createMentionChip(document, id, name));
   }
 
   /**
@@ -701,26 +767,30 @@ class VisualMentionInput {
    */
   insertText(text) {
     if (!text) return;
-    this.editor.focus();
-    const sel = this.editor.ownerDocument.getSelection();
-    if (!sel || sel.rangeCount === 0 || !this.editor.contains(sel.anchorNode)) {
-      placeCaretAtEnd(this.editor);
+    this.insertNode(document.createTextNode(text));
+  }
+
+  /**
+   * @param {string} key
+   * @param {string} [src]
+   */
+  insertSticker(key, src = '') {
+    const stickerKey = `${key ?? ''}`.trim();
+    if (!stickerKey) return;
+    const img = document.createElement('img');
+    img.className = 'mention-sticker';
+    img.setAttribute('data-sticker-key', stickerKey);
+    img.setAttribute('alt', `[${stickerKey}]`);
+    img.setAttribute('draggable', 'false');
+    if (src) img.src = src;
+    else {
+      void import('./emoji-pack.js').then(({ mediaSrcForStickerKey }) =>
+        mediaSrcForStickerKey(stickerKey).then((url) => {
+          if (url) img.src = url;
+        }),
+      );
     }
-    const range = this.editor.ownerDocument.getSelection()?.getRangeAt(0);
-    if (!range) {
-      this.editor.appendChild(document.createTextNode(text));
-      this.syncTextarea();
-      return;
-    }
-    range.deleteContents();
-    const node = document.createTextNode(text);
-    range.insertNode(node);
-    range.setStartAfter(node);
-    range.collapse(true);
-    const nextSel = this.editor.ownerDocument.getSelection();
-    nextSel?.removeAllRanges();
-    nextSel?.addRange(range);
-    this.syncTextarea();
+    this.insertNode(img);
   }
 
   /**

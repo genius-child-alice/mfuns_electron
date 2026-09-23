@@ -97,6 +97,14 @@ dialog > .mention-autocomplete--floating {
   cursor: default;
 }
 
+.mention-visual-input .mention-sticker {
+  width: 42px;
+  height: 42px;
+  object-fit: contain;
+  vertical-align: middle;
+  margin: 0 2px;
+}
+
 .mention-visual-input {
   min-height: 140px;
   white-space: pre-wrap;
