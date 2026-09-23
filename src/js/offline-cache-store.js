@@ -2,11 +2,9 @@ import { resolveMineUserId } from './favorite-api.js';
 import { notify } from './notice-ui.js';
 import {
   fetchVideoPlayParts,
-  pickDefaultQuality,
   qualityDisplayLabel,
   sortQualitiesDesc,
 } from './video-api.js';
-import { loadAppSettings } from './app-preferences.js';
 
 /** @typedef {{
  *   id: string,
@@ -102,11 +100,35 @@ export async function clearOfflineCache() {
 }
 
 /**
+ * @param {import('./video-api.js').VideoQuality} quality
+ */
+export function isOfflineDownloadableQuality(quality) {
+  const url = `${quality?.url ?? ''}`.trim();
+  if (!url) return false;
+  const format = `${quality.format ?? ''}`.trim().toLowerCase();
+  if (format === 'hls' || format === 'm3u8') return false;
+  if (/\.m3u8(?:\?|$)/i.test(url)) return false;
+  return true;
+}
+
+/**
+ * @param {import('./video-api.js').VideoQuality[]} qualities
+ * @returns {{ quality: import('./video-api.js').VideoQuality, downloadable: boolean }[]}
+ */
+export function listOfflineQualityChoices(qualities) {
+  return sortQualitiesDesc(qualities.filter((q) => `${q.url ?? ''}`.trim())).map((quality) => ({
+    quality,
+    downloadable: isOfflineDownloadableQuality(quality),
+  }));
+}
+
+/**
  * @param {import('./content-api.js').ContentPreview} preview
- * @param {number} [partIndex]
+ * @param {number} partIndex
+ * @param {import('./video-api.js').VideoQuality} quality
  * @param {(progress: string) => void} [onProgress]
  */
-export async function downloadVideoToOffline(preview, partIndex = 0, onProgress) {
+export async function downloadVideoToOffline(preview, partIndex, quality, onProgress) {
   if (!window.electronAPI?.offline?.download) {
     throw new Error('离线缓存仅支持桌面客户端');
   }
@@ -116,27 +138,19 @@ export async function downloadVideoToOffline(preview, partIndex = 0, onProgress)
   const existing = findOfflineEntry(videoId, partIndex);
   if (existing) return existing;
 
-  onProgress?.('获取播放地址…');
+  if (!isOfflineDownloadableQuality(quality)) {
+    throw new Error('所选清晰度不支持离线缓存');
+  }
+  if (!quality?.url) throw new Error('没有可下载的清晰度');
+
+  onProgress?.('准备下载…');
   const parts = await fetchVideoPlayParts(videoId);
   const part = parts[partIndex];
   if (!part) throw new Error('分 P 不存在');
 
-  const settings = loadAppSettings();
-  let quality = pickDefaultQuality(parts, partIndex);
-  if (settings.defaultQuality !== 'auto') {
-    const target = Number.parseInt(settings.defaultQuality, 10);
-    const sorted = sortQualitiesDesc(part.qualities);
-    quality =
-      sorted.find((q) => {
-        const label = qualityDisplayLabel(q).toLowerCase();
-        return label.includes(String(target));
-      }) ?? quality;
-  }
-  if (!quality?.url) throw new Error('没有可下载的清晰度');
-
   const ext = /\.m3u8(?:\?|$)/i.test(quality.url) ? 'm3u8' : 'mp4';
   if (ext === 'm3u8') {
-    throw new Error('当前清晰度为 HLS 流，请切换 MP4 清晰度后再缓存');
+    throw new Error('当前清晰度为 HLS 流，请选择 MP4 清晰度');
   }
 
   const userId = resolveMineUserId(null) ?? 0;

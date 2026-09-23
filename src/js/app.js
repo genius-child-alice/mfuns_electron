@@ -436,6 +436,22 @@ function renderShell() {
       </div>
     </dialog>
 
+    <dialog class="reward-dialog app-no-drag offline-download-dialog" id="offline-download-dialog" aria-labelledby="offline-download-dialog-title">
+      <div class="reward-dialog__card">
+        <header class="reward-dialog__head">
+          <div class="reward-dialog__head-main">
+            <h2 class="reward-dialog__title" id="offline-download-dialog-title">${materialIcon('download', 'reward-dialog__title-icon')}离线缓存</h2>
+            <p class="reward-dialog__subtitle" id="offline-download-subtitle">选择要缓存的分辨率</p>
+          </div>
+          <button type="button" class="reward-dialog__close" id="offline-download-close" aria-label="关闭">${materialIcon('close')}</button>
+        </header>
+        <div class="reward-dialog__options" id="offline-download-options" role="list"></div>
+        <footer class="reward-dialog__footer">
+          <button type="button" class="reward-dialog__cancel" id="offline-download-cancel">取消</button>
+        </footer>
+      </div>
+    </dialog>
+
     ${shareDialogHtml()}
 
     <dialog class="series-picker app-no-drag" id="series-picker-dialog" aria-labelledby="series-picker-title">

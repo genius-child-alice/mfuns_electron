@@ -291,6 +291,9 @@ export function mediaPlaybackSrc(playUrl) {
   if (!playUrl) return null;
   const trimmed = `${playUrl}`.trim();
   if (!trimmed) return null;
+  if (trimmed.startsWith('mfuns-offline:') || trimmed.startsWith('mfuns-media:')) {
+    return trimmed;
+  }
   return mediaSrcForUrl(trimmed.startsWith('http') ? trimmed : resolveCoverUrl(trimmed));
 }
 

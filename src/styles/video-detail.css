@@ -2328,6 +2328,41 @@ html[data-theme='dark'] .watch-side-scroll::-webkit-scrollbar-thumb {
   font-weight: 600;
 }
 
+.offline-download-dialog__option {
+  align-items: flex-start;
+}
+
+.offline-download-dialog__option .reward-dialog__option-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+}
+
+.offline-download-dialog__hint {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+.reward-dialog__option:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.reward-dialog__option:disabled:hover {
+  background: transparent;
+}
+
+.offline-download-dialog__empty {
+  padding: 16px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
 .reward-dialog__option-chevron {
   color: var(--text-tertiary);
   font-size: 20px;

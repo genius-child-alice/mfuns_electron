@@ -171,6 +171,11 @@ async function runFeatureBind(featureId) {
       mod.bindRewardDialog();
       return;
     }
+    case 'offline-download-dialog': {
+      const mod = await import('./offline-download-ui.js');
+      mod.bindOfflineDownloadDialog();
+      return;
+    }
     case 'share-dialog': {
       const mod = await import('./share-ui.js');
       mod.bindShareDialog();

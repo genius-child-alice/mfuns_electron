@@ -125,7 +125,10 @@ async function installMfunsOfflineProtocol() {
     const filePath = path.join(offlineStorageDir(), relPath);
     try {
       await fs.promises.access(filePath, fs.constants.R_OK);
-      return net.fetch(pathToFileURL(filePath).toString());
+      return net.fetch(pathToFileURL(filePath).toString(), {
+        method: request.method,
+        headers: request.headers,
+      });
     } catch {
       return new Response('Not found', { status: 404 });
     }

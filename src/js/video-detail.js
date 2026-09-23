@@ -45,6 +45,7 @@ import {
   findOfflineEntry,
   offlinePlaybackSrc,
 } from './offline-cache-store.js';
+import { openOfflineDownloadDialog } from './offline-download-ui.js';
 import {
   isInWatchLater,
   resolveWatchLaterUserId,
@@ -643,25 +644,28 @@ function bindSidePanelEvents() {
 
   document.getElementById('watch-offline-btn')?.addEventListener('click', () => {
     if (!currentDetail || offlineCached || offlineDownloading) return;
-    if (!window.electronAPI?.offline?.download) {
-      notify('离线缓存仅支持桌面客户端', 'error');
-      return;
-    }
-    offlineDownloading = true;
-    renderSidePanel();
-    void downloadVideoToOffline(currentDetail.preview, activePartIndex, (msg) => {
-      notify(msg, 'info');
-    })
-      .then(() => {
-        offlineCached = true;
-      })
-      .catch((err) => {
-        notify(err instanceof Error ? err.message : '缓存失败', 'error');
-      })
-      .finally(() => {
-        offlineDownloading = false;
+    void openOfflineDownloadDialog({
+      preview: currentDetail.preview,
+      partIndex: activePartIndex,
+      parts: currentParts,
+      onChosen: (quality) => {
+        offlineDownloading = true;
         renderSidePanel();
-      });
+        void downloadVideoToOffline(currentDetail.preview, activePartIndex, quality, (msg) => {
+          notify(msg, 'info');
+        })
+          .then(() => {
+            offlineCached = true;
+          })
+          .catch((err) => {
+            notify(err instanceof Error ? err.message : '缓存失败', 'error');
+          })
+          .finally(() => {
+            offlineDownloading = false;
+            renderSidePanel();
+          });
+      },
+    });
   });
 
   document.getElementById('watch-fav-btn')?.addEventListener('click', () => {
