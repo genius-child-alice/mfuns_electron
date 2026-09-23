@@ -176,6 +176,28 @@
   box-sizing: border-box;
 }
 
+.follow-list__action {
+  cursor: pointer;
+  font: inherit;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.follow-list__action:hover:not(:disabled) {
+  background: var(--bg-active, var(--bg-hover));
+  color: var(--text-primary);
+}
+
+.follow-list__action--followed {
+  color: var(--text-primary);
+}
+
+.follow-list__action:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
 .follow-list__chip--mutual {
   color: var(--text-primary);
 }
