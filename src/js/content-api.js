@@ -573,7 +573,7 @@ export function parseListPageMeta(data, page, size, itemCount) {
  * 首页混合推荐（category=-1），文档无分页，仅 size。
  * @param {number} [size]
  */
-export async function fetchRecommendList(size = 24) {
+export async function fetchRecommendList(size = 20) {
   const data = await apiGet('/v1/recommend/get', { category: -1, size });
   return parsePreviewList(data);
 }
