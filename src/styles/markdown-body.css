@@ -88,6 +88,15 @@
   text-decoration: underline;
 }
 
+.markdown-body__mention {
+  color: #00aeec;
+  cursor: pointer;
+}
+
+.markdown-body__mention:hover {
+  text-decoration: underline;
+}
+
 .markdown-body hr {
   margin: 1em 0;
   border: none;
@@ -132,6 +141,17 @@
 }
 
 .markdown-body.markdown-body--feed a:hover {
+  text-decoration: underline;
+}
+
+.markdown-body.markdown-body--feed .markdown-body__mention,
+.user-space__feed-card__text .markdown-body__mention,
+.user-space__feed-card__title .markdown-body__mention {
+  color: #00aeec;
+  cursor: pointer;
+}
+
+.markdown-body.markdown-body--feed .markdown-body__mention:hover {
   text-decoration: underline;
 }
 

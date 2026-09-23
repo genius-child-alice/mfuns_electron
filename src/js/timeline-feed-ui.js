@@ -593,7 +593,7 @@ export function handleTimelineFeedClick(event, options = {}) {
   if (
     feedCard &&
     !target.closest(
-      'button, a, img, .user-space__feed-video, .user-space__feed-card__expand, .user-space__feed-card__more',
+      'button, a, img, .markdown-body__mention, .user-space__feed-video, .user-space__feed-card__expand, .user-space__feed-card__more',
     )
   ) {
     const id = Number.parseInt(feedCard.getAttribute('data-feed-id') ?? '', 10);

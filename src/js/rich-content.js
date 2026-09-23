@@ -56,13 +56,170 @@ function asAttributes(value) {
  * @param {string} text
  * @param {Record<string, unknown>} attributes
  */
+function escapeHtmlText(text) {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/**
+ * @param {string} userId
+ * @param {string} displayName
+ */
+const BRACKET_MENTION_RE = /\[@(\d*):?([^\]]+)\]/g;
+
+function mentionMarkdownToken(userId, displayName) {
+  const name = displayName.startsWith('@') ? displayName : `@${displayName}`;
+  const id = `${userId ?? ''}`.trim();
+  if (!id) return name;
+  return `[${name}](mfuns-user:${id})`;
+}
+
+/**
+ * @param {string} value
+ */
+function replaceBracketMentionsInPlainText(value) {
+  return value.replace(BRACKET_MENTION_RE, (_match, id, name) =>
+    mentionMarkdownToken(`${id ?? ''}`.trim(), `${name ?? ''}`.trim()),
+  );
+}
+
+/**
+ * @param {string} value
+ */
+function isApiRichHtml(value) {
+  const trimmed = `${value ?? ''}`.trim();
+  if (!trimmed || !/<[a-z][\s>]/i.test(trimmed)) return false;
+  if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) return false;
+      if (parsed && typeof parsed === 'object' && Array.isArray(parsed.ops)) return false;
+    } catch {
+      /* HTML */
+    }
+  }
+  return true;
+}
+
+/**
+ * @param {Element} el
+ */
+function mentionUserIdFromElement(el) {
+  const attrs = [
+    'data-user-id',
+    'data-id',
+    'data-userid',
+    'data-uid',
+    'data-mention-id',
+    'data-mention-user-id',
+  ];
+  for (const key of attrs) {
+    const raw = `${el.getAttribute(key) ?? ''}`.trim();
+    if (/^\d+$/.test(raw)) return raw;
+  }
+  const href = `${el.getAttribute('href') ?? ''}`.trim();
+  const hrefMatch =
+    href.match(/^mfuns-user:(\d+)$/i) ??
+    href.match(/\/user\/(\d+)(?:\?|$|\/)/i) ??
+    href.match(/[?&]user_id=(\d+)/i);
+  return hrefMatch ? hrefMatch[1] : '';
+}
+
+/**
+ * @param {Element} el
+ */
+function isMentionElement(el) {
+  const tag = el.tagName.toLowerCase();
+  if (tag !== 'a' && tag !== 'span') return false;
+  if (mentionUserIdFromElement(el)) return true;
+  const cls = `${el.getAttribute('class') ?? ''}`.toLowerCase();
+  if (/mention|at-user|user-link|ql-mention/.test(cls)) return true;
+  if (tag === 'a' && /\/user\/\d+/i.test(el.getAttribute('href') ?? '')) return true;
+  return false;
+}
+
+/**
+ * @param {Document} doc
+ * @param {string} userId
+ * @param {string} label
+ */
+function createMentionSpan(doc, userId, label) {
+  const span = doc.createElement('span');
+  span.className = 'markdown-body__mention';
+  span.setAttribute('data-author-profile', userId);
+  span.setAttribute('role', 'link');
+  span.setAttribute('tabindex', '0');
+  const text = label.trim() || '@用户';
+  span.textContent = text.startsWith('@') ? text : `@${text}`;
+  return span;
+}
+
+/**
+ * @param {ParentNode} root
+ */
+function replaceBracketMentionsInDom(root) {
+  const doc = root.ownerDocument ?? document;
+  /** @type {Text[]} */
+  const textNodes = [];
+  const walker = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  while (walker.nextNode()) {
+    textNodes.push(/** @type {Text} */ (walker.currentNode));
+  }
+  for (const node of textNodes) {
+    const text = node.textContent ?? '';
+    if (!BRACKET_MENTION_RE.test(text)) {
+      BRACKET_MENTION_RE.lastIndex = 0;
+      continue;
+    }
+    BRACKET_MENTION_RE.lastIndex = 0;
+    const frag = doc.createDocumentFragment();
+    let last = 0;
+    for (const match of text.matchAll(BRACKET_MENTION_RE)) {
+      const start = match.index ?? 0;
+      if (start > last) frag.appendChild(doc.createTextNode(text.slice(last, start)));
+      const id = `${match[1] ?? ''}`.trim();
+      const name = `${match[2] ?? ''}`.trim();
+      if (id) frag.appendChild(createMentionSpan(doc, id, name));
+      else frag.appendChild(doc.createTextNode(match[0]));
+      last = start + match[0].length;
+    }
+    if (last < text.length) frag.appendChild(doc.createTextNode(text.slice(last)));
+    node.parentNode?.replaceChild(frag, node);
+  }
+}
+
+/**
+ * 服务端 html:1 正文：保留结构，将 @ 提及替换为可点击的 mention 节点。
+ * @param {string} html
+ */
+function upgradeMentionsInApiHtml(html) {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  replaceBracketMentionsInDom(doc.body);
+  doc.body.querySelectorAll('a, span').forEach((el) => {
+    if (!isMentionElement(el)) return;
+    const id = mentionUserIdFromElement(el);
+    if (!id) return;
+    const label = (el.textContent ?? '').trim() || '@用户';
+    el.replaceWith(createMentionSpan(doc, id, label));
+  });
+  return doc.body.innerHTML;
+}
+
 function formatQuillInline(text, attributes) {
   let result = text;
   if (attributes.code === true) result = `\`${result}\``;
   if (attributes.bold === true) result = `**${result}**`;
   if (attributes.italic === true) result = `*${result}*`;
   if (attributes.strike === true) result = `~~${result}~~`;
-  const link = safeHttpUri(`${attributes.link ?? ''}`);
+  const linkRaw = `${attributes.link ?? ''}`.trim();
+  const userLink = linkRaw.match(/^mfuns-user:(\d+)$/i);
+  if (userLink) {
+    return mentionMarkdownToken(userLink[1], result.startsWith('@') ? result : `@${result}`);
+  }
+  const link = safeHttpUri(linkRaw);
   if (link) result = `[${result}](${link})`;
   return result;
 }
@@ -108,10 +265,21 @@ export function quillOpsToMarkdown(ops) {
       const sticker = map.sticker;
       if (typeof sticker === 'string' && sticker) {
         line += `![sticker:${sticker}](https://resource.mfuns.net/image/sticker/x.png)`;
+        continue;
+      }
+      const mention = asAttributes(map.mention);
+      const mentionName = `${mention.value ?? mention.name ?? ''}`.trim();
+      const mentionId = `${mention.id ?? mention.user_id ?? mention.uid ?? mention.userId ?? ''}`.trim();
+      if (mentionName) {
+        line += mentionMarkdownToken(mentionId, mentionName);
+        continue;
       }
       const image =
         resolveRichImageUrl(`${map.image ?? ''}`) ?? safeHttpUri(`${map.image ?? ''}`);
-      if (image) line += `![图片](${image})`;
+      if (image) {
+        line += `![图片](${image})`;
+        continue;
+      }
       continue;
     }
     if (typeof insert !== 'string') continue;
@@ -200,8 +368,28 @@ function renderNode(node) {
     case 'li':
       return text;
     case 'a': {
-      const link = safeHttpUri(el.getAttribute('href'));
+      const idFromEl = mentionUserIdFromElement(el);
+      if (idFromEl && text) {
+        return mentionMarkdownToken(idFromEl, text);
+      }
+      const href = el.getAttribute('href') ?? '';
+      const userMatch =
+        href.match(/^mfuns-user:(\d+)$/i) ??
+        href.match(/\/user\/(\d+)(?:\?|$|\/)/i) ??
+        href.match(/[?&]user_id=(\d+)/i);
+      if (userMatch && text) {
+        return mentionMarkdownToken(userMatch[1], text);
+      }
+      const link = safeHttpUri(href);
       return link && text ? `[${text}](${link})` : text;
+    }
+    case 'span': {
+      if (isMentionElement(el)) {
+        const id = mentionUserIdFromElement(el);
+        const label = (el.textContent ?? '').trim() || '@用户';
+        return mentionMarkdownToken(id, label);
+      }
+      return renderChildren(el);
     }
     case 'img': {
       const rawSrc = el.getAttribute('src') ?? '';
@@ -269,7 +457,9 @@ export function normalizeRichContent(source) {
       /* fall through */
     }
   }
-  if (!/<[A-Za-z][^>]*>/.test(value)) return value;
+  if (!/<[A-Za-z][^>]*>/.test(value)) {
+    return replaceBracketMentionsInPlainText(value);
+  }
   return htmlToMarkdown(value);
 }
 
@@ -280,6 +470,30 @@ marked.setOptions({
 
 marked.use({
   renderer: {
+    /**
+     * @param {{ href?: string | null, title?: string | null, text?: string, tokens?: unknown[] }} token
+     */
+    link(token) {
+      const href = `${token.href ?? ''}`;
+      const renderer = /** @type {{ parser?: { parseInline: (tokens: unknown[]) => string } }} */ (
+        this
+      );
+      const inner =
+        token.tokens && renderer.parser
+          ? renderer.parser.parseInline(token.tokens)
+          : escapeHtmlText(`${token.text ?? ''}`);
+      const userMatch = href.match(/^mfuns-user:(\d+)$/i);
+      if (userMatch) {
+        const id = userMatch[1];
+        return `<span class="markdown-body__mention" data-author-profile="${id}" role="link" tabindex="0">${inner}</span>`;
+      }
+      const safeLink = safeHttpUri(href);
+      if (!safeLink) return inner;
+      const title = token.title
+        ? ` title="${escapeHtmlText(`${token.title}`)}"`
+        : '';
+      return `<a href="${safeLink.replace(/"/g, '&quot;')}" target="_blank" rel="noopener noreferrer"${title}>${inner}</a>`;
+    },
     /**
      * @param {{ href?: string | null, title?: string | null, text?: string }} token
      */
@@ -301,7 +515,18 @@ marked.use({
 });
 
 const PURIFY_CONFIG = {
-  ADD_ATTR: ['target', 'rel', 'loading', 'class', 'data-sticker-key', 'width', 'height'],
+  ADD_ATTR: [
+    'target',
+    'rel',
+    'loading',
+    'class',
+    'data-sticker-key',
+    'data-author-profile',
+    'role',
+    'tabindex',
+    'width',
+    'height',
+  ],
   ADD_URI_SAFE_ATTR: ['src'],
 };
 
@@ -310,7 +535,12 @@ const PURIFY_CONFIG = {
  * @returns {string}
  */
 export function renderRichMarkdownHtml(source) {
-  const markdown = normalizeRichContent(source);
+  const value = `${source ?? ''}`.trim();
+  if (!value) return '';
+  if (isApiRichHtml(value)) {
+    return DOMPurify.sanitize(upgradeMentionsInApiHtml(value), PURIFY_CONFIG);
+  }
+  const markdown = normalizeRichContent(value);
   if (!markdown) return '';
   const rawHtml = marked.parse(markdown, { async: false });
   const safe =
