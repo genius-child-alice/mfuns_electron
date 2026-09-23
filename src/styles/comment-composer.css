@@ -111,33 +111,45 @@
   display: block;
 }
 
-.comment-composer__body .mention-autocomplete-anchor textarea[hidden] {
-  display: none !important;
-}
-
-.comment-composer__input.mention-visual-input {
-  display: block;
-}
-
-.comment-composer__input {
+.comment-composer__editor {
   width: 100%;
+}
+
+.comment-composer__editor .ql-toolbar {
+  display: none;
+}
+
+.comment-composer__editor .ql-container.ql-snow {
+  border: none;
+  font: inherit;
+}
+
+.comment-composer__editor .ql-editor {
   min-height: 140px;
   padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--text-primary);
-  font: inherit;
   font-size: 15px;
   line-height: 1.6;
-  resize: vertical;
+  color: var(--text-primary);
 }
 
-.comment-composer__input:focus {
-  outline: none;
-}
-
-.comment-composer__input::placeholder {
+.comment-composer__editor .ql-editor.ql-blank::before {
+  left: 0;
+  right: 0;
   color: var(--text-tertiary);
+  font-style: normal;
+}
+
+.comment-composer__editor .ql-mention {
+  color: #00aeec;
+  font-weight: 500;
+}
+
+.comment-composer__editor .ql-sticker {
+  width: 42px;
+  height: 42px;
+  object-fit: contain;
+  vertical-align: middle;
+  margin: 0 2px;
 }
 
 .comment-composer__toolbar-row {

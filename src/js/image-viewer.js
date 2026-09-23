@@ -56,7 +56,7 @@ function isExcludedImage(img) {
   if (img.closest('#image-viewer')) return true;
   if (img.closest('[data-no-image-viewer]')) return true;
   if (img.dataset.noImageViewer !== undefined) return true;
-  if (img.hasAttribute('data-sticker-key') || img.classList.contains('mention-sticker')) return true;
+  if (img.hasAttribute('data-sticker-key') || img.classList.contains('mention-sticker') || img.classList.contains('ql-sticker')) return true;
   if (img.classList.contains('markdown-body__sticker')) return true;
 
   if (img.classList.contains('sidebar__avatar-img')) return true;
@@ -70,7 +70,7 @@ function isExcludedImage(img) {
   if (/\bcover\b/i.test(img.className) || /\bthumb\b/i.test(img.className)) return true;
 
   const excludedHost = img.closest(
-    '[class*="avatar"], .sidebar__avatar, .mine-profile__avatar, .guest-empty__art, .splash, .video-card__cover-wrap, .mine-history-card__cover, .comment-composer__emoji-panel, .comment-composer__sticker, .message-sticker-panel, .message-sticker, .mention-visual-input',
+    '[class*="avatar"], .sidebar__avatar, .mine-profile__avatar, .guest-empty__art, .splash, .video-card__cover-wrap, .mine-history-card__cover, .comment-composer__emoji-panel, .comment-composer__sticker, .comment-composer__editor, .message-sticker-panel, .message-sticker, .mention-visual-input',
   );
   return Boolean(excludedHost);
 }

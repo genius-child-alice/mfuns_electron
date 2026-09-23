@@ -774,14 +774,41 @@ export async function uploadCommentImage(file) {
  * @param {{ userId?: number | null, name?: string | null }} [mention]
  * @param {string[]} [imagePaths]
  */
+function isQuillJson(value) {
+  const text = `${value ?? ''}`.trim();
+  if (!text.startsWith('{')) return false;
+  try {
+    const parsed = JSON.parse(text);
+    return Boolean(parsed && typeof parsed === 'object' && Array.isArray(parsed.ops));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * @param {string} json
+ * @param {string[]} imagePaths
+ */
+function appendImagesToQuillJson(json, imagePaths) {
+  const parsed = JSON.parse(json);
+  const ops = Array.isArray(parsed.ops) ? [...parsed.ops] : [];
+  for (const image of imagePaths) {
+    if (image) ops.push({ insert: { image } });
+  }
+  if (ops.length === 0 || typeof ops[ops.length - 1].insert !== 'string') {
+    ops.push({ insert: '\n' });
+  }
+  return JSON.stringify({ ops });
+}
+
 export async function createCommentReply(commentId, text, mention) {
-  const payload = text.trim();
+  const payload = `${text ?? ''}`.trim();
   if (!payload) {
     throw new Error('请填写回复内容');
   }
   await apiPostJson('/v1/comment/create_reply', {
     comment_id: commentId,
-    content: buildCommentReplyQuillContent(payload, mention),
+    content: isQuillJson(payload) ? payload : buildCommentReplyQuillContent(payload, mention),
   });
 }
 
@@ -910,13 +937,16 @@ export async function setFollow(userId, follow) {
  * @param {string[]} [imagePaths]
  */
 export async function createComment(areaId, text, imagePaths = []) {
-  const trimmed = text.trim();
+  const trimmed = `${text ?? ''}`.trim();
   if (!trimmed && imagePaths.length === 0) {
     throw new Error('请填写评论内容');
   }
+  const content = isQuillJson(trimmed)
+    ? appendImagesToQuillJson(trimmed, imagePaths)
+    : messageQuillJson(commentSpansFromText(trimmed), imagePaths);
   await apiPostJson('/v1/comment/create', {
     area_id: areaId,
-    content: messageQuillJson(commentSpansFromText(trimmed), imagePaths),
+    content,
     images: JSON.stringify(imagePaths),
   });
 }

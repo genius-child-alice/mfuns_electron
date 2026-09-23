@@ -3,6 +3,7 @@ import { marked } from '../../node_modules/marked/lib/marked.esm.js';
 import { normalizeRichContent, quillOpsToMarkdown } from './rich-content.js';
 import { bindQuillMentionAutocomplete } from './mention-autocomplete.js';
 import { registerQuillMention } from './quill-mention.js';
+import { registerQuillSticker } from './quill-sticker.js';
 
 /** @typedef {'article' | 'video' | 'feed'} EditorContentMode */
 /** @typedef {import('../vendor/quill.mjs').default} QuillCtor */
@@ -81,6 +82,7 @@ function loadQuillClass() {
       .then((mod) => {
         QuillClass = mod.default;
         registerQuillMention(QuillClass);
+        registerQuillSticker(QuillClass);
         return QuillClass;
       })
       .catch((err) => {
@@ -158,6 +160,7 @@ export async function ensureRichEditor(editorKey = 'contribute') {
       theme: 'snow',
       formats: [
         'mention',
+        'sticker',
         'header',
         'bold',
         'italic',

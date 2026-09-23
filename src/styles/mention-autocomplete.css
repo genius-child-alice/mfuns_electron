@@ -97,6 +97,7 @@ dialog > .mention-autocomplete--floating {
   cursor: default;
 }
 
+.ql-sticker,
 .mention-visual-input .mention-sticker {
   width: 42px;
   height: 42px;

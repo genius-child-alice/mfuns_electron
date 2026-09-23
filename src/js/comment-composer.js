@@ -8,15 +8,9 @@ import {
   uploadCommentImage,
 } from './video-api.js';
 import { fetchEmojiPackGroups } from './emoji-pack.js';
-import {
-  bindVisualMentionInput,
-  clearComposerInput,
-  getVisualMentionInput,
-  insertComposerSticker,
-  insertComposerText,
-  insertMentionTokenAtCursor,
-  wrapComposerSelection,
-} from './mention-autocomplete.js';
+import { bindQuillMentionAutocomplete } from './mention-autocomplete.js';
+import { registerQuillMention } from './quill-mention.js';
+import { registerQuillSticker } from './quill-sticker.js';
 
 const DEFAULT_MAX_LENGTH = COMMENT_MAX_LENGTH;
 const MAX_IMAGES = 9;
@@ -45,6 +39,16 @@ let imagePaths = [];
 let bound = false;
 let mentionController = null;
 
+/** @type {import('../vendor/quill.mjs').default | null} */
+let commentQuill = null;
+
+const FORMAT_WRAP = {
+  '**': 'bold',
+  '*': 'italic',
+  '~~': 'strike',
+  '<u></u>': 'underline',
+};
+
 /**
  * @param {string} [placeholder]
  * @param {string} [id]
@@ -71,13 +75,9 @@ export function commentComposerDialogHtml() {
           <button type="submit" class="comment-composer__submit" id="comment-composer-submit">提交</button>
         </header>
         <div class="comment-composer__body">
-          <textarea
-            class="comment-composer__input"
-            id="comment-composer-input"
-            rows="6"
-            placeholder="请输入内容"
-            maxlength="${DEFAULT_MAX_LENGTH}"
-          ></textarea>
+          <div class="comment-composer__editor mention-autocomplete-anchor" id="comment-composer-editor">
+            <div id="comment-composer-quill"></div>
+          </div>
           <div class="comment-composer__toolbar-row">
             <div class="comment-composer__toolbar" role="toolbar" aria-label="评论格式">
               <button type="button" class="comment-composer__tool" data-composer-action="emoji" title="表情" aria-label="表情">
@@ -109,8 +109,44 @@ function getDialog() {
   return /** @type {HTMLDialogElement | null} */ (document.getElementById('comment-composer-dialog'));
 }
 
-function getInput() {
-  return /** @type {HTMLTextAreaElement | null} */ (document.getElementById('comment-composer-input'));
+function getEditorWrap() {
+  return document.getElementById('comment-composer-editor');
+}
+
+function commentQuillIsEmpty(quill) {
+  if (!quill) return true;
+  const ops = quill.getContents().ops ?? [];
+  return !ops.some((op) => {
+    const insert = /** @type {{ insert?: unknown }} */ (op).insert;
+    if (typeof insert === 'string') return insert.replace(/\n/g, '').trim().length > 0;
+    return Boolean(insert && typeof insert === 'object');
+  });
+}
+
+function serializeCommentQuill(quill) {
+  return JSON.stringify({ ops: quill.getContents().ops ?? [] });
+}
+
+/**
+ * @returns {Promise<import('../vendor/quill.mjs').default | null>}
+ */
+async function ensureCommentQuill() {
+  if (commentQuill) return commentQuill;
+  const container = document.getElementById('comment-composer-quill');
+  const wrap = getEditorWrap();
+  if (!container || !wrap) return null;
+  const { default: Quill } = await import('../vendor/quill.mjs');
+  registerQuillMention(Quill);
+  registerQuillSticker(Quill);
+  commentQuill = new Quill(container, {
+    theme: 'snow',
+    formats: ['mention', 'sticker', 'bold', 'italic', 'underline', 'strike'],
+    modules: { toolbar: false },
+    placeholder: '请输入内容',
+  });
+  mentionController = bindQuillMentionAutocomplete(commentQuill, wrap);
+  commentQuill.on('text-change', () => syncCount());
+  return commentQuill;
 }
 
 function getImagesRoot() {
@@ -126,12 +162,10 @@ function maxLength() {
 }
 
 function syncCount() {
-  const input = getInput();
   const countEl = document.getElementById('comment-composer-count');
   const max = maxLength();
-  if (input) input.maxLength = max;
+  const len = commentQuill ? Math.max(0, commentQuill.getLength() - 1) : 0;
   if (countEl) {
-    const len = input?.value.length ?? 0;
     countEl.textContent = `${len} / ${max}`;
     countEl.classList.toggle('comment-composer__count--limit', len >= max);
   }
@@ -145,8 +179,7 @@ function syncComposerReplyMode() {
 
 function resetComposer() {
   imagePaths = [];
-  const input = getInput();
-  if (input) clearComposerInput(input);
+  commentQuill?.setText('');
   const fileInput = getFileInput();
   if (fileInput) fileInput.value = '';
   renderImagePreviews();
@@ -207,29 +240,42 @@ async function ensureOfficialStickerPanel() {
   }
 }
 
-/**
- * @param {HTMLTextAreaElement} input
- * @param {string} insert
- */
-function focusComposerInput(input) {
-  const visual = getVisualMentionInput(input);
-  if (visual) visual.focus();
-  else input.focus();
+function focusComposerInput() {
+  commentQuill?.focus();
 }
 
-function insertAtCursor(input, insert) {
-  insertComposerText(input, insert);
-  focusComposerInput(input);
+/**
+ * @param {string} text
+ */
+function insertComposerText(text) {
+  if (!commentQuill || !text) return;
+  const range = commentQuill.getSelection(true) ?? { index: Math.max(0, commentQuill.getLength() - 1), length: 0 };
+  commentQuill.insertText(range.index, text, 'user');
+  commentQuill.setSelection(range.index + text.length, 0, 'user');
   syncCount();
 }
 
 /**
- * @param {HTMLTextAreaElement} input
  * @param {string} wrap
  */
-function wrapSelection(input, wrap) {
-  wrapComposerSelection(input, wrap);
-  focusComposerInput(input);
+function toggleComposerFormat(wrap) {
+  if (!commentQuill) return;
+  const format = FORMAT_WRAP[wrap];
+  if (!format) return;
+  commentQuill.focus();
+  const active = Boolean(commentQuill.getFormat()[format]);
+  commentQuill.format(format, !active, 'user');
+}
+
+/**
+ * @param {string} key
+ * @param {string} [src]
+ */
+function insertComposerSticker(key, src = '') {
+  if (!commentQuill || !key) return;
+  const range = commentQuill.getSelection(true) ?? { index: Math.max(0, commentQuill.getLength() - 1), length: 0 };
+  commentQuill.insertEmbed(range.index, 'sticker', { key, src }, 'user');
+  commentQuill.setSelection(range.index + 1, 0, 'user');
   syncCount();
 }
 
@@ -317,23 +363,30 @@ export async function openCommentComposer(options) {
 
   const dialog = getDialog();
   const titleEl = document.getElementById('comment-composer-title');
-  const input = getInput();
-  if (!dialog || !input) return;
+  if (!dialog) return;
+  const quill = await ensureCommentQuill();
+  if (!quill) return;
 
   if (titleEl) titleEl.textContent = context.title;
   resetComposer();
   syncComposerReplyMode();
 
   if (context.commentId != null && context.mention?.name) {
-    insertAtCursor(input, '回复');
-    insertMentionTokenAtCursor(input, context.mention.userId, context.mention.name);
-    insertAtCursor(input, '：');
+    quill.insertText(0, '回复', 'user');
+    quill.insertEmbed(
+      2,
+      'mention',
+      { id: `${context.mention.userId ?? ''}`, value: context.mention.name },
+      'user',
+    );
+    quill.insertText(3, '：', 'user');
+    quill.setSelection(4, 0, 'user');
     syncCount();
   }
 
   if (!dialog.open) dialog.showModal();
   window.requestAnimationFrame(() => {
-    focusComposerInput(input);
+    focusComposerInput();
   });
 }
 
@@ -345,23 +398,22 @@ export function closeCommentComposer() {
 }
 
 async function submitComposer() {
-  const input = getInput();
   const submitBtn = document.getElementById('comment-composer-submit');
-  if (!input || !context) return;
+  if (!commentQuill || !context) return;
 
-  const text = input.value.trim();
-  if (!text && imagePaths.length === 0) {
+  if (commentQuillIsEmpty(commentQuill) && imagePaths.length === 0) {
     notify('请输入内容或添加图片', 'warning');
-    focusComposerInput(input);
+    focusComposerInput();
     return;
   }
 
+  const content = serializeCommentQuill(commentQuill);
   if (submitBtn instanceof HTMLButtonElement) submitBtn.disabled = true;
   try {
     if (context.areaId != null) {
-      await createComment(context.areaId, text, imagePaths);
+      await createComment(context.areaId, content, imagePaths);
     } else if (context.commentId != null) {
-      await createCommentReply(context.commentId, text, context.mention);
+      await createCommentReply(context.commentId, content, context.mention);
     } else {
       throw new Error('无法发布评论');
     }
@@ -384,7 +436,7 @@ export function bindCommentComposer() {
 
   const dialog = getDialog();
   const form = document.getElementById('comment-composer-form');
-  const input = getInput();
+  void ensureCommentQuill();
 
   document.getElementById('comment-composer-close')?.addEventListener('click', () => {
     closeCommentComposer();
@@ -405,13 +457,6 @@ export function bindCommentComposer() {
     event.preventDefault();
     void submitComposer();
   });
-
-  if (input && !mentionController) {
-    const boundInput = bindVisualMentionInput(input, { onSync: syncCount });
-    mentionController = boundInput?.controller ?? null;
-  }
-
-  input?.addEventListener('input', syncCount);
 
   document.getElementById('comment-composer-images')?.addEventListener('click', (event) => {
     const target = /** @type {HTMLElement} */ (event.target);
@@ -434,10 +479,17 @@ export function bindCommentComposer() {
     if (files?.length) void handleImageFiles(files);
   });
 
+  dialog?.querySelector('.comment-composer__toolbar')?.addEventListener('mousedown', (event) => {
+    const target = /** @type {HTMLElement} */ (event.target);
+    if (target.closest('[data-composer-wrap], [data-composer-action="mention"]')) {
+      event.preventDefault();
+    }
+  });
+
   dialog?.querySelector('.comment-composer__toolbar')?.addEventListener('click', (event) => {
     const target = /** @type {HTMLElement} */ (event.target);
     const btn = target.closest('[data-composer-action], [data-composer-wrap]');
-    if (!(btn instanceof HTMLElement) || !input) return;
+    if (!(btn instanceof HTMLElement)) return;
     event.preventDefault();
 
     const action = btn.getAttribute('data-composer-action');
@@ -446,7 +498,7 @@ export function bindCommentComposer() {
       return;
     }
     if (action === 'mention') {
-      insertAtCursor(input, '@');
+      insertComposerText('@');
       mentionController?.onInput();
       hideEmojiPanel();
       return;
@@ -454,7 +506,7 @@ export function bindCommentComposer() {
 
     const wrap = btn.getAttribute('data-composer-wrap');
     if (wrap) {
-      wrapSelection(input, wrap);
+      toggleComposerFormat(wrap);
       hideEmojiPanel();
     }
   });
@@ -477,20 +529,20 @@ export function bindCommentComposer() {
     }
 
     const stickerBtn = target.closest('[data-composer-sticker]');
-    if (stickerBtn instanceof HTMLElement && input) {
+    if (stickerBtn instanceof HTMLElement) {
       const key = stickerBtn.getAttribute('data-composer-sticker');
       if (!key) return;
       const src = stickerBtn.querySelector('img')?.getAttribute('src') ?? '';
-      insertComposerSticker(input, key, src);
-      focusComposerInput(input);
-      syncCount();
+      insertComposerSticker(key, src);
+      focusComposerInput();
       return;
     }
 
     const btn = target.closest('[data-composer-emoji]');
-    if (!(btn instanceof HTMLElement) || !input) return;
+    if (!(btn instanceof HTMLElement)) return;
     const emoji = btn.getAttribute('data-composer-emoji');
     if (!emoji) return;
-    insertAtCursor(input, emoji);
+    insertComposerText(emoji);
+    focusComposerInput();
   });
 }
