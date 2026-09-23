@@ -57,21 +57,44 @@ function formatCount(n) {
 }
 
 /**
- * 与官网 pipe.date 一致（CkS7fInq.js）
+ * @param {number | string | null | undefined} value
+ * @returns {number | null}
+ */
+function commentCreatedAtMs(value) {
+  if (value == null || value === '') return null;
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value < 1e12 ? value * 1000 : value;
+  }
+  if (typeof value === 'string') {
+    const n = Number(value);
+    if (Number.isFinite(n) && n > 0) return n < 1e12 ? n * 1000 : n;
+    const parsed = Date.parse(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+/**
+ * @param {number | string | null | undefined} value
+ */
+export function commentCreatedAtIso(value) {
+  const ms = commentCreatedAtMs(value);
+  if (ms == null) return '';
+  const t = new Date(ms);
+  return Number.isNaN(t.getTime()) ? '' : t.toISOString();
+}
+
+/**
+ * 与官网 pipe.date 相近；超过 24 小时显示具体日期时间
  * @param {number | string | null | undefined} value
  */
 export function formatCommentDate(value) {
-  if (value == null || value === '') return '';
-  let ms = NaN;
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    ms = value < 1e12 ? value * 1000 : value;
-  } else if (typeof value === 'string') {
-    const n = Number(value);
-    if (Number.isFinite(n) && n > 0) ms = n < 1e12 ? n * 1000 : n;
-    else ms = Date.parse(value);
-  }
-  if (!Number.isFinite(ms)) return '';
+  const ms = commentCreatedAtMs(value);
+  if (ms == null) return '';
   const t = new Date(ms);
+  if (Number.isNaN(t.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  const clock = `${pad(t.getHours())}:${pad(t.getMinutes())}`;
   const diff = Date.now() - t.getTime();
   const seconds = Math.floor(diff / 1000);
   if (seconds < 60) return '刚刚';
@@ -80,9 +103,9 @@ export function formatCommentDate(value) {
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours}小时前`;
   if (t.getFullYear() === new Date().getFullYear()) {
-    return `${t.getMonth() + 1}-${t.getDate()}`;
+    return `${t.getMonth() + 1}-${pad(t.getDate())} ${clock}`;
   }
-  return `${t.getFullYear()}-${t.getMonth() + 1}-${t.getDate()}`;
+  return `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())} ${clock}`;
 }
 
 /**
@@ -210,13 +233,15 @@ function renderCommentRow(item, options) {
   const extraMeta = options.replyActionHtml ?? '';
   const rootCommentId = options.rootCommentId ?? item.id;
   const dateLabel = formatCommentDate(item.createdAt);
+  const dateIso = commentCreatedAtIso(item.createdAt);
   const floorHtml =
     !compact && item.floorNum != null && item.floorNum > 0
       ? `<span class="watch-comment__floor">${item.floorNum}F</span>`
       : '';
-  const timeHtml = dateLabel
-    ? `<time class="watch-comment__time" datetime="">${escapeHtml(dateLabel)}</time>`
-    : '';
+  const timeHtml =
+    dateLabel && dateIso
+      ? `<time class="watch-comment__time watch-comment__time--published" datetime="${escapeHtml(dateIso)}">${escapeHtml(dateLabel)}</time>`
+      : '';
   const deleteBtn =
     options.currentUserId != null &&
     item.authorId != null &&

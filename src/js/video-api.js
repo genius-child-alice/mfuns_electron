@@ -298,6 +298,23 @@ function parseCommentCreatedAt(value) {
   return null;
 }
 
+/**
+ * @param {Record<string, unknown>} json
+ */
+function pickCommentCreatedAt(json) {
+  return parseCommentCreatedAt(
+    json.created_at ??
+      json.create_time ??
+      json.createdAt ??
+      json.createTime ??
+      json.time ??
+      json.ctime ??
+      json.publish_time ??
+      json.add_time ??
+      json.comment_time,
+  );
+}
+
 function parseComment(raw) {
   const json = asMap(raw);
   const id = asInt(json.id);
@@ -328,7 +345,7 @@ function parseComment(raw) {
     replyCount: asInt(json.reply_count) ?? 0,
     floorNum: asInt(json.floor_num ?? json.floor),
     badges: badges.slice(0, 5),
-    createdAt: parseCommentCreatedAt(json.created_at ?? json.create_time),
+    createdAt: pickCommentCreatedAt(json),
     pinned:
       json.is_top === 1 ||
       json.is_top === true ||
