@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, session, protocol, net, Tray, Menu } = require('electron');
 const fs = require('fs');
 const path = require('path');
+const { Readable } = require('stream');
 const { pathToFileURL } = require('url');
 const {
   readDesktopSettings,
@@ -110,6 +111,74 @@ function offlineStorageDir() {
   return path.join(app.getPath('userData'), 'offline');
 }
 
+/**
+ * @param {string} relPath
+ */
+function offlineMimeType(relPath) {
+  const ext = path.extname(relPath).toLowerCase();
+  if (ext === '.mp4' || ext === '.m4v') return 'video/mp4';
+  if (ext === '.webm') return 'video/webm';
+  if (ext === '.m3u8') return 'application/vnd.apple.mpegurl';
+  return 'application/octet-stream';
+}
+
+/**
+ * @param {string} filePath
+ * @param {Request} request
+ */
+async function respondOfflineFile(filePath, request) {
+  const stat = await fs.promises.stat(filePath);
+  const size = stat.size;
+  const contentType = offlineMimeType(filePath);
+  const commonHeaders = {
+    'Accept-Ranges': 'bytes',
+    'Content-Type': contentType,
+  };
+
+  if (request.method === 'HEAD') {
+    return new Response(null, {
+      status: 200,
+      headers: { ...commonHeaders, 'Content-Length': String(size) },
+    });
+  }
+
+  const rangeHeader = request.headers.get('range') ?? request.headers.get('Range');
+  if (!rangeHeader) {
+    const stream = fs.createReadStream(filePath);
+    return new Response(Readable.toWeb(stream), {
+      status: 200,
+      headers: { ...commonHeaders, 'Content-Length': String(size) },
+    });
+  }
+
+  const match = /^bytes=(\d*)-(\d*)$/i.exec(rangeHeader.trim());
+  if (!match) {
+    return new Response('Invalid Range', { status: 416, headers: commonHeaders });
+  }
+
+  let start = match[1] ? Number.parseInt(match[1], 10) : 0;
+  let end = match[2] ? Number.parseInt(match[2], 10) : size - 1;
+  if (!Number.isFinite(start) || start < 0) start = 0;
+  if (!Number.isFinite(end) || end >= size) end = size - 1;
+  if (start > end || start >= size) {
+    return new Response(null, {
+      status: 416,
+      headers: { ...commonHeaders, 'Content-Range': `bytes */${size}` },
+    });
+  }
+
+  const chunkSize = end - start + 1;
+  const stream = fs.createReadStream(filePath, { start, end });
+  return new Response(Readable.toWeb(stream), {
+    status: 206,
+    headers: {
+      ...commonHeaders,
+      'Content-Range': `bytes ${start}-${end}/${size}`,
+      'Content-Length': String(chunkSize),
+    },
+  });
+}
+
 async function installMfunsOfflineProtocol() {
   protocol.handle('mfuns-offline', async (request) => {
     let relPath = '';
@@ -125,10 +194,7 @@ async function installMfunsOfflineProtocol() {
     const filePath = path.join(offlineStorageDir(), relPath);
     try {
       await fs.promises.access(filePath, fs.constants.R_OK);
-      return net.fetch(pathToFileURL(filePath).toString(), {
-        method: request.method,
-        headers: request.headers,
-      });
+      return await respondOfflineFile(filePath, request);
     } catch {
       return new Response('Not found', { status: 404 });
     }

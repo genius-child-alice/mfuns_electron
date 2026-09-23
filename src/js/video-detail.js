@@ -875,6 +875,7 @@ async function loadWatchPage(preview) {
           name: '离线',
           label: offline.qualityLabel,
           url: offlineSrc,
+          format: 'mp4',
         },
       ];
     }
