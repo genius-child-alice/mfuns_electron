@@ -167,6 +167,18 @@ async function installMfunsMediaProtocol() {
 
 /** @type {BrowserWindow | null} */
 let mainWindow = null;
+
+function isMainWindowMaximized() {
+  if (!mainWindow || mainWindow.isDestroyed()) return false;
+  return mainWindow.isMaximized() || mainWindow.isFullScreen();
+}
+
+function sendMainWindowMaximizeState() {
+  if (!mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return;
+  mainWindow.webContents.send('window:maximized-changed', {
+    maximized: isMainWindowMaximized(),
+  });
+}
 /** @type {Tray | null} */
 let tray = null;
 let isQuitting = false;
@@ -354,7 +366,13 @@ function createWindow() {
 
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show();
+    sendMainWindowMaximizeState();
   });
+
+  mainWindow.on('maximize', sendMainWindowMaximizeState);
+  mainWindow.on('unmaximize', sendMainWindowMaximizeState);
+  mainWindow.on('enter-full-screen', sendMainWindowMaximizeState);
+  mainWindow.on('leave-full-screen', sendMainWindowMaximizeState);
 
   mainWindow.on('close', handleMainWindowClose);
   mainWindow.on('closed', () => {
@@ -386,7 +404,9 @@ ipcMain.on('window:maximize', () => {
   } else {
     mainWindow.maximize();
   }
+  sendMainWindowMaximizeState();
 });
+ipcMain.handle('window:isMaximized', () => isMainWindowMaximized());
 ipcMain.on('window:close', () => mainWindow?.close());
 
 ipcMain.on('window:close-choice', (_event, choice) => {

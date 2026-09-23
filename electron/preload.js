@@ -9,6 +9,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   window: {
     minimize: () => ipcRenderer.send('window:minimize'),
     maximize: () => ipcRenderer.send('window:maximize'),
+    isMaximized: () => ipcRenderer.invoke('window:isMaximized'),
+    /**
+     * @param {(payload: { maximized: boolean }) => void} handler
+     */
+    onMaximizedChanged: (handler) => {
+      ipcRenderer.on('window:maximized-changed', (_event, payload) => {
+        handler({ maximized: Boolean(payload?.maximized) });
+      });
+    },
     close: () => ipcRenderer.send('window:close'),
     /**
      * @param {(payload: { useTray: boolean }) => void} handler

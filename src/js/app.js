@@ -87,11 +87,26 @@ function navIcon(name) {
   return materialIcon(name, 'material-symbols-outlined--nav');
 }
 
+function syncMaximizeControl(maximized) {
+  const btn = document.getElementById('btn-maximize');
+  if (!btn) return;
+  const icon = btn.querySelector('.material-symbols-outlined');
+  if (icon) icon.textContent = maximized ? 'filter_none' : 'crop_square';
+  btn.setAttribute('aria-label', maximized ? '还原' : '最大化');
+}
+
 function bindWindowControls() {
   const api = window.electronAPI?.window;
   document.getElementById('btn-minimize')?.addEventListener('click', () => api?.minimize());
   document.getElementById('btn-maximize')?.addEventListener('click', () => api?.maximize());
   document.getElementById('btn-close')?.addEventListener('click', () => api?.close());
+
+  if (api?.isMaximized) {
+    void api.isMaximized().then((maximized) => {
+      if (typeof maximized === 'boolean') syncMaximizeControl(maximized);
+    });
+  }
+  api?.onMaximizedChanged?.(({ maximized }) => syncMaximizeControl(maximized));
 }
 
 function renderShell() {
