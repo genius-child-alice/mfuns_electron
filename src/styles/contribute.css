@@ -476,6 +476,10 @@
   display: none;
 }
 
+.contribute-tag-editor .contribute-tag {
+  background: var(--bg-pane);
+}
+
 .contribute-tag-editor__input,
 .contribute-field input.contribute-tag-editor__input[type='text'] {
   appearance: none;
