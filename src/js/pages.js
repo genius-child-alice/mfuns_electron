@@ -546,7 +546,6 @@ export function feedPageHtml() {
               <p class="feed-page__hint" id="feed-page-hint" hidden></p>
             </div>
           </div>
-          ${guestEmpty()}
         </div>
       </div>
     </div>`;
