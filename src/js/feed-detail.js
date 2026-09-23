@@ -447,6 +447,10 @@ export function bindFeedDetail() {
       void loadRootComments(commentListPage + 1, { append: true });
     },
     onCommentsReload: () => loadRootComments(1, { append: false }),
+    onOpenUserProfile: (uid) => {
+      closeFeedDetail();
+      void import('./user-space.js').then((mod) => mod.openUserSpace(uid));
+    },
   });
 
   const dialog = getDialog();

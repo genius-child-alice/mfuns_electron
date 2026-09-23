@@ -713,6 +713,7 @@ export function openCommentReplyDialog(options) {
  *   onOrderChange?: (order: CommentListOrder) => void,
  *   onLoadMoreComments?: () => void,
  *   onCommentsReload?: () => void | Promise<void>,
+ *   onOpenUserProfile?: (userId: number) => void,
  * }} options
  */
 export function bindCommentSection(root, options) {
@@ -721,6 +722,20 @@ export function bindCommentSection(root, options) {
 
   root.addEventListener('click', (event) => {
     const target = /** @type {HTMLElement} */ (event.target);
+
+    const profileBtn = target.closest('[data-author-profile]');
+    if (profileBtn instanceof HTMLElement && profileBtn.closest('.watch-comment')) {
+      const userId = Number.parseInt(profileBtn.getAttribute('data-author-profile') ?? '', 10);
+      if (!Number.isFinite(userId) || userId <= 0) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (options.onOpenUserProfile) {
+        options.onOpenUserProfile(userId);
+      } else {
+        void import('./user-space.js').then(({ openUserSpace }) => openUserSpace(userId));
+      }
+      return;
+    }
 
     const orderBtn = target.closest('[data-comment-order]');
     if (orderBtn instanceof HTMLButtonElement && options.onOrderChange) {

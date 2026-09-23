@@ -353,13 +353,21 @@ function parseComment(raw) {
   const json = asMap(raw);
   const id = asInt(json.id);
   if (id == null || id === 0) return null;
+  const userRaw = asMap(json.user);
+  const userInfo = asMap(json.user_info);
   const user =
-    asMap(json.user).id != null ? asMap(json.user) : asMap(json.user_info);
+    userRaw.id != null || userRaw.user_id != null
+      ? userRaw
+      : userInfo.id != null || userInfo.user_id != null
+        ? userInfo
+        : userRaw;
   const likeStatus = asMap(json.like_status);
   const like = asMap(likeStatus.like);
   const dislike = asMap(likeStatus.dislike);
   const rawContent = `${json.content ?? ''}`;
-  const authorId = asInt(user.id ?? user.user_id ?? json.user_id);
+  const authorId = asInt(
+    user.id ?? user.user_id ?? json.user_id ?? json.author_id ?? user.member_id,
+  );
   const badges = parseUserBadgeIds(user.badges ?? json.badges);
   return {
     id,
