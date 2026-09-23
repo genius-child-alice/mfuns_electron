@@ -158,3 +158,29 @@ export async function searchUsers(keyword, page = 1, size = SEARCH_PAGE_SIZE) {
   const meta = parseSearchPageMeta(data, page, size, items.length);
   return { items, ...meta, page };
 }
+
+/**
+ * @ 联想：与官网一致，允许空关键字仍请求 `/v1/search/user`。
+ * @param {string} keyword
+ * @param {number} [page]
+ * @param {number} [size]
+ * @returns {Promise<SearchUserPage>}
+ */
+export async function searchUsersForMention(keyword, page = 1, size = 10) {
+  const user = `${keyword ?? ''}`.trim();
+  try {
+    const data = await apiGet('/v1/search/user', { user, page, size });
+    const items = userProfilesFromListData(data);
+    const meta = parseSearchPageMeta(data, page, size, items.length);
+    return { items, ...meta, page };
+  } catch {
+    return {
+      items: [],
+      total: 0,
+      totalPages: 1,
+      hasNext: false,
+      exactTotalPages: true,
+      page: 1,
+    };
+  }
+}

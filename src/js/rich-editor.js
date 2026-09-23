@@ -156,6 +156,19 @@ export async function ensureRichEditor(editorKey = 'contribute') {
   if (!slot.quill) {
     slot.quill = new Quill(container, {
       theme: 'snow',
+      formats: [
+        'mention',
+        'header',
+        'bold',
+        'italic',
+        'underline',
+        'strike',
+        'list',
+        'blockquote',
+        'code-block',
+        'link',
+        'image',
+      ],
       modules: {
         toolbar: {
           container: editorKey === 'feed' ? FEED_TOOLBAR_OPTIONS : TOOLBAR_OPTIONS,

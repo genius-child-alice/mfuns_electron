@@ -1,6 +1,6 @@
 import { loadSession } from './auth.js';
 import { mediaSrcForCover } from './content-api.js';
-import { searchUsers } from './search-api.js';
+import { searchUsersForMention } from './search-api.js';
 import { fetchFollowListPage } from './user-profile-api.js';
 import { registerQuillMention } from './quill-mention.js';
 
@@ -33,24 +33,49 @@ export function formatMentionToken(userId, name) {
  * @param {string} query
  * @returns {Promise<MentionUser[]>}
  */
-async function fetchMentionCandidates(query) {
-  const keyword = `${query ?? ''}`.trim();
-  if (keyword) {
-    const page = await searchUsers(keyword, 1, MENTION_SEARCH_SIZE);
-    return page.items.map((user) => ({
-      id: user.id,
-      name: user.name,
-      avatar: user.avatar,
-    }));
-  }
-  const selfId = sessionUserId(loadSession()?.user);
-  if (!selfId) return [];
-  const following = await fetchFollowListPage(selfId, 'follow', -1);
-  return following.slice(0, MENTION_SEARCH_SIZE).map((user) => ({
+function mapMentionUsers(users) {
+  return users.map((user) => ({
     id: user.id,
     name: user.name,
     avatar: user.avatar,
   }));
+}
+
+async function fetchMentionCandidates(query) {
+  const keyword = `${query ?? ''}`.trim();
+  const page = await searchUsersForMention(keyword, 1, MENTION_SEARCH_SIZE);
+  if (page.items.length) return mapMentionUsers(page.items);
+  if (!keyword) {
+    const selfId = sessionUserId(loadSession()?.user);
+    if (!selfId) return [];
+    const following = await fetchFollowListPage(selfId, 'follow', -1);
+    return mapMentionUsers(following.slice(0, MENTION_SEARCH_SIZE));
+  }
+  return [];
+}
+
+/**
+ * @param {string} before
+ * @param {number} at
+ */
+function isMentionTriggerAt(before, at) {
+  if (at < 0) return false;
+  if (at > 0) {
+    const prev = before[at - 1];
+    if (prev === '[') return false;
+    if (/[A-Za-z0-9._-]/.test(prev)) return false;
+  }
+  return true;
+}
+
+/**
+ * @param {string} before
+ * @param {number} at
+ */
+function mentionQueryFromBefore(before, at) {
+  const query = before.slice(at + 1);
+  if (/[\s\n\r\[\]]/.test(query)) return null;
+  return query;
 }
 
 /**
@@ -60,13 +85,9 @@ async function fetchMentionCandidates(query) {
 export function getTextareaMentionState(text, cursor) {
   const before = text.slice(0, cursor);
   const at = before.lastIndexOf('@');
-  if (at < 0) return null;
-  if (at > 0) {
-    const prev = before[at - 1];
-    if (prev !== ' ' && prev !== '\n' && prev !== '\r' && prev !== '\t') return null;
-  }
-  const query = before.slice(at + 1);
-  if (/[\s\n\r\[\]]/.test(query)) return null;
+  if (!isMentionTriggerAt(before, at)) return null;
+  const query = mentionQueryFromBefore(before, at);
+  if (query === null) return null;
   return { start: at, end: cursor, query };
 }
 
@@ -79,19 +100,24 @@ export function getQuillMentionState(quill) {
   const index = sel.index;
   const before = quill.getText(0, index);
   const at = before.lastIndexOf('@');
-  if (at < 0) return null;
-  if (at > 0) {
-    const prev = before[at - 1];
-    if (prev !== ' ' && prev !== '\n' && prev !== '\r' && prev !== '\t') return null;
-  }
-  const query = before.slice(at + 1);
-  if (/[\s\n\r\[\]]/.test(query)) return null;
+  if (!isMentionTriggerAt(before, at)) return null;
+  const query = mentionQueryFromBefore(before, at);
+  if (query === null) return null;
   return { start: at, end: index, query };
 }
 
 /** @type {Set<MentionAutocompleteController>} */
 const mentionControllers = new Set();
 let mentionDismissBound = false;
+
+/**
+ * showModal 的 dialog 在浏览器 top layer，挂在 body 上的浮层会被挡在下面。
+ * @param {HTMLElement} anchor
+ */
+function mentionPanelHost(anchor) {
+  const dialog = anchor.closest('dialog');
+  return dialog ?? document.body;
+}
 
 function bindMentionDismiss() {
   if (mentionDismissBound) return;
@@ -123,7 +149,11 @@ class MentionAutocompleteController {
     this.panel.className = 'mention-autocomplete mention-autocomplete--floating';
     this.panel.setAttribute('role', 'listbox');
     this.panel.hidden = true;
-    document.body.appendChild(this.panel);
+    this.panelHost = mentionPanelHost(anchor);
+    this.panelHost.appendChild(this.panel);
+    if (this.panelHost instanceof HTMLDialogElement) {
+      this.panel.classList.add('mention-autocomplete--in-dialog');
+    }
     mentionControllers.add(this);
     bindMentionDismiss();
 
@@ -213,6 +243,12 @@ class MentionAutocompleteController {
     this.close();
   }
 
+  showPending() {
+    this.syncPanelPosition();
+    this.panel.hidden = false;
+    this.panel.innerHTML = '<p class="mention-autocomplete__empty">加载中…</p>';
+  }
+
   scheduleSearch() {
     const state = this.hooks.getState();
     if (!state) {
@@ -223,7 +259,12 @@ class MentionAutocompleteController {
     const requestId = ++this.requestId;
     this.searchTimer = window.setTimeout(async () => {
       try {
-        const users = await fetchMentionCandidates(state.query);
+        const latest = this.hooks.getState();
+        if (!latest) {
+          if (requestId === this.requestId) this.close();
+          return;
+        }
+        const users = await fetchMentionCandidates(latest.query);
         if (requestId !== this.requestId) return;
         if (!this.hooks.getState()) {
           this.close();
@@ -273,6 +314,7 @@ class MentionAutocompleteController {
       this.close();
       return;
     }
+    this.showPending();
     this.scheduleSearch();
   }
 }
@@ -312,7 +354,10 @@ export function bindTextareaMentionAutocomplete(textarea, options = {}) {
     onSync: options.onSync,
   });
 
-  textarea.addEventListener('input', () => controller.onInput());
+  const syncMention = () => controller.onInput();
+  textarea.addEventListener('input', syncMention);
+  textarea.addEventListener('keyup', syncMention);
+  textarea.addEventListener('click', syncMention);
   textarea.addEventListener('keydown', (event) => {
     controller.handleKeydown(event);
   });

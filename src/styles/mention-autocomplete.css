@@ -27,6 +27,16 @@
   max-width: calc(100vw - 16px);
 }
 
+/* 与 showModal 的评论/弹窗同处 top layer，盖在弹窗内容之上 */
+.mention-autocomplete--in-dialog {
+  z-index: 100;
+  pointer-events: auto;
+}
+
+dialog > .mention-autocomplete--floating {
+  position: fixed;
+}
+
 .mention-autocomplete__item {
   display: flex;
   align-items: center;

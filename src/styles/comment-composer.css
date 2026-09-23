@@ -32,6 +32,7 @@
   background: transparent;
   color: var(--text-primary);
   overflow: visible;
+  position: relative;
 }
 
 .comment-composer-dialog::backdrop {
