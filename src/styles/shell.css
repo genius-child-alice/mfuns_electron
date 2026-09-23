@@ -308,16 +308,51 @@ html[data-theme='light'] .search-field:focus-within {
   color: var(--text-primary);
   outline: none;
   font-size: 13px;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.search-input::-webkit-search-cancel-button,
+.search-input::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
 }
 
 .search-input::placeholder {
   color: var(--text-tertiary);
 }
 
-.search-field .material-symbols-outlined--search {
+.search-field__clear,
+.search-field__submit {
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.search-field__clear:hover,
+.search-field__submit:hover {
   color: var(--text-primary);
-  opacity: 0.88;
+  background: var(--bg-hover);
+}
+
+.search-field__clear-icon,
+.search-field__submit-icon {
+  font-size: 20px;
+}
+
+.search-field__submit {
+  color: var(--text-primary);
+  opacity: 0.92;
 }
 
 .topbar__chrome {

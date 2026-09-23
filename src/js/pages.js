@@ -147,7 +147,6 @@ export function searchPageHtml() {
         <header class="search-page__head">
           <h1 class="search-page__title" id="search-page-query">搜索</h1>
         </header>
-        <p class="search-page__sort-hint" id="search-page-sort-hint">稿件结果按综合排序（与官网一致）</p>
         <nav class="search-page__tabs" id="search-page-tabs" aria-label="搜索分类">
           <button type="button" class="search-page__tab is-active" data-search-tab="all">综合</button>
           <button type="button" class="search-page__tab" data-search-tab="video">视频</button>

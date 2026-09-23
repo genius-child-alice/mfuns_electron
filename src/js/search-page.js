@@ -199,7 +199,6 @@ function syncTabs() {
   const resourcePanel = document.getElementById('search-page-resource');
   const userPanel = document.getElementById('search-page-users');
   const isUser = activeTab === 'user';
-  document.getElementById('search-page-sort-hint')?.toggleAttribute('hidden', isUser);
   resourcePanel?.toggleAttribute('hidden', isUser);
   userPanel?.toggleAttribute('hidden', !isUser);
 }
@@ -530,6 +529,7 @@ async function enterSearchPage(params) {
   syncQueryHeading();
   const searchInput = getTopbarSearchInput();
   if (searchInput) searchInput.value = query;
+  syncTopbarSearchClearVisible();
   await runSearch(1);
 }
 
@@ -596,14 +596,57 @@ function onResultsClick(event) {
   void openContentDetail(preview);
 }
 
-function onTopbarSearchKeydown(event) {
-  if (event.key !== 'Enter') return;
-  event.preventDefault();
+function submitTopbarSearch() {
   const input = getTopbarSearchInput();
-  const keyword = input?.value ?? '';
+  const keyword = `${input?.value ?? ''}`.trim();
+  if (!keyword) {
+    input?.focus();
+    return;
+  }
   query = keyword;
   resetLists();
   openSearch(keyword);
+}
+
+function syncTopbarSearchClearVisible() {
+  const input = getTopbarSearchInput();
+  const clearBtn = document.getElementById('topbar-search-clear');
+  if (!input || !(clearBtn instanceof HTMLButtonElement)) return;
+  const hasText = input.value.trim().length > 0;
+  clearBtn.hidden = !hasText;
+}
+
+function onTopbarSearchKeydown(event) {
+  if (event.key !== 'Enter') return;
+  event.preventDefault();
+  submitTopbarSearch();
+}
+
+let topbarSearchBound = false;
+
+export function bindTopbarSearch() {
+  if (topbarSearchBound) return;
+  topbarSearchBound = true;
+
+  const input = getTopbarSearchInput();
+  input?.addEventListener('keydown', onTopbarSearchKeydown);
+  input?.addEventListener('input', syncTopbarSearchClearVisible);
+
+  document.getElementById('topbar-search-submit')?.addEventListener('click', (event) => {
+    event.preventDefault();
+    submitTopbarSearch();
+  });
+
+  document.getElementById('topbar-search-clear')?.addEventListener('click', (event) => {
+    event.preventDefault();
+    if (input) {
+      input.value = '';
+      syncTopbarSearchClearVisible();
+      input.focus();
+    }
+  });
+
+  syncTopbarSearchClearVisible();
 }
 
 export function onSearchPageEnter() {
@@ -615,8 +658,6 @@ export function onSearchPageEnter() {
 export function bindSearchPage() {
   if (bound) return;
   bound = true;
-
-  getTopbarSearchInput()?.addEventListener('keydown', onTopbarSearchKeydown);
 
   document.getElementById('search-page-tabs')?.addEventListener('click', onTabClick);
   document.getElementById('search-page-pager')?.addEventListener('click', onPagerClick);

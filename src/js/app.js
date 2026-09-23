@@ -152,10 +152,30 @@ function renderShell() {
           </div>
           <div class="topbar__actions app-drag">
             <div class="topbar__search app-no-drag">
-              <label class="search-field">
-                <input type="search" class="search-input" id="topbar-search-input" placeholder="搜索视频、文章或用户" aria-label="搜索" enterkeyhint="search" />
-                ${materialIcon('search', 'material-symbols-outlined--search')}
-              </label>
+              <div class="search-field">
+                <input
+                  type="search"
+                  class="search-input"
+                  id="topbar-search-input"
+                  placeholder="搜索视频、文章或用户"
+                  aria-label="搜索"
+                  enterkeyhint="search"
+                  autocomplete="off"
+                />
+                <button
+                  type="button"
+                  class="search-field__clear"
+                  id="topbar-search-clear"
+                  hidden
+                  aria-label="清除搜索"
+                >${materialIcon('close', 'search-field__clear-icon')}</button>
+                <button
+                  type="button"
+                  class="search-field__submit"
+                  id="topbar-search-submit"
+                  aria-label="搜索"
+                >${materialIcon('search', 'search-field__submit-icon')}</button>
+              </div>
             </div>
             <div class="topbar__chrome app-no-drag" aria-label="窗口控制">
               <div class="window-controls">
@@ -765,6 +785,7 @@ function bootApp() {
   renderShell();
   bindWindowControls();
   bindNavigation();
+  void import('./search-page.js').then((mod) => mod.bindTopbarSearch());
   bindNavigationShortcuts();
   bindSettings();
   initLazyPageBind({ onSettingsUserUpdated: () => syncLoginUi() });
