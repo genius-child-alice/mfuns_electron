@@ -1074,7 +1074,8 @@ export function setPage(pageId, options = {}) {
     .querySelector('.btn-refresh')
     ?.toggleAttribute(
       'hidden',
-      pageId === 'watch' ||
+      pageId === 'home' ||
+        pageId === 'watch' ||
         pageId === 'article' ||
         pageId === 'space' ||
         pageId === 'follow-list' ||

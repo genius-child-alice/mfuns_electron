@@ -15,13 +15,11 @@ import { videoGridSkeletonHtml } from './skeleton-ui.js';
 
 /** @typedef {'recommend' | 'hot' | 'category'} HomeTabId */
 
-const PAGE_SIZE = 20;
+/** 与 `fetchRecommendList` 默认及官方客户端首屏一致 */
+const PAGE_SIZE = 24;
 const RECOMMEND_SIZE_STEP = PAGE_SIZE;
-const MAX_RECOMMEND_SIZE = 200;
-const MAX_CATEGORY_ITEMS = 100;
-const CATEGORY_FETCH_SIZE = 20;
-const SCROLL_PREFETCH_MIN_PX = 560;
-const SCROLL_PREFETCH_VIEWPORT_RATIO = 1.5;
+/** 与动态页一致：接近底部再加载 */
+const SCROLL_LOAD_MORE_PX = 320;
 
 /** @type {HomeTabId} */
 let activeHomeTab = 'recommend';
@@ -102,24 +100,6 @@ function syncCategorySelection(all) {
 
 function renderCategoryChip(cat, active, attrName) {
   return `<button type="button" class="home-category-strip__item ${active ? 'is-active' : ''}" ${attrName}="${cat.id}">${escapeHtml(cat.name)}</button>`;
-}
-
-/**
- * 与 Flutter `AppController.mergeRecommendations` 一致：新内容在前、去重、上限 100。
- * @param {import('./content-api.js').ContentPreview[]} fresh
- * @param {import('./content-api.js').ContentPreview[]} existing
- */
-function mergeRecommendations(fresh, existing) {
-  const seen = new Set();
-  /** @type {import('./content-api.js').ContentPreview[]} */
-  const merged = [];
-  for (const item of [...fresh, ...existing]) {
-    const key = `${item.type}:${item.id}`;
-    if (!item.id || seen.has(key)) continue;
-    seen.add(key);
-    merged.push(item);
-  }
-  return merged.length > MAX_CATEGORY_ITEMS ? merged.slice(0, MAX_CATEGORY_ITEMS) : merged;
 }
 
 function formatCount(n) {
@@ -321,28 +301,24 @@ function isHomePageVisible() {
   return home != null && !home.hidden;
 }
 
-function getScrollPrefetchLead(clientHeight) {
-  return Math.max(SCROLL_PREFETCH_MIN_PX, clientHeight * SCROLL_PREFETCH_VIEWPORT_RATIO);
-}
-
-function shouldPrefetchMore(main) {
+function shouldLoadMoreOnScroll(main) {
   const { scrollTop, clientHeight, scrollHeight } = main;
   const distanceToEnd = scrollHeight - (scrollTop + clientHeight);
-  return distanceToEnd <= getScrollPrefetchLead(clientHeight);
+  return distanceToEnd <= SCROLL_LOAD_MORE_PX;
 }
 
 function schedulePrefetchCheck() {
   requestAnimationFrame(() => {
     if (!isHomePageVisible() || !hasMore || loading) return;
     const main = document.getElementById('main-content');
-    if (!main || !shouldPrefetchMore(main)) return;
+    if (!main || !shouldLoadMoreOnScroll(main)) return;
     void loadMoreHomeFeed().then(() => schedulePrefetchCheck());
   });
 }
 
 /**
  * @param {number} categoryId
- * @param {'replace' | 'append' | 'merge'} [mode]
+ * @param {'replace' | 'append'} [mode]
  * @param {number} [gen]
  */
 async function loadCategoryContents(categoryId, mode = 'replace', gen = feedLoadGen) {
@@ -350,15 +326,6 @@ async function loadCategoryContents(categoryId, mode = 'replace', gen = feedLoad
   selectedCategoryId = categoryId;
   renderCategoryStrip();
   syncCategoryStripVisible();
-
-  if (mode === 'merge') {
-    const fresh = await fetchRecommendByCategory(categoryId, CATEGORY_FETCH_SIZE);
-    if (!isFeedLoadCurrent(gen)) return;
-    if (fresh.length === 0) return;
-    shownItems = mergeRecommendations(fresh, shownItems);
-    setGridHtml(shownItems.map((item) => renderVideoCard(item)).join(''));
-    return;
-  }
 
   const switchingCategory =
     previousCategoryId == null || previousCategoryId !== categoryId;
@@ -370,10 +337,6 @@ async function loadCategoryContents(categoryId, mode = 'replace', gen = feedLoad
   }
 
   if (mode === 'append') {
-    if (categoryRecommendSize >= MAX_RECOMMEND_SIZE) {
-      hasMore = false;
-      return;
-    }
     categoryRecommendSize += RECOMMEND_SIZE_STEP;
     const items = await fetchRecommendByCategory(categoryId, categoryRecommendSize);
     if (!isFeedLoadCurrent(gen)) return;
@@ -384,7 +347,7 @@ async function loadCategoryContents(categoryId, mode = 'replace', gen = feedLoad
       return;
     }
     appendVideoCards(newItems);
-    hasMore = categoryRecommendSize < MAX_RECOMMEND_SIZE;
+    hasMore = true;
     return;
   }
 
@@ -401,30 +364,7 @@ async function loadCategoryContents(categoryId, mode = 'replace', gen = feedLoad
 
   shownItems = [...items];
   setGridHtml(shownItems.map((item) => renderVideoCard(item)).join(''));
-  hasMore = categoryRecommendSize < MAX_RECOMMEND_SIZE;
-}
-
-async function refreshRecommendMerge() {
-  if (loading) return;
-  const gen = startFeedLoad();
-  loading = true;
-  setStatus('');
-  try {
-    const fresh = await fetchRecommendList(CATEGORY_FETCH_SIZE);
-    if (!isFeedLoadCurrent(gen)) return;
-    if (fresh.length === 0) return;
-    shownItems = mergeRecommendations(fresh, shownItems);
-    setGridHtml(shownItems.map((item) => renderVideoCard(item)).join(''));
-    hasMore = recommendRequestSize < MAX_RECOMMEND_SIZE;
-  } catch (err) {
-    const message = err instanceof Error ? err.message : '刷新失败';
-    setStatus(message, true);
-  } finally {
-    if (isFeedLoadCurrent(gen)) {
-      loading = false;
-      schedulePrefetchCheck();
-    }
-  }
+  hasMore = items.length > 0;
 }
 
 /**
@@ -488,7 +428,7 @@ export async function loadHomeFeed(tabId = activeHomeTab) {
       return;
     }
     recommendRequestSize = PAGE_SIZE;
-    hasMore = true;
+    hasMore = items.length > 0;
     setGridHtml(items.map((item) => renderVideoCard(item)).join(''));
     shownItems = [...items];
   } catch (err) {
@@ -537,16 +477,11 @@ export async function loadMoreHomeFeed() {
       return;
     }
 
-    if (recommendRequestSize >= MAX_RECOMMEND_SIZE) {
-      hasMore = false;
-      return;
-    }
-
     recommendRequestSize += RECOMMEND_SIZE_STEP;
     const items = await fetchRecommendList(recommendRequestSize);
     if (!isFeedLoadCurrent(gen)) return;
-    const seen = new Set(shownItems.map((item) => item.id));
-    const newItems = items.filter((item) => !seen.has(item.id));
+    const seen = new Set(shownItems.map((item) => `${item.type}:${item.id}`));
+    const newItems = items.filter((item) => !seen.has(`${item.type}:${item.id}`));
 
     if (newItems.length === 0) {
       hasMore = false;
@@ -554,7 +489,7 @@ export async function loadMoreHomeFeed() {
     }
 
     appendVideoCards(newItems);
-    hasMore = recommendRequestSize < MAX_RECOMMEND_SIZE;
+    hasMore = true;
   } catch (err) {
     const message = err instanceof Error ? err.message : '加载更多失败';
     setStatus(message, true);
@@ -570,7 +505,7 @@ export async function loadMoreHomeFeed() {
 function onMainContentScroll() {
   if (!isHomePageVisible() || !hasMore || loading) return;
   const main = document.getElementById('main-content');
-  if (!main || !shouldPrefetchMore(main)) return;
+  if (!main || !shouldLoadMoreOnScroll(main)) return;
   void loadMoreHomeFeed();
 }
 
@@ -701,18 +636,6 @@ export function bindHomeFeed() {
     categoryStripBound = true;
     getCategoryStripEl()?.addEventListener('click', onCategoryStripClick);
   }
-
-  document.querySelector('.btn-refresh')?.addEventListener('click', () => {
-    if (activeHomeTab === 'category' && selectedCategoryId != null) {
-      void loadCategoryContents(selectedCategoryId, 'merge');
-      return;
-    }
-    if (activeHomeTab === 'recommend') {
-      void refreshRecommendMerge();
-      return;
-    }
-    loadHomeFeed(activeHomeTab);
-  });
 
   document.getElementById('home-category-open-list')?.addEventListener('click', () => {
     if (selectedCategoryId == null) return;
