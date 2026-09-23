@@ -45,11 +45,6 @@ let hasMore = true;
 
 let recommendRequestSize = PAGE_SIZE;
 
-/** @type {import('./content-api.js').ContentPreview[] | null} */
-let hotFilteredCache = null;
-
-let hotShownCount = 0;
-
 /** @type {import('./content-api.js').CategoryNode[]} */
 let categories = [];
 
@@ -123,6 +118,39 @@ function escapeHtml(text) {
     .replace(/"/g, '&quot;');
 }
 
+/**
+ * 与 Flutter 首页热门一致：按播放量降序。
+ * @param {import('./content-api.js').ContentPreview[]} items
+ */
+function sortHotRankings(items) {
+  return [...items].sort((a, b) => (b.views ?? 0) - (a.views ?? 0));
+}
+
+/**
+ * @param {import('./content-api.js').ContentPreview} item
+ * @param {number} rank
+ */
+export function renderHotRankingCard(item, rank) {
+  const coverSrc = mediaSrcForCover(item.cover);
+  const cover = coverSrc
+    ? `<img class="home-hot-rank-card__cover" src="${escapeHtml(coverSrc)}" alt="" loading="lazy" decoding="async" />`
+    : `<div class="home-hot-rank-card__cover home-hot-rank-card__cover--ph" aria-hidden="true"></div>`;
+  const rankClass =
+    rank <= 3 ? ' home-hot-rank-card__rank home-hot-rank-card__rank--top' : ' home-hot-rank-card__rank';
+
+  return `
+    <article class="home-hot-rank-card video-card" data-content-id="${escapeHtml(item.id)}" data-content-type="${item.type}">
+      <span class="${rankClass.trim()}" aria-label="第 ${rank} 名">${rank}</span>
+      <div class="home-hot-rank-card__media">${cover}</div>
+      <div class="home-hot-rank-card__body">
+        <h3 class="home-hot-rank-card__title video-card__title">${escapeHtml(item.title)}</h3>
+        <p class="home-hot-rank-card__stats video-card__sub">
+          <span>${formatCount(item.likes)} 赞 · ${formatCount(item.comments)} 评论 · ${formatCount(item.views)} 浏览</span>
+        </p>
+      </div>
+    </article>`;
+}
+
 export function renderVideoCard(item) {
   const hue = Number.parseInt(item.id, 10) % 360 || 200;
   const coverSrc = mediaSrcForCover(item.cover);
@@ -181,6 +209,29 @@ function syncCategoryStripVisible() {
   const openListBtn = document.getElementById('home-category-open-list');
   if (openListBtn) openListBtn.hidden = !isCategoryTab || selectedCategoryId == null;
   document.getElementById('main-content')?.classList.toggle('content--home-category', isCategoryTab);
+  syncHomeFeedGridLayout();
+}
+
+function syncHomeFeedGridLayout() {
+  const isHotTab = activeHomeTab === 'hot';
+  getGridEl()?.classList.toggle('content-grid--hot-rank', isHotTab);
+  document.getElementById('main-content')?.classList.toggle('content--home-hot', isHotTab);
+}
+
+function setHotGridLoading() {
+  const rows = Array.from({ length: 8 }, () => '<div class="home-hot-rank-card home-hot-rank-card--skeleton" aria-hidden="true"></div>');
+  setGridHtml(rows.join(''));
+}
+
+/**
+ * @param {import('./content-api.js').ContentPreview[]} items
+ */
+function renderHomeFeedItems(items) {
+  if (activeHomeTab === 'hot') {
+    setGridHtml(items.map((item, index) => renderHotRankingCard(item, index + 1)).join(''));
+    return;
+  }
+  setGridHtml(items.map((item) => renderVideoCard(item)).join(''));
 }
 
 function selectedCategoryLabel() {
@@ -238,8 +289,6 @@ function resetFeedState() {
   shownItems = [];
   hasMore = true;
   recommendRequestSize = PAGE_SIZE;
-  hotFilteredCache = null;
-  hotShownCount = 0;
   categoryRecommendSize = PAGE_SIZE;
   removeLoadMoreIndicator();
 }
@@ -401,22 +450,23 @@ export async function loadHomeFeed(tabId = activeHomeTab) {
       return;
     }
 
-    setGridLoading();
+    if (tabId === 'hot') {
+      setHotGridLoading();
+    } else {
+      setGridLoading();
+    }
 
     if (tabId === 'hot') {
-      const items = await fetchHotList();
+      const items = sortHotRankings(await fetchHotList());
       if (!isFeedLoadCurrent(gen)) return;
-      hotFilteredCache = items;
-      if (hotFilteredCache.length === 0) {
-        hasMore = false;
+      hasMore = false;
+      if (items.length === 0) {
         setGridHtml('<p class="home-feed__empty">暂无内容</p>');
+        shownItems = [];
         return;
       }
-      const first = hotFilteredCache.slice(0, PAGE_SIZE);
-      hotShownCount = first.length;
-      hasMore = hotShownCount < hotFilteredCache.length;
-      setGridHtml(first.map((item) => renderVideoCard(item)).join(''));
-      shownItems = [...first];
+      shownItems = [...items];
+      renderHomeFeedItems(shownItems);
       return;
     }
 
@@ -462,18 +512,7 @@ export async function loadMoreHomeFeed() {
     }
 
     if (activeHomeTab === 'hot') {
-      if (!hotFilteredCache) {
-        hasMore = false;
-        return;
-      }
-      const next = hotFilteredCache.slice(hotShownCount, hotShownCount + PAGE_SIZE);
-      if (next.length === 0) {
-        hasMore = false;
-        return;
-      }
-      appendVideoCards(next);
-      hotShownCount += next.length;
-      hasMore = hotShownCount < hotFilteredCache.length;
+      hasMore = false;
       return;
     }
 
@@ -576,8 +615,6 @@ export function captureHomeFeedState() {
     shownItems,
     hasMore,
     recommendRequestSize,
-    hotFilteredCache,
-    hotShownCount,
     categories,
     categoriesLoaded,
     selectedParentCategoryId,
@@ -596,8 +633,6 @@ export function restoreHomeFeedState(state) {
   shownItems = state.shownItems ?? [];
   hasMore = state.hasMore ?? true;
   recommendRequestSize = state.recommendRequestSize ?? PAGE_SIZE;
-  hotFilteredCache = state.hotFilteredCache ?? null;
-  hotShownCount = state.hotShownCount ?? 0;
   categories = state.categories ?? [];
   categoriesLoaded = state.categoriesLoaded ?? false;
   selectedParentCategoryId = state.selectedParentCategoryId ?? null;
@@ -613,7 +648,7 @@ export function restoreHomeFeedState(state) {
   if (shownItems.length === 0) {
     setGridHtml('<p class="home-feed__empty">暂无内容</p>');
   } else {
-    setGridHtml(shownItems.map((item) => renderVideoCard(item)).join(''));
+    renderHomeFeedItems(shownItems);
   }
   restoreScrollTop('main-content', state.scrollTop ?? 0);
   schedulePrefetchCheck();
