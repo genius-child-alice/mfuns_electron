@@ -861,7 +861,6 @@ export function bindUserSpace() {
   userSpaceBound = true;
 
   document.getElementById('user-space-back')?.addEventListener('click', closeUserSpace);
-  document.getElementById('btn-open-my-space')?.addEventListener('click', openMySpace);
 
   document.querySelectorAll('[data-space-tab]').forEach((btn) => {
     btn.addEventListener('click', () => {

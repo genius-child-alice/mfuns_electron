@@ -1156,6 +1156,10 @@ export function bindMinePage() {
     void import('./member-center-page.js').then((mod) => mod.openMemberCenter('hub'));
   });
 
+  document.getElementById('btn-open-my-space')?.addEventListener('click', () => {
+    void import('./user-space.js').then((mod) => mod.openMySpace());
+  });
+
   document.getElementById('mine-open-follows')?.addEventListener('click', () => {
     const session = loadSession();
     const userId = session?.user?.id ?? session?.user?.user_id;
