@@ -148,7 +148,10 @@ function commentPlainText(raw) {
         if (insert && typeof insert === 'object') {
           const mention = /** @type {Record<string, unknown>} */ (insert).mention;
           if (mention && typeof mention === 'object') {
-            return `@${mention.value ?? ''}`;
+            const mentionId = `${mention.id ?? ''}`.trim();
+            const mentionName = `${mention.value ?? ''}`.trim();
+            if (mentionId && mentionName) return `[@${mentionId}:${mentionName}]`;
+            if (mentionName) return `@${mentionName}`;
           }
         }
         return '';
@@ -349,6 +352,41 @@ function pickCommentCreatedAt(json) {
   );
 }
 
+/**
+ * @param {unknown} value
+ */
+function stringifyCommentContent(value) {
+  if (value == null) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value !== 'object') return `${value}`;
+  if (Array.isArray(value)) {
+    return JSON.stringify({ ops: value });
+  }
+  const map = /** @type {Record<string, unknown>} */ (value);
+  if (Array.isArray(map.ops)) {
+    return JSON.stringify(map);
+  }
+  return `${value}`;
+}
+
+/**
+ * @param {Record<string, unknown>} json
+ */
+function normalizeCommentRawContent(json) {
+  const primary =
+    json.content ??
+    json.rich_content ??
+    json.richContent ??
+    json.html ??
+    json.text ??
+    '';
+  let raw = stringifyCommentContent(primary).trim();
+  if (!raw && typeof json.content_html === 'string') {
+    raw = json.content_html.trim();
+  }
+  return raw;
+}
+
 function parseComment(raw) {
   const json = asMap(raw);
   const id = asInt(json.id);
@@ -364,7 +402,7 @@ function parseComment(raw) {
   const likeStatus = asMap(json.like_status);
   const like = asMap(likeStatus.like);
   const dislike = asMap(likeStatus.dislike);
-  const rawContent = `${json.content ?? ''}`;
+  const rawContent = normalizeCommentRawContent(json);
   const authorId = asInt(
     user.id ?? user.user_id ?? json.user_id ?? json.author_id ?? user.member_id,
   );
@@ -465,7 +503,7 @@ export async function fetchCommentList(areaId, page = 1, order = 'desc') {
     area_id: areaId,
     page,
     order,
-    html: 1,
+    html: 0,
     size: COMMENT_LIST_PAGE_SIZE,
   });
   return parseCommentList(data);
@@ -479,7 +517,7 @@ export async function fetchCommentReplies(commentId, page = 1) {
   const data = await apiGet('/v1/comment/reply_list', {
     comment_id: commentId,
     page,
-    html: 1,
+    html: 0,
   });
   return parseCommentList(data);
 }
@@ -536,7 +574,7 @@ export async function fetchRootCommentPage(areaId, page, order, pinFloorId = 0) 
  * @param {number} commentId
  */
 export async function fetchCommentById(commentId) {
-  const data = await apiGet('/v1/comment/get', { id: commentId, html: 1 });
+  const data = await apiGet('/v1/comment/get', { id: commentId, html: 0 });
   const comment = asMap(asMap(data).comment);
   const parsed = parseComment(comment);
   if (!parsed) throw new Error('评论不存在');

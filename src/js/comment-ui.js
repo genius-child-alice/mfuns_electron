@@ -1,6 +1,6 @@
 import { notify } from './notice-ui.js';
 import { materialIcon } from './icons.js';
-import { mountRichContent } from './rich-content.js';
+import { mountRichContent, resolveCommentMountSource } from './rich-content.js';
 import { requireLogin } from './login-ui.js';
 import { resolveMineUserId } from './favorite-api.js';
 import {
@@ -476,7 +476,8 @@ export function renderCommentsHtml(comments, options) {
  */
 function mountCommentRichTextById(bodyIdPrefix, comment) {
   const el = document.getElementById(`${bodyIdPrefix}-${comment.id}`);
-  if (el && comment.rawContent) mountRichContent(el, comment.rawContent);
+  const source = resolveCommentMountSource(comment);
+  if (el && source) mountRichContent(el, source);
 }
 
 export function mountAllCommentRichText(comments, replyStore, options) {
@@ -913,6 +914,7 @@ export function bindCommentLikeActions(root, options) {
 export function mountCommentRichText(comments, bodyIdPrefix) {
   comments.forEach((item) => {
     const el = document.getElementById(`${bodyIdPrefix}-${item.id}`);
-    if (el && item.rawContent) mountRichContent(el, item.rawContent);
+    const source = resolveCommentMountSource(item);
+    if (el && source) mountRichContent(el, source);
   });
 }

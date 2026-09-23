@@ -90,9 +90,28 @@ dialog > .mention-autocomplete--floating {
   color: var(--text-secondary);
 }
 
-.ql-mention {
+.ql-mention,
+.mention-chip {
   color: #00aeec;
   font-weight: 500;
+  cursor: default;
+}
+
+.mention-visual-input {
+  min-height: 140px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.mention-visual-input:focus {
+  outline: none;
+}
+
+.mention-visual-input.is-empty::before {
+  content: attr(data-placeholder);
+  color: var(--text-tertiary);
+  pointer-events: none;
 }
 
 .contribute-rich-editor .mention-autocomplete-anchor .ql-container {

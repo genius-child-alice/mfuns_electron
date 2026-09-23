@@ -111,6 +111,14 @@
   display: block;
 }
 
+.comment-composer__body .mention-autocomplete-anchor textarea[hidden] {
+  display: none !important;
+}
+
+.comment-composer__input.mention-visual-input {
+  display: block;
+}
+
 .comment-composer__input {
   width: 100%;
   min-height: 140px;

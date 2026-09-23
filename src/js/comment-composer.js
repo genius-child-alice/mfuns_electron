@@ -9,8 +9,12 @@ import {
 } from './video-api.js';
 import { fetchEmojiPackGroups } from './emoji-pack.js';
 import {
-  bindTextareaMentionAutocomplete,
+  bindVisualMentionInput,
+  clearComposerInput,
+  getVisualMentionInput,
+  insertComposerText,
   insertMentionTokenAtCursor,
+  wrapComposerSelection,
 } from './mention-autocomplete.js';
 
 const DEFAULT_MAX_LENGTH = COMMENT_MAX_LENGTH;
@@ -141,7 +145,7 @@ function syncComposerReplyMode() {
 function resetComposer() {
   imagePaths = [];
   const input = getInput();
-  if (input) input.value = '';
+  if (input) clearComposerInput(input);
   const fileInput = getFileInput();
   if (fileInput) fileInput.value = '';
   renderImagePreviews();
@@ -206,15 +210,15 @@ async function ensureOfficialStickerPanel() {
  * @param {HTMLTextAreaElement} input
  * @param {string} insert
  */
+function focusComposerInput(input) {
+  const visual = getVisualMentionInput(input);
+  if (visual) visual.focus();
+  else input.focus();
+}
+
 function insertAtCursor(input, insert) {
-  const start = input.selectionStart ?? input.value.length;
-  const end = input.selectionEnd ?? start;
-  const before = input.value.slice(0, start);
-  const after = input.value.slice(end);
-  input.value = `${before}${insert}${after}`;
-  const cursor = start + insert.length;
-  input.setSelectionRange(cursor, cursor);
-  input.focus();
+  insertComposerText(input, insert);
+  focusComposerInput(input);
   syncCount();
 }
 
@@ -223,20 +227,8 @@ function insertAtCursor(input, insert) {
  * @param {string} wrap
  */
 function wrapSelection(input, wrap) {
-  const start = input.selectionStart ?? 0;
-  const end = input.selectionEnd ?? start;
-  const selected = input.value.slice(start, end);
-  let before = wrap;
-  let after = wrap;
-  if (wrap === '<u></u>') {
-    before = '<u>';
-    after = '</u>';
-  }
-  const next = `${input.value.slice(0, start)}${before}${selected}${after}${input.value.slice(end)}`;
-  input.value = next;
-  const cursor = start + before.length + selected.length + after.length;
-  input.setSelectionRange(cursor, cursor);
-  input.focus();
+  wrapComposerSelection(input, wrap);
+  focusComposerInput(input);
   syncCount();
 }
 
@@ -339,7 +331,9 @@ export async function openCommentComposer(options) {
   }
 
   if (!dialog.open) dialog.showModal();
-  window.requestAnimationFrame(() => input.focus());
+  window.requestAnimationFrame(() => {
+    focusComposerInput(input);
+  });
 }
 
 export function closeCommentComposer() {
@@ -357,7 +351,7 @@ async function submitComposer() {
   const text = input.value.trim();
   if (!text && imagePaths.length === 0) {
     notify('请输入内容或添加图片', 'warning');
-    input.focus();
+    focusComposerInput(input);
     return;
   }
 
@@ -412,7 +406,8 @@ export function bindCommentComposer() {
   });
 
   if (input && !mentionController) {
-    mentionController = bindTextareaMentionAutocomplete(input, { onSync: syncCount });
+    const boundInput = bindVisualMentionInput(input, { onSync: syncCount });
+    mentionController = boundInput?.controller ?? null;
   }
 
   input?.addEventListener('input', syncCount);

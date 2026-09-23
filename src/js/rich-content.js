@@ -87,6 +87,29 @@ function replaceBracketMentionsInPlainText(value) {
 }
 
 /**
+ * 评论区常见：服务端或 Quill 文本里直接带 [@id:昵称]，在 HTML 层强制转成 mention 节点。
+ * @param {string} html
+ */
+function replaceBracketMentionsInHtml(html) {
+  if (!html || !html.includes('[@')) return html;
+  return html.replace(BRACKET_MENTION_RE, (_match, id, name) => {
+    const uid = `${id ?? ''}`.trim();
+    if (!uid) return _match;
+    const label = `${name ?? ''}`.trim() || '用户';
+    const text = label.startsWith('@') ? label : `@${label}`;
+    return `<span class="markdown-body__mention" data-author-profile="${escapeHtmlText(uid)}" role="link" tabindex="0">${escapeHtmlText(text)}</span>`;
+  });
+}
+
+/**
+ * @param {string} html
+ */
+function sanitizeRichHtml(html) {
+  const safe = DOMPurify.sanitize(html, PURIFY_CONFIG);
+  return replaceBracketMentionsInHtml(safe);
+}
+
+/**
  * @param {string} value
  */
 function isApiRichHtml(value) {
@@ -195,16 +218,21 @@ function replaceBracketMentionsInDom(root) {
  * 服务端 html:1 正文：保留结构，将 @ 提及替换为可点击的 mention 节点。
  * @param {string} html
  */
-function upgradeMentionsInApiHtml(html) {
-  const doc = new DOMParser().parseFromString(html, 'text/html');
-  replaceBracketMentionsInDom(doc.body);
-  doc.body.querySelectorAll('a, span').forEach((el) => {
+function upgradeMentionsInSubtree(root) {
+  replaceBracketMentionsInDom(root);
+  root.querySelectorAll('a, span').forEach((el) => {
     if (!isMentionElement(el)) return;
     const id = mentionUserIdFromElement(el);
     if (!id) return;
     const label = (el.textContent ?? '').trim() || '@用户';
+    const doc = root.ownerDocument ?? document;
     el.replaceWith(createMentionSpan(doc, id, label));
   });
+}
+
+function upgradeMentionsInApiHtml(html) {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  upgradeMentionsInSubtree(doc.body);
   return doc.body.innerHTML;
 }
 
@@ -286,13 +314,15 @@ export function quillOpsToMarkdown(ops) {
     const pieces = insert.split('\n');
     for (let index = 0; index < pieces.length; index += 1) {
       if (pieces[index]) {
-        line += formatQuillInline(pieces[index], attributes);
+        line += replaceBracketMentionsInPlainText(formatQuillInline(pieces[index], attributes));
       }
       if (index < pieces.length - 1) finishLine(attributes);
     }
   }
   if (line) finishLine({});
-  return output.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  return replaceBracketMentionsInPlainText(
+    output.join('\n').replace(/\n{3,}/g, '\n\n').trim(),
+  );
 }
 
 /**
@@ -460,7 +490,7 @@ export function normalizeRichContent(source) {
   if (!/<[A-Za-z][^>]*>/.test(value)) {
     return replaceBracketMentionsInPlainText(value);
   }
-  return htmlToMarkdown(value);
+  return replaceBracketMentionsInPlainText(htmlToMarkdown(value));
 }
 
 marked.setOptions({
@@ -469,6 +499,11 @@ marked.setOptions({
 });
 
 marked.use({
+  hooks: {
+    postprocess(html) {
+      return replaceBracketMentionsInHtml(html);
+    },
+  },
   renderer: {
     /**
      * @param {{ href?: string | null, title?: string | null, text?: string, tokens?: unknown[] }} token
@@ -522,6 +557,10 @@ const PURIFY_CONFIG = {
     'class',
     'data-sticker-key',
     'data-author-profile',
+    'data-id',
+    'data-value',
+    'data-user-id',
+    'data-mention-id',
     'role',
     'tabindex',
     'width',
@@ -538,16 +577,24 @@ export function renderRichMarkdownHtml(source) {
   const value = `${source ?? ''}`.trim();
   if (!value) return '';
   if (isApiRichHtml(value)) {
-    return DOMPurify.sanitize(upgradeMentionsInApiHtml(value), PURIFY_CONFIG);
+    return sanitizeRichHtml(upgradeMentionsInApiHtml(value));
   }
   const markdown = normalizeRichContent(value);
   if (!markdown) return '';
   const rawHtml = marked.parse(markdown, { async: false });
-  const safe =
-    typeof rawHtml === 'string'
-      ? DOMPurify.sanitize(rawHtml, PURIFY_CONFIG)
-      : DOMPurify.sanitize(String(rawHtml), PURIFY_CONFIG);
-  return safe;
+  const html = typeof rawHtml === 'string' ? rawHtml : String(rawHtml);
+  return sanitizeRichHtml(html);
+}
+
+/**
+ * 评论挂载用：优先 Quill/HTML 原文，否则含 [@id:名] 的纯文本。
+ * @param {{ rawContent?: string, content?: string }} comment
+ */
+export function resolveCommentMountSource(comment) {
+  const raw = `${comment.rawContent ?? ''}`.trim();
+  if (raw) return raw;
+  const plain = `${comment.content ?? ''}`.trim();
+  return plain;
 }
 
 /**
@@ -606,6 +653,7 @@ export function enhanceRichContentMedia(root) {
  */
 export function mountRichContent(element, source) {
   element.innerHTML = renderRichMarkdownHtml(source);
+  upgradeMentionsInSubtree(element);
   enhanceRichContentMedia(element);
   void enhanceRichContentStickers(element);
 }

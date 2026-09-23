@@ -130,6 +130,16 @@
   margin-bottom: 6px;
 }
 
+.watch-comment__text.markdown-body .markdown-body__mention {
+  color: #00aeec;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.watch-comment__text.markdown-body .markdown-body__mention:hover {
+  text-decoration: underline;
+}
+
 /* 动态/信息流：标题与正文不用主题色强调 */
 .markdown-body.markdown-body--feed {
   color: inherit;

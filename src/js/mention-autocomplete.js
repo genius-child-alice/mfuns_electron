@@ -411,6 +411,11 @@ export function bindQuillMentionAutocomplete(quill, anchor) {
  * @param {string} name
  */
 export function insertMentionTokenAtCursor(input, userId, name) {
+  const visual = getVisualMentionInput(input);
+  if (visual) {
+    visual.insertMention(userId, name);
+    return;
+  }
   const token = formatMentionToken(userId, name);
   if (!token) return;
   const start = input.selectionStart ?? input.value.length;
@@ -420,4 +425,369 @@ export function insertMentionTokenAtCursor(input, userId, name) {
   input.value = `${before}${token}${after}`;
   const cursor = start + token.length;
   input.setSelectionRange(cursor, cursor);
+}
+
+/** @type {WeakMap<HTMLTextAreaElement, VisualMentionInput>} */
+const visualMentionInputs = new WeakMap();
+
+/**
+ * @param {HTMLTextAreaElement} textarea
+ */
+export function getVisualMentionInput(textarea) {
+  return visualMentionInputs.get(textarea) ?? null;
+}
+
+/**
+ * @param {HTMLTextAreaElement} textarea
+ * @param {string} text
+ */
+export function insertComposerText(textarea, text) {
+  const visual = getVisualMentionInput(textarea);
+  if (visual) {
+    visual.insertText(text);
+    return;
+  }
+  const start = textarea.selectionStart ?? textarea.value.length;
+  const end = textarea.selectionEnd ?? start;
+  const before = textarea.value.slice(0, start);
+  const after = textarea.value.slice(end);
+  textarea.value = `${before}${text}${after}`;
+  const cursor = start + text.length;
+  textarea.setSelectionRange(cursor, cursor);
+  textarea.focus();
+}
+
+/**
+ * @param {HTMLTextAreaElement} textarea
+ * @param {string} wrap
+ */
+export function wrapComposerSelection(textarea, wrap) {
+  const visual = getVisualMentionInput(textarea);
+  if (visual) {
+    visual.wrapSelection(wrap);
+    return;
+  }
+  const start = textarea.selectionStart ?? 0;
+  const end = textarea.selectionEnd ?? start;
+  const selected = textarea.value.slice(start, end);
+  let before = wrap;
+  let after = wrap;
+  if (wrap === '<u></u>') {
+    before = '<u>';
+    after = '</u>';
+  }
+  textarea.value = `${textarea.value.slice(0, start)}${before}${selected}${after}${textarea.value.slice(end)}`;
+  const cursor = start + before.length + selected.length + after.length;
+  textarea.setSelectionRange(cursor, cursor);
+  textarea.focus();
+}
+
+/**
+ * @param {HTMLTextAreaElement} textarea
+ */
+export function clearComposerInput(textarea) {
+  const visual = getVisualMentionInput(textarea);
+  if (visual) {
+    visual.clear();
+    return;
+  }
+  textarea.value = '';
+}
+
+/**
+ * @param {string} name
+ */
+function mentionChipLabel(name) {
+  const label = `${name ?? ''}`.trim() || '用户';
+  return label.startsWith('@') ? label : `@${label}`;
+}
+
+/**
+ * @param {Document} doc
+ * @param {number | string} userId
+ * @param {string} name
+ */
+function createMentionChip(doc, userId, name) {
+  const chip = doc.createElement('span');
+  chip.className = 'mention-chip';
+  chip.contentEditable = 'false';
+  chip.setAttribute('data-mention-id', `${userId ?? ''}`.trim());
+  chip.setAttribute('data-mention-name', `${name ?? ''}`.trim());
+  chip.textContent = mentionChipLabel(name);
+  return chip;
+}
+
+/**
+ * @param {HTMLElement} root
+ */
+function editorPlainBeforeCaret(root) {
+  const full = serializeVisualEditor(root);
+  const sel = root.ownerDocument.getSelection();
+  if (!sel || sel.rangeCount === 0 || !root.contains(sel.anchorNode)) {
+    return { text: full, cursor: full.length };
+  }
+  const marker = root.ownerDocument.createComment('caret');
+  const range = sel.getRangeAt(0).cloneRange();
+  range.collapse(true);
+  range.insertNode(marker);
+  const text = serializeUntilMarker(root, marker);
+  marker.parentNode?.removeChild(marker);
+  return { text, cursor: text.length };
+}
+
+/**
+ * @param {HTMLElement} root
+ * @param {Comment} marker
+ */
+function serializeUntilMarker(root, marker) {
+  let out = '';
+  let stopped = false;
+  const walk = (node) => {
+    if (stopped) return;
+    if (node === marker) {
+      stopped = true;
+      return;
+    }
+    if (node.nodeType === Node.TEXT_NODE) {
+      out += node.textContent ?? '';
+      return;
+    }
+    if (!(node instanceof HTMLElement)) return;
+    if (node.classList.contains('mention-chip')) {
+      out += '@';
+      return;
+    }
+    if (node.tagName === 'BR') {
+      out += '\n';
+      return;
+    }
+    node.childNodes.forEach(walk);
+    if (!stopped && (node.tagName === 'DIV' || node.tagName === 'P') && node !== root) out += '\n';
+  };
+  root.childNodes.forEach(walk);
+  return out.replace(/\n+$/, '');
+}
+
+/**
+ * @param {HTMLElement} root
+ */
+function serializeVisualEditor(root) {
+  let out = '';
+  const walk = (node) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      out += node.textContent ?? '';
+      return;
+    }
+    if (!(node instanceof HTMLElement)) return;
+    if (node.classList.contains('mention-chip')) {
+      out += formatMentionToken(node.getAttribute('data-mention-id'), node.getAttribute('data-mention-name') ?? '');
+      return;
+    }
+    if (node.tagName === 'BR') {
+      out += '\n';
+      return;
+    }
+    node.childNodes.forEach(walk);
+    if ((node.tagName === 'DIV' || node.tagName === 'P') && node !== root) out += '\n';
+  };
+  root.childNodes.forEach(walk);
+  return out.replace(/\n+$/, '');
+}
+
+/**
+ * @param {HTMLElement} editor
+ */
+function placeCaretAtEnd(editor) {
+  const sel = editor.ownerDocument.getSelection();
+  if (!sel) return;
+  const range = editor.ownerDocument.createRange();
+  range.selectNodeContents(editor);
+  range.collapse(false);
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
+class VisualMentionInput {
+  /**
+   * @param {HTMLTextAreaElement} textarea
+   * @param {MentionAutocompleteController} controller
+   */
+  constructor(textarea, controller) {
+    this.textarea = textarea;
+    this.controller = controller;
+    this.editor = document.createElement('div');
+    this.editor.className = textarea.className;
+    this.editor.classList.add('mention-visual-input');
+    this.editor.setAttribute('contenteditable', 'true');
+    this.editor.setAttribute('role', 'textbox');
+    this.editor.setAttribute('aria-multiline', 'true');
+    const placeholder = textarea.getAttribute('placeholder');
+    if (placeholder) this.editor.setAttribute('data-placeholder', placeholder);
+    textarea.setAttribute('hidden', '');
+    textarea.setAttribute('aria-hidden', 'true');
+    textarea.tabIndex = -1;
+    textarea.parentNode?.insertBefore(this.editor, textarea);
+    this.syncEmpty();
+  }
+
+  syncTextarea() {
+    this.textarea.value = serializeVisualEditor(this.editor);
+    this.syncEmpty();
+  }
+
+  syncEmpty() {
+    this.editor.classList.toggle('is-empty', serializeVisualEditor(this.editor).length === 0);
+  }
+
+  getState() {
+    const { text, cursor } = editorPlainBeforeCaret(this.editor);
+    return getTextareaMentionState(text, cursor);
+  }
+
+  /**
+   * @param {MentionUser} user
+   * @param {{ start: number, end: number, query: string }} state
+   */
+  applyUser(user, state) {
+    const queryLen = Math.max(0, state.end - state.start);
+    if (queryLen > 0) {
+      const sel = this.editor.ownerDocument.getSelection();
+      if (sel && sel.rangeCount > 0 && sel.isCollapsed) {
+        for (let i = 0; i < queryLen; i += 1) {
+          this.editor.ownerDocument.execCommand('delete', false);
+        }
+      }
+    }
+    this.insertChip(user.id, user.name);
+    this.insertText(' ');
+    this.syncTextarea();
+  }
+
+  /**
+   * @param {number | string | null | undefined} userId
+   * @param {string} name
+   */
+  insertChip(userId, name) {
+    const id = `${userId ?? ''}`.trim();
+    if (!id || !`${name ?? ''}`.trim()) return;
+    const sel = this.editor.ownerDocument.getSelection();
+    if (!sel || sel.rangeCount === 0 || !this.editor.contains(sel.anchorNode)) {
+      this.editor.appendChild(createMentionChip(document, id, name));
+      placeCaretAtEnd(this.editor);
+      return;
+    }
+    const range = sel.getRangeAt(0);
+    range.deleteContents();
+    const chip = createMentionChip(document, id, name);
+    range.insertNode(chip);
+    range.setStartAfter(chip);
+    range.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+
+  /**
+   * @param {number | null | undefined} userId
+   * @param {string} name
+   */
+  insertMention(userId, name) {
+    this.insertChip(userId, name);
+    this.syncTextarea();
+    this.editor.focus();
+  }
+
+  /**
+   * @param {string} text
+   */
+  insertText(text) {
+    if (!text) return;
+    this.editor.focus();
+    const sel = this.editor.ownerDocument.getSelection();
+    if (!sel || sel.rangeCount === 0 || !this.editor.contains(sel.anchorNode)) {
+      placeCaretAtEnd(this.editor);
+    }
+    const range = this.editor.ownerDocument.getSelection()?.getRangeAt(0);
+    if (!range) {
+      this.editor.appendChild(document.createTextNode(text));
+      this.syncTextarea();
+      return;
+    }
+    range.deleteContents();
+    const node = document.createTextNode(text);
+    range.insertNode(node);
+    range.setStartAfter(node);
+    range.collapse(true);
+    const nextSel = this.editor.ownerDocument.getSelection();
+    nextSel?.removeAllRanges();
+    nextSel?.addRange(range);
+    this.syncTextarea();
+  }
+
+  /**
+   * @param {string} wrap
+   */
+  wrapSelection(wrap) {
+    let before = wrap;
+    let after = wrap;
+    if (wrap === '<u></u>') {
+      before = '<u>';
+      after = '</u>';
+    }
+    const sel = this.editor.ownerDocument.getSelection();
+    const selected = sel && sel.rangeCount > 0 ? sel.toString() : '';
+    this.insertText(`${before}${selected}${after}`);
+  }
+
+  clear() {
+    this.editor.innerHTML = '';
+    this.textarea.value = '';
+    this.syncEmpty();
+  }
+
+  focus() {
+    this.editor.focus();
+    placeCaretAtEnd(this.editor);
+  }
+}
+
+/**
+ * @param {HTMLTextAreaElement} textarea
+ * @param {{ onSync?: () => void }} [options]
+ */
+export function bindVisualMentionInput(textarea, options = {}) {
+  const existing = visualMentionInputs.get(textarea);
+  if (existing) return { controller: existing.controller, visual: existing };
+
+  const wrap = document.createElement('div');
+  wrap.className = 'mention-autocomplete-anchor';
+  textarea.parentNode?.insertBefore(wrap, textarea);
+  wrap.appendChild(textarea);
+
+  /** @type {VisualMentionInput | null} */
+  let visual = null;
+  const controller = new MentionAutocompleteController(wrap, {
+    getState: () => visual?.getState() ?? null,
+    getPositionEl: () => visual?.editor ?? textarea,
+    applyUser: (user, state) => visual?.applyUser(user, state),
+    onSync: options.onSync,
+  });
+  visual = new VisualMentionInput(textarea, controller);
+  visualMentionInputs.set(textarea, visual);
+
+  const syncMention = () => {
+    visual?.syncTextarea();
+    controller.onInput();
+    options.onSync?.();
+  };
+  visual.editor.addEventListener('input', syncMention);
+  visual.editor.addEventListener('keyup', syncMention);
+  visual.editor.addEventListener('click', syncMention);
+  visual.editor.addEventListener('keydown', (event) => {
+    controller.handleKeydown(event);
+  });
+  visual.editor.addEventListener('blur', () => {
+    window.setTimeout(() => controller.close(), 120);
+  });
+
+  return { controller, visual };
 }
