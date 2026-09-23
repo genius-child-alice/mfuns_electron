@@ -148,9 +148,10 @@ function parseSubmissionVideos(raw) {
       delete extra.content;
       delete extra.title;
       delete extra.meta;
+      const libraryId = asInt(json.content);
       return {
         type: `${json.type ?? 'direct'}`,
-        content: json.content,
+        content: libraryId ?? json.content,
         title: `${json.title ?? ''}`,
         meta: asMap(json.meta),
         extra,
@@ -162,10 +163,10 @@ function parseSubmissionVideos(raw) {
  * @param {SubmissionVideoPart} part
  */
 export function videoPartToJson(part) {
+  const libraryId = asInt(part.content);
   return {
-    ...part.extra,
     type: part.type,
-    content: part.content,
+    content: libraryId ?? part.content,
     title: part.title,
     ...(Object.keys(part.meta).length ? { meta: part.meta } : {}),
   };
@@ -492,7 +493,7 @@ export async function createVideoSubmission(params) {
     categoryId,
     videos,
     tags = [],
-    copyright = 0,
+    copyright = 2,
     cover = '',
     publishTime = null,
     seriesId = null,
@@ -504,7 +505,7 @@ export async function createVideoSubmission(params) {
     cover,
     video: JSON.stringify(videos.map(videoPartToJson)),
     copyright,
-    ...(tags.length ? { tags: tags.join(',') } : {}),
+    tags: tags.join(','),
     ...(seriesId != null && seriesId > 0 ? { series_id: seriesId } : {}),
     ...publishTimePayload(publishTime),
   });
@@ -521,7 +522,7 @@ export async function updateVideoSubmission(params) {
     categoryId,
     videos,
     tags = [],
-    copyright = 0,
+    copyright = 2,
     cover = '',
     publishTime = null,
     seriesId = null,
@@ -531,10 +532,10 @@ export async function updateVideoSubmission(params) {
     cid: categoryId,
     title,
     content: encodeVideoContent(content),
+    cover,
     video: JSON.stringify(videos.map(videoPartToJson)),
     copyright,
-    ...(tags.length ? { tags: tags.join(',') } : {}),
-    ...(cover ? { cover } : {}),
+    tags: tags.join(','),
     ...(seriesId != null && seriesId > 0 ? { series_id: seriesId } : {}),
     ...publishTimePayload(publishTime),
   });
