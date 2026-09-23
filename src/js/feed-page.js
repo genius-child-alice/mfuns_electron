@@ -18,8 +18,12 @@ import {
 } from './timeline-feed-ui.js';
 import { openUserSpace } from './user-space.js';
 import { feedListSkeletonHtml } from './skeleton-ui.js';
-import { fetchLatestMfunsPage, latestMfunsUserParam, latestItemToContentPreview } from './latest-mfuns-api.js';
-import { renderLatestFeedCard, renderLatestFeedListHtml } from './latest-feed-ui.js';
+import {
+  fetchLatestMfunsPage,
+  latestItemToContentPreview,
+  latestMfunsItemToTimelineFeed,
+  latestMfunsUserParam,
+} from './latest-mfuns-api.js';
 import { openContentDetail } from './content-nav.js';
 
 /** @typedef {import('./user-profile-api.js').UserProfile} UserProfile */
@@ -39,6 +43,9 @@ let asideBound = false;
 
 /** @type {number | null} */
 let latestBefore = null;
+
+/** @type {Map<number, import('./latest-mfuns-api.js').LatestMfunsItem>} */
+const latestOpenByCardId = new Map();
 
 /** 距列表底部不足该像素时才加载下一页 */
 const SCROLL_LOAD_MORE_PX = 320;
@@ -120,7 +127,17 @@ function renderFollowAside(users) {
 function resetFeedState() {
   feedStartId = -1;
   latestBefore = null;
+  latestOpenByCardId.clear();
   hasMore = true;
+}
+
+/**
+ * @param {import('./latest-mfuns-api.js').LatestMfunsItem[]} items
+ */
+function rememberLatestForOpen(items) {
+  for (const item of items) {
+    latestOpenByCardId.set(item.id, item);
+  }
 }
 
 /**
@@ -142,27 +159,31 @@ async function loadLatestStream(first) {
   );
 
   const seen = new Set();
-  if (!first) {
-    getListEl()
-      ?.querySelectorAll('[data-latest-stable-id]')
-      .forEach((el) => seen.add(el.getAttribute('data-latest-stable-id') ?? ''));
+  for (const item of latestOpenByCardId.values()) {
+    seen.add(item.stableId);
   }
   const additions = page.items.filter((item) => !seen.has(item.stableId));
+  const timelineItems = additions.map((item) => latestMfunsItemToTimelineFeed(item));
+  const ctx = feedRenderContext();
 
   if (first) {
     getListEl()?.replaceChildren();
-    if (additions.length === 0) {
+    if (timelineItems.length === 0) {
       setHint('最新内容暂时没有可展示的帖子', true);
       hasMore = false;
       return;
     }
     setHint('', false);
-    getListEl()?.insertAdjacentHTML('beforeend', renderLatestFeedListHtml(additions));
-  } else if (additions.length > 0) {
+    getListEl()?.insertAdjacentHTML('beforeend', renderFeedListHtml(timelineItems, ctx));
+    hydrateFeedCards(timelineItems, 'feed-page-feed');
+    rememberLatestForOpen(additions);
+  } else if (timelineItems.length > 0) {
     setHint('', false);
     getListEl()
-      ?.querySelector('.latest-feed-list')
-      ?.insertAdjacentHTML('beforeend', additions.map((item) => renderLatestFeedCard(item)).join(''));
+      ?.querySelector('.user-space__list--feed')
+      ?.insertAdjacentHTML('beforeend', timelineItems.map((item) => renderFeedCard(item, ctx)).join(''));
+    hydrateFeedCards(timelineItems, 'feed-page-feed');
+    rememberLatestForOpen(additions);
   } else {
     hasMore = false;
     setHint('没有更多了', true);
@@ -369,6 +390,7 @@ export function captureFeedPageState() {
     feedStartId,
     globalPage,
     latestBefore,
+    latestOpenEntries: [...latestOpenByCardId.entries()],
     hasMore,
     loading: false,
     listHtml: getListEl()?.innerHTML ?? '',
@@ -387,6 +409,10 @@ export function restoreFeedPageState(state) {
   feedStartId = state.feedStartId ?? -1;
   globalPage = state.globalPage ?? 1;
   latestBefore = state.latestBefore ?? null;
+  latestOpenByCardId.clear();
+  for (const [id, item] of state.latestOpenEntries ?? []) {
+    latestOpenByCardId.set(id, item);
+  }
   hasMore = state.hasMore ?? true;
   loading = false;
   syncAsideActive();
@@ -410,53 +436,13 @@ export function bindFeedPage() {
   const listRoot = document.getElementById('feed-page-list');
   bindTimelineFeedClick(listRoot, {
     onOpenUserSpace: (uid) => openUserSpace(uid),
-  });
-
-  listRoot?.addEventListener('click', (event) => {
-    const target = /** @type {HTMLElement} */ (event.target);
-    const card = target.closest('.latest-feed-card');
-    if (!card) return;
-
-    const authorBtn = target.closest('.latest-feed-card__author');
-    if (authorBtn) {
-      const uid = Number.parseInt(authorBtn.getAttribute('data-latest-author-id') ?? '', 10);
-      if (Number.isFinite(uid) && uid > 0) {
-        event.preventDefault();
-        event.stopPropagation();
-        openUserSpace(uid);
-        return;
-      }
-    }
-
-    const type = card.getAttribute('data-latest-type') ?? 'feed';
-    const id = Number.parseInt(card.getAttribute('data-latest-id') ?? '', 10);
-    if (!Number.isFinite(id)) return;
-    if (type === 'feed') {
-      void import('./feed-detail.js').then((mod) => mod.openFeedDetail(id));
-      return;
-    }
-    if (type === 'video' || type === 'article') {
-      const authorIdRaw = card.querySelector('.latest-feed-card__author')?.getAttribute('data-latest-author-id');
-      void openContentDetail(
-        latestItemToContentPreview({
-          id,
-          type,
-          title: card.querySelector('.latest-feed-card__title')?.textContent?.trim() ?? '',
-          content: card.querySelector('.latest-feed-card__excerpt')?.textContent?.trim() ?? '',
-          cover: card.querySelector('.latest-feed-card__cover')?.getAttribute('src') ?? '',
-          createdAtIso: null,
-          author: card.querySelector('.latest-feed-card__author-name')?.textContent?.trim() ?? '',
-          authorId: Number.parseInt(authorIdRaw ?? '', 10) || null,
-          authorAvatar: '',
-          likes: 0,
-          comments: 0,
-          views: 0,
-          category: '',
-          sourceUrl: '',
-          stableId: `${type}-${id}`,
-        }),
-      );
-    }
+    openFeedOverride: (feedId) => {
+      if (feedStreamMode !== 'latest' || filterUserId != null) return false;
+      const item = latestOpenByCardId.get(feedId);
+      if (!item || item.type === 'feed') return false;
+      void openContentDetail(latestItemToContentPreview(item));
+      return true;
+    },
   });
 
   document.getElementById('feed-page-compose-btn')?.addEventListener('click', () => {

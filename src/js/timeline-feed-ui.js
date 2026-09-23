@@ -478,6 +478,7 @@ async function handleFeedVideoFollow(btn) {
  * @param {{
  *   onOpenUserSpace?: (userId: number) => void,
  *   profileName?: string,
+ *   openFeedOverride?: (feedId: number, card: HTMLElement) => boolean,
  * }} options
  */
 export function handleTimelineFeedClick(event, options = {}) {
@@ -565,6 +566,7 @@ export function handleTimelineFeedClick(event, options = {}) {
   ) {
     const id = Number.parseInt(feedCard.getAttribute('data-feed-id') ?? '', 10);
     if (Number.isFinite(id)) {
+      if (options.openFeedOverride?.(id, feedCard)) return true;
       void import('./feed-detail.js').then((mod) => mod.openFeedDetail(id));
       return true;
     }
@@ -597,6 +599,7 @@ export function handleTimelineFeedClick(event, options = {}) {
  * @param {{
  *   onOpenUserSpace?: (userId: number) => void,
  *   profileName?: string,
+ *   openFeedOverride?: (feedId: number, card: HTMLElement) => boolean,
  * }} options
  */
 export function bindTimelineFeedClick(root, options = {}) {

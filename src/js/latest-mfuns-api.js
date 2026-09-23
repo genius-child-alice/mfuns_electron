@@ -194,6 +194,54 @@ export async function fetchLatestMfunsPage(before, limit = DEFAULT_LIMIT, userId
 }
 
 /**
+ * @param {string} text
+ */
+function plainToFeedHtml(text) {
+  const raw = `${text ?? ''}`.trim();
+  if (!raw) return '';
+  if (raw.includes('<')) return raw;
+  return `<p>${raw.replace(/\n/g, '<br>')}</p>`;
+}
+
+/**
+ * 转为动态页通用 `TimelineFeedItem` 卡片数据（与 Flutter `_openLatestItem` 打开逻辑配套）。
+ * @param {LatestMfunsItem} item
+ * @returns {import('./user-profile-api.js').TimelineFeedItem}
+ */
+export function latestMfunsItemToTimelineFeed(item) {
+  const rawTitle = item.title.trim();
+  const rawContent = plainToFeedHtml(item.content);
+  const authorId =
+    item.authorId != null && item.authorId > 0 ? item.authorId : null;
+  const images =
+    item.type === 'feed' && item.cover ? [item.cover] : [];
+  const resource =
+    item.type === 'video' || item.type === 'article'
+      ? latestItemToContentPreview(item)
+      : null;
+
+  return {
+    id: item.id,
+    title: rawTitle || item.content.replace(/<[^>]+>/g, '').trim(),
+    rawTitle: rawTitle ? plainToFeedHtml(rawTitle) : '',
+    content: item.content.replace(/<[^>]+>/g, '').trim() || item.content.trim(),
+    rawContent,
+    createdAt: item.createdAtIso,
+    likes: item.likes,
+    comments: item.comments,
+    reposts: 0,
+    views: item.views,
+    pinned: false,
+    authorName: item.author || 'Mfuns 用户',
+    authorId,
+    authorAvatar: item.authorAvatar || null,
+    authorAvatarFrame: null,
+    images,
+    resource,
+  };
+}
+
+/**
  * @param {LatestMfunsItem} item
  */
 export function latestItemToContentPreview(item) {
