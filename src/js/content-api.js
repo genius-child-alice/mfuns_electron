@@ -133,6 +133,58 @@ function mergeResourceInfo(raw) {
 }
 
 /**
+ * @param {unknown} value
+ * @returns {number | null}
+ */
+function payloadInt(value) {
+  if (typeof value === 'number' && Number.isFinite(value)) return Math.trunc(value);
+  const n = Number.parseInt(`${value ?? ''}`, 10);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * 评论数：兼容 `comment_count` 与 `comments.floor_count`（动态列表常见）。
+ * @param {unknown} root
+ * @param {unknown} [resource]
+ */
+export function parseCommentCount(root, resource) {
+  const r = root && typeof root === 'object' ? /** @type {Record<string, unknown>} */ (root) : {};
+  const res =
+    resource && typeof resource === 'object' ? /** @type {Record<string, unknown>} */ (resource) : {};
+
+  let count = payloadInt(r.comment_count ?? res.comment_count);
+  if (count != null) return count;
+
+  if (typeof r.comments === 'number' || typeof r.comments === 'string') {
+    count = payloadInt(r.comments);
+    if (count != null) return count;
+  }
+
+  const commentsMeta =
+    r.comments && typeof r.comments === 'object'
+      ? /** @type {Record<string, unknown>} */ (r.comments)
+      : {};
+  count = payloadInt(commentsMeta.floor_count ?? commentsMeta.floor_num ?? commentsMeta.count);
+  if (count != null) return count;
+
+  if (typeof res.comments === 'number' || typeof res.comments === 'string') {
+    count = payloadInt(res.comments);
+    if (count != null) return count;
+  }
+
+  const resCommentsMeta =
+    res.comments && typeof res.comments === 'object'
+      ? /** @type {Record<string, unknown>} */ (res.comments)
+      : {};
+  count = payloadInt(
+    resCommentsMeta.floor_count ?? resCommentsMeta.floor_num ?? resCommentsMeta.count,
+  );
+  if (count != null) return count;
+
+  return payloadInt(r.floor_num ?? r.floor_count ?? res.floor_num ?? res.floor_count) ?? 0;
+}
+
+/**
  * 与 Flutter `home_repository.dart` 中 `_coverUrl` 一致：相对路径走 CDN，避免误请求 api 域名。
  * @param {unknown} value
  * @returns {string | null}
@@ -441,7 +493,7 @@ export function parseContentPreview(raw) {
     views: Number(item.view_count ?? item.views ?? resource?.view_count ?? 0) || 0,
     likes:
       Number(item.like_count ?? item.likes ?? resource?.like_count ?? resource?.likes ?? 0) || 0,
-    comments: Number(item.comment_count ?? item.comments ?? 0) || 0,
+    comments: parseCommentCount(item, resource ?? {}),
     duration: parseDuration(item, resource),
     createdAt: normalizeCreatedAt(
       item.created_at ?? item.time ?? item.createdAt ?? item.publish_time,

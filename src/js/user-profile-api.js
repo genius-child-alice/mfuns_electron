@@ -1,6 +1,7 @@
 import {
   apiGet,
   apiPostJson,
+  parseCommentCount,
   parseContentPreview,
   parsePreviewList,
   resolveCoverUrl,
@@ -386,7 +387,7 @@ function parseTimelineFeedItem(raw) {
         source.publish_time,
     ),
     likes: asInt(like.count ?? source.like_count ?? source.likes) ?? 0,
-    comments: asInt(source.comment_count ?? source.comments) ?? 0,
+    comments: parseCommentCount(source, extra.resource ?? source.resource),
     reposts: asInt(source.forward_count ?? source.repost_count ?? source.forwards) ?? 0,
     views: asInt(source.view_count ?? source.views) ?? 0,
     pinned: source.is_top === 1 || source.is_top === true || source.top === 1,
