@@ -269,7 +269,7 @@ function parseSubmissionDetail(data) {
     status,
     categoryId: asInt(source.category_id ?? source.cid),
     tags: toTags(source.tags),
-    cover: coverUrl(source.cover),
+    cover: `${source.cover ?? resource.cover ?? ''}`.trim(),
     rawContent,
     contentFormat,
     videos: parseSubmissionVideos(
@@ -374,6 +374,7 @@ export async function getVideoUploadAuth(fileName, fileSize) {
   if (
     !auth.videoId ||
     !auth.accessKeyId ||
+    !auth.accessKeySecret ||
     !auth.bucket ||
     !auth.objectKey
   ) {
@@ -396,7 +397,13 @@ export async function completeVideoUpload(videoId) {
       const root = asMap(data);
       const libraryId = asInt(root.id);
       if (root.status === 1 || libraryId != null) {
-        if (libraryId != null) return libraryId;
+        if (libraryId != null) {
+          return {
+            id: libraryId,
+            fileSize: asInt(root.file_size ?? root.size),
+            duration: asInt(root.video_duration ?? root.duration),
+          };
+        }
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : `${err}`;

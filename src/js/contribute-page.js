@@ -361,7 +361,7 @@ function resetEditorState() {
   editorUploadingVideo = false;
   editorUploadProgress = 0;
   editorUploadingCover = false;
-  editorCopyright = editorType === 1 ? 0 : 2;
+  editorCopyright = 2;
   editorCategoryId = null;
   editorParentCategoryId = null;
   editorTags = [];
@@ -775,6 +775,28 @@ async function uploadCoverFile(file) {
 
 /**
  * @param {File} file
+ * @returns {Promise<number | null>}
+ */
+function probeVideoDuration(file) {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    video.onloadedmetadata = () => {
+      const duration = video.duration;
+      URL.revokeObjectURL(url);
+      resolve(Number.isFinite(duration) && duration > 0 ? Math.round(duration) : null);
+    };
+    video.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(null);
+    };
+    video.src = url;
+  });
+}
+
+/**
+ * @param {File} file
  * @param {number | null} [replaceIndex]
  */
 async function uploadVideoFile(file, replaceIndex = null) {
@@ -790,7 +812,7 @@ async function uploadVideoFile(file, replaceIndex = null) {
       editorUploadProgress = total === 0 ? 0 : sent / total;
       renderEditorVideoParts();
     });
-    const libraryId = await completeVideoUpload(auth.videoId);
+    const completed = await completeVideoUpload(auth.videoId);
     const fallbackTitle = file.name.replace(/\.[^.]+$/, '');
     const partTitle =
       replaceIndex != null &&
@@ -799,7 +821,19 @@ async function uploadVideoFile(file, replaceIndex = null) {
       editorVideoParts[replaceIndex].title.trim()
         ? editorVideoParts[replaceIndex].title
         : fallbackTitle;
-    const part = { type: 'direct', content: libraryId, title: partTitle, meta: {}, extra: {} };
+    const ext = `${file.name.split('.').pop() ?? 'mp4'}`.toLowerCase();
+    const duration = completed.duration ?? (await probeVideoDuration(file));
+    const part = {
+      type: 'direct',
+      content: completed.id,
+      title: partTitle,
+      meta: {
+        size: completed.fileSize ?? file.size,
+        ext,
+        ...(duration ? { duration } : {}),
+      },
+      extra: {},
+    };
     if (
       replaceIndex != null &&
       replaceIndex >= 0 &&

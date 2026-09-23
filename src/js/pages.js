@@ -396,7 +396,7 @@ export function contributePageHtml() {
                 </header>
                 <div id="contribute-editor-video-parts"></div>
                 <p class="contribute-editor-upload-progress" id="contribute-editor-upload-progress" hidden></p>
-                <input type="file" class="contribute-hidden-input" id="contribute-editor-video-file" accept="video/*" />
+                <input type="file" class="contribute-hidden-input" id="contribute-editor-video-file" accept=".mp4,.mkv,.avi,video/mp4,video/x-matroska,video/x-msvideo,video/avi" />
               </section>
 
               <section class="contribute-editor-card">
