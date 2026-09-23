@@ -2,7 +2,7 @@ import { resolveMineUserId } from './favorite-api.js';
 import { notify } from './notice-ui.js';
 import {
   fetchVideoPlayParts,
-  qualityDisplayLabel,
+  qualityPickerLabel,
   sortQualitiesDesc,
 } from './video-api.js';
 
@@ -167,7 +167,7 @@ export async function downloadVideoToOffline(preview, partIndex, quality, onProg
     title: preview.title || '视频',
     cover: preview.cover ?? null,
     author: preview.author || '',
-    qualityLabel: qualityDisplayLabel(quality),
+    qualityLabel: qualityPickerLabel(quality),
     fileName,
     size: Number(result.size) || 0,
     downloadedAt: new Date().toISOString(),

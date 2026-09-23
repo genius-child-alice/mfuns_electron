@@ -1,7 +1,7 @@
 import { materialIcon } from './icons.js';
 import { notify } from './notice-ui.js';
 import { listOfflineQualityChoices } from './offline-cache-store.js';
-import { fetchVideoPlayParts, qualityDisplayLabel } from './video-api.js';
+import { fetchVideoPlayParts, qualityPickerLabel } from './video-api.js';
 
 /** @typedef {import('./content-api.js').ContentPreview} ContentPreview */
 /** @typedef {import('./video-api.js').VideoPart} VideoPart */
@@ -47,7 +47,7 @@ function renderOptions() {
 
   list.innerHTML = dialogContext.choices
     .map((entry, index) => {
-      const label = escapeHtml(qualityDisplayLabel(entry.quality));
+      const label = escapeHtml(qualityPickerLabel(entry.quality));
       const hint = entry.downloadable
         ? 'MP4 可缓存'
         : 'HLS 流，仅在线播放';

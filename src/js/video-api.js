@@ -893,6 +893,40 @@ export function qualityDisplayLabel(quality) {
 }
 
 /**
+ * 从清晰度项解析 1080P / 720P / 4K 等展示用分辨率标记。
+ * @param {VideoQuality} quality
+ */
+export function qualityResolutionTag(quality) {
+  const name = `${quality.name ?? ''}`.trim();
+  const label = `${quality.label ?? ''}`.trim();
+  const sources = [name, label];
+  for (const text of sources) {
+    const lower = text.toLowerCase();
+    const numMatch = text.match(/(\d{3,4})\s*p?\b/i);
+    if (numMatch) return `${numMatch[1]}P`;
+    if (lower.includes('4k') || lower.includes('2160')) return '4K';
+    if (lower.includes('2k') || lower.includes('1440')) return '2K';
+  }
+  return '';
+}
+
+/**
+ * 离线下载等场景：优先展示分辨率（P），并附带中文清晰度名。
+ * @param {VideoQuality} quality
+ */
+export function qualityPickerLabel(quality) {
+  const resolution = qualityResolutionTag(quality);
+  const label = `${quality.label ?? ''}`.trim();
+  const name = `${quality.name ?? ''}`.trim();
+  const textLabel = label || name || '默认清晰度';
+  if (!resolution) return textLabel;
+  const textHasResolution = /\d{3,4}\s*p?\b/i.test(textLabel) || /4k|2k/i.test(textLabel);
+  if (textHasResolution || textLabel === resolution) return resolution;
+  if (textLabel === name && /^\d{3,4}p?$/i.test(name)) return resolution;
+  return `${resolution} · ${textLabel}`;
+}
+
+/**
  * @param {VideoQuality} quality
  */
 export function qualityPixels(quality) {
