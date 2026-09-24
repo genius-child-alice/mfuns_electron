@@ -127,10 +127,53 @@ function isApiRichHtml(value) {
   return true;
 }
 
+const PROFILE_PATH_RE = /^\/(?:member|user|space)\/(\d+)\/?$/i;
+
+/**
+ * 官网 @用户链接：/member/123、/user/123、/space/123，以及 mfuns.net 绝对地址。
+ * @param {string | null | undefined} href
+ * @returns {string}
+ */
+function userIdFromProfileHref(href) {
+  const raw = `${href ?? ''}`.trim();
+  if (!raw || raw.startsWith('#')) return '';
+  const direct = raw.match(/^mfuns-user:(\d+)$/i);
+  if (direct) return direct[1];
+  let path = raw;
+  if (/^https?:/i.test(raw)) {
+    try {
+      const uri = new URL(raw);
+      if (!/(^|\.)mfuns\.net$/i.test(uri.hostname)) return '';
+      const queryId = uri.searchParams.get('user_id') ?? uri.searchParams.get('uid') ?? '';
+      if (/^\d+$/.test(queryId)) return queryId;
+      path = uri.pathname;
+    } catch {
+      return '';
+    }
+  } else if (/^[a-z][a-z0-9+.-]*:/i.test(raw)) {
+    return '';
+  }
+  const match = path.match(PROFILE_PATH_RE);
+  return match ? match[1] : '';
+}
+
+/**
+ * 相对路径、自定义协议会让 Electron 主窗口离开应用，露出窗口主题色背景。
+ * @param {string | null | undefined} href
+ */
+function isAppNavigationHref(href) {
+  const raw = `${href ?? ''}`.trim();
+  if (!raw || raw.startsWith('#') || /^mailto:/i.test(raw) || /^tel:/i.test(raw)) return false;
+  if (/^https?:/i.test(raw)) return false;
+  return true;
+}
+
 /**
  * @param {Element} el
  */
 function mentionUserIdFromElement(el) {
+  const fromHref = userIdFromProfileHref(el.getAttribute('href'));
+  if (fromHref) return fromHref;
   const attrs = [
     'data-user-id',
     'data-id',
@@ -143,12 +186,7 @@ function mentionUserIdFromElement(el) {
     const raw = `${el.getAttribute(key) ?? ''}`.trim();
     if (/^\d+$/.test(raw)) return raw;
   }
-  const href = `${el.getAttribute('href') ?? ''}`.trim();
-  const hrefMatch =
-    href.match(/^mfuns-user:(\d+)$/i) ??
-    href.match(/\/user\/(\d+)(?:\?|$|\/)/i) ??
-    href.match(/[?&]user_id=(\d+)/i);
-  return hrefMatch ? hrefMatch[1] : '';
+  return '';
 }
 
 /**
@@ -243,9 +281,9 @@ function formatQuillInline(text, attributes) {
   if (attributes.italic === true) result = `*${result}*`;
   if (attributes.strike === true) result = `~~${result}~~`;
   const linkRaw = `${attributes.link ?? ''}`.trim();
-  const userLink = linkRaw.match(/^mfuns-user:(\d+)$/i);
-  if (userLink) {
-    return mentionMarkdownToken(userLink[1], result.startsWith('@') ? result : `@${result}`);
+  const userLinkId = userIdFromProfileHref(linkRaw);
+  if (userLinkId) {
+    return mentionMarkdownToken(userLinkId, result.startsWith('@') ? result : `@${result}`);
   }
   const link = safeHttpUri(linkRaw);
   if (link) result = `[${result}](${link})`;
@@ -517,10 +555,9 @@ marked.use({
         token.tokens && renderer.parser
           ? renderer.parser.parseInline(token.tokens)
           : escapeHtmlText(`${token.text ?? ''}`);
-      const userMatch = href.match(/^mfuns-user:(\d+)$/i);
-      if (userMatch) {
-        const id = userMatch[1];
-        return `<span class="markdown-body__mention" data-author-profile="${id}" role="link" tabindex="0">${inner}</span>`;
+      const mentionId = userIdFromProfileHref(href);
+      if (mentionId) {
+        return `<span class="markdown-body__mention" data-author-profile="${mentionId}" role="link" tabindex="0">${inner}</span>`;
       }
       const safeLink = safeHttpUri(href);
       if (!safeLink) return inner;
@@ -656,4 +693,36 @@ export function mountRichContent(element, source) {
   upgradeMentionsInSubtree(element);
   enhanceRichContentMedia(element);
   void enhanceRichContentStickers(element);
+}
+
+let richMentionClicksBound = false;
+
+/** 简介/正文里的 @用户改为进入主页，并阻止相对链接把主窗口导航走。 */
+export function bindRichMentionClicks() {
+  if (richMentionClicksBound) return;
+  richMentionClicksBound = true;
+  document.addEventListener(
+    'click',
+    (event) => {
+      if (event.button !== 0) return;
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+
+      const anchor = target.closest('a[href]');
+      const mention = target.closest('.markdown-body__mention[data-author-profile]');
+      if (!anchor && !mention) return;
+
+      const href = anchor?.getAttribute('href') ?? '';
+      const userId = Number(userIdFromProfileHref(href) || mention?.getAttribute('data-author-profile') || '');
+      const hijack = Boolean(anchor && isAppNavigationHref(href));
+      const openProfile = Number.isFinite(userId) && userId > 0 && (Boolean(mention) || Boolean(anchor));
+      if (!openProfile && !hijack) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      if (!openProfile) return;
+      void import('./user-space.js').then(({ openUserSpace }) => openUserSpace(userId));
+    },
+    true,
+  );
 }

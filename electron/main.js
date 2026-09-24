@@ -433,6 +433,20 @@ function createWindow() {
 
   mainWindow.loadFile(path.join(__dirname, '../src/index.html'));
 
+  // 简介里的 /member/123 等相对链接会把 file:// 主窗口导航走，页面卸载后只剩 backgroundColor
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    try {
+      const current = mainWindow?.webContents.getURL() ?? '';
+      if (!current || url === current) return;
+      const next = new URL(url);
+      if (next.protocol === 'file:' || next.protocol === 'mfuns-user:') {
+        event.preventDefault();
+      }
+    } catch {
+      event.preventDefault();
+    }
+  });
+
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show();
     sendMainWindowMaximizeState();

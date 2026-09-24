@@ -21,6 +21,7 @@ import {
 import { renderUserFramedAvatarHtml } from './avatar-frame-ui.js';
 import { userAvatarMediaSrc } from './content-api.js';
 import { bindLegalLinks, LEGAL_URLS } from './legal.js';
+import { bindRichMentionClicks } from './rich-content.js';
 import { loadAppSettings } from './app-preferences.js';
 import {
   bindOpenLoginTriggers,
@@ -838,6 +839,7 @@ function bootApp() {
   bindNavigation();
   void import('./search-page.js').then((mod) => mod.bindTopbarSearch());
   bindNavigationShortcuts();
+  bindRichMentionClicks();
   bindSettings();
   initLazyPageBind({ onSettingsUserUpdated: () => syncLoginUi() });
   bindLogin();
