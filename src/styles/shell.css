@@ -463,13 +463,11 @@ html[data-theme='dark'] .content::-webkit-scrollbar-corner {
   display: flex;
   align-items: center;
   gap: 8px;
-  min-height: 42px;
   padding-right: 10px;
 }
 
 .home-category-strip__row--child {
   flex: 1;
-  min-height: 42px;
   min-width: 0;
 }
 

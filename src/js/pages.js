@@ -51,9 +51,9 @@ export function homePageHtml() {
     <div class="page-view page-view--home" data-page="home">
       <nav class="home-category-strip" id="home-category-strip" hidden aria-label="内容分区">
         <div class="home-category-strip__row home-category-strip__row--parent" id="home-category-parent-list" role="tablist" aria-label="大分区"></div>
-        <div class="home-category-strip__row home-category-strip__row--child-wrap">
+        <div class="home-category-strip__row--child-wrap">
           <div class="home-category-strip__row home-category-strip__row--child" id="home-category-child-list" role="tablist" aria-label="小分区"></div>
-          <button type="button" class="home-category-strip__all" id="home-category-open-list" hidden>全部稿件</button>
+          <button type="button" class="home-category-strip__all" id="home-category-open-list" hidden>最新稿件</button>
         </div>
       </nav>
       <p class="home-feed__status" id="home-feed-status" hidden role="status"></p>

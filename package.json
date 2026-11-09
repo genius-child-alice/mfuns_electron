@@ -1,6 +1,6 @@
 {
   "name": "mfuns-electron",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Mfuns Electron desktop app",
   "main": "electron/main.js",
   "scripts": {
@@ -23,7 +23,7 @@
       "package.json"
     ],
     "win": {
-      "target": ["nsis"],
+      "target": ["nsis", "zip"],
       "icon": "src/assets/favicon.ico"
     },
     "nsis": {
