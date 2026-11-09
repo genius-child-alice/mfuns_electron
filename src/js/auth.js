@@ -10,36 +10,164 @@ export const AUTH_API = {
 };
 
 const SESSION_KEY = 'mfuns.session';
+const ACCOUNTS_KEY = 'mfuns.accounts';
 
 /** @typedef {{ token: string, user?: Record<string, unknown> | null }} Session */
+
+/** @param {Record<string, unknown> | null | undefined} user */
+export function sessionUserId(user) {
+  if (!user) return null;
+  const id = Number(user.id ?? user.user_id);
+  return Number.isFinite(id) && id > 0 ? Math.trunc(id) : null;
+}
+
+/**
+ * @param {Session | null | undefined} session
+ * @returns {Session | null}
+ */
+function normalizeSession(session) {
+  if (!session?.token) return null;
+  return { token: String(session.token), user: session.user ?? null };
+}
 
 /** @returns {Session | null} */
 export function loadSession() {
   try {
     const raw = localStorage.getItem(SESSION_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!parsed?.token) return null;
-    return { token: String(parsed.token), user: parsed.user ?? null };
+    return normalizeSession(JSON.parse(raw));
   } catch {
     return null;
   }
 }
 
+/** @returns {Session[]} */
+export function loadSavedAccounts() {
+  try {
+    const raw = localStorage.getItem(ACCOUNTS_KEY);
+    /** @type {Session[]} */
+    let accounts = [];
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        accounts = parsed
+          .map((item) => normalizeSession(item))
+          .filter(/** @returns {item is Session} */ (item) => Boolean(item));
+      }
+    }
+    const current = loadSession();
+    const currentId = sessionUserId(current?.user);
+    if (current && currentId != null && !accounts.some((item) => sessionUserId(item.user) === currentId)) {
+      accounts = [current, ...accounts];
+      saveSavedAccounts(accounts);
+    }
+    return accounts;
+  } catch {
+    const current = loadSession();
+    return current ? [current] : [];
+  }
+}
+
+/** @param {Session[]} accounts */
+function saveSavedAccounts(accounts) {
+  const cleaned = accounts
+    .map((item) => normalizeSession(item))
+    .filter(/** @returns {item is Session} */ (item) => Boolean(item));
+  /** @type {Map<number, Session>} */
+  const byId = new Map();
+  /** @type {Session[]} */
+  const withoutId = [];
+  for (const account of cleaned) {
+    const id = sessionUserId(account.user);
+    if (id == null) {
+      withoutId.push(account);
+      continue;
+    }
+    byId.set(id, account);
+  }
+  localStorage.setItem(ACCOUNTS_KEY, JSON.stringify([...byId.values(), ...withoutId]));
+}
+
+/**
+ * @param {Session} session
+ */
+function upsertSavedAccount(session) {
+  const next = normalizeSession(session);
+  if (!next) return;
+  const id = sessionUserId(next.user);
+  const accounts = loadSavedAccounts().filter((item) => {
+    const itemId = sessionUserId(item.user);
+    if (id != null && itemId != null) return itemId !== id;
+    return item.token !== next.token;
+  });
+  accounts.unshift(next);
+  saveSavedAccounts(accounts);
+}
+
 /** @param {Session | null} session */
 export function saveSession(session) {
-  if (!session?.token) {
+  const next = normalizeSession(session);
+  if (!next) {
     localStorage.removeItem(SESSION_KEY);
     return;
   }
-  localStorage.setItem(
-    SESSION_KEY,
-    JSON.stringify({ token: session.token, user: session.user ?? null }),
-  );
+  localStorage.setItem(SESSION_KEY, JSON.stringify(next));
+  upsertSavedAccount(next);
 }
 
 export function clearSession() {
   localStorage.removeItem(SESSION_KEY);
+}
+
+/**
+ * 切换到已保存账号。
+ * @param {number} userId
+ * @returns {Session | null}
+ */
+export function switchToAccount(userId) {
+  const id = Math.trunc(userId);
+  if (!Number.isFinite(id) || id <= 0) return null;
+  const account = loadSavedAccounts().find((item) => sessionUserId(item.user) === id) ?? null;
+  if (!account) return null;
+  localStorage.setItem(SESSION_KEY, JSON.stringify(account));
+  upsertSavedAccount(account);
+  return account;
+}
+
+/**
+ * 从账号列表移除；若移除的是当前账号则切到下一个或退出。
+ * @param {number} userId
+ * @returns {Session | null} 移除后的当前会话
+ */
+export function removeSavedAccount(userId) {
+  const id = Math.trunc(userId);
+  if (!Number.isFinite(id) || id <= 0) return loadSession();
+  const remaining = loadSavedAccounts().filter((item) => sessionUserId(item.user) !== id);
+  saveSavedAccounts(remaining);
+  const currentId = sessionUserId(loadSession()?.user);
+  if (currentId === id) {
+    const next = remaining[0] ?? null;
+    if (next) {
+      localStorage.setItem(SESSION_KEY, JSON.stringify(next));
+      return next;
+    }
+    clearSession();
+    return null;
+  }
+  return loadSession();
+}
+
+/**
+ * 退出当前账号（从列表移除），有其他已保存账号则自动切过去。
+ * @returns {Session | null}
+ */
+export function logoutCurrentAccount() {
+  const currentId = sessionUserId(loadSession()?.user);
+  if (currentId == null) {
+    clearSession();
+    return null;
+  }
+  return removeSavedAccount(currentId);
 }
 
 /**

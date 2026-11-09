@@ -11,11 +11,15 @@ import { runSplash } from './splash.js';
 import { notify } from './notice-ui.js';
 import { materialIcon } from './icons.js';
 import {
-  clearSession,
+  loadSavedAccounts,
   loadSession,
   loginWithPassword,
   loginWithSms,
+  logoutCurrentAccount,
+  removeSavedAccount,
   sendLoginCode,
+  sessionUserId,
+  switchToAccount,
   userDisplayName,
 } from './auth.js';
 import { renderUserFramedAvatarHtml } from './avatar-frame-ui.js';
@@ -60,6 +64,15 @@ import { reportDialogHtml } from './report-ui.js';
 let syncSettingsForm = () => {};
 
 const DEFAULT_AVATAR_SRC = 'assets/mfuns_logo.png';
+
+/** @param {string} text */
+function escapeHtml(text) {
+  return `${text}`
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
 
 const NAV_ITEMS = [
   { id: 'home', label: '首页', icon: 'home' },
@@ -232,15 +245,21 @@ function renderShell() {
         <button type="button" class="login-panel__close" id="login-panel-close" aria-label="关闭">${materialIcon('close')}</button>
 
         <div class="login-panel__logged" id="login-logged-view" hidden>
-          <h2 class="login-panel__logged-title" id="login-title">已登录</h2>
-          <p class="login-panel__logged-sub" id="login-logged-hint"></p>
+          <h2 class="login-panel__logged-title" id="login-title">账号</h2>
+          <p class="login-panel__logged-sub" id="login-logged-hint">点击切换已登录账号</p>
+          <div class="login-panel__accounts" id="login-accounts-list" role="list"></div>
           <div class="login-panel__logged-actions">
-            <button type="button" class="btn-secondary" id="btn-logout">退出登录</button>
+            <button type="button" class="btn-secondary" id="btn-add-account">
+              ${materialIcon('person_add', 'login-panel__action-icon')}
+              <span>添加账号</span>
+            </button>
+            <button type="button" class="btn-secondary" id="btn-logout">退出当前账号</button>
           </div>
         </div>
 
         <div class="login-panel__layout" id="login-guest-view">
           <section class="login-panel__form" aria-label="账号登录">
+            <p class="login-panel__guest-hint" id="login-guest-hint" hidden>登录新账号后可在此快速切换</p>
             <nav class="login-panel__tabs" aria-label="登录方式">
               <button type="button" class="login-panel__tab is-active" data-login-tab="password">密码登录</button>
               <button type="button" class="login-panel__tab" data-login-tab="sms">短信登录</button>
@@ -641,6 +660,7 @@ function bindLogin() {
   const dialog = /** @type {HTMLDialogElement | null} */ (document.getElementById('login-panel'));
   const guestView = document.getElementById('login-guest-view');
   const loggedView = document.getElementById('login-logged-view');
+  const accountsList = document.getElementById('login-accounts-list');
   const accountInput = /** @type {HTMLInputElement | null} */ (document.getElementById('login-account'));
   const passwordInput = /** @type {HTMLInputElement | null} */ (document.getElementById('login-password'));
   const phoneInput = /** @type {HTMLInputElement | null} */ (document.getElementById('login-phone'));
@@ -649,12 +669,15 @@ function bindLogin() {
   const submitBtn = /** @type {HTMLButtonElement | null} */ (document.getElementById('btn-login-submit'));
   const sendCodeBtn = /** @type {HTMLButtonElement | null} */ (document.getElementById('btn-send-code'));
   const logoutBtn = document.getElementById('btn-logout');
+  const addAccountBtn = document.getElementById('btn-add-account');
   const loggedHint = document.getElementById('login-logged-hint');
+  const guestHint = document.getElementById('login-guest-hint');
 
   /** @type {'password' | 'sms'} */
   let activeTab = 'password';
   let smsCooldownTimer = /** @type {ReturnType<typeof setInterval> | null} */ (null);
   let smsCooldownLeft = 0;
+  let addingAccount = false;
 
   const setError = (message = '') => {
     if (errorEl) errorEl.textContent = message;
@@ -710,22 +733,76 @@ function bindLogin() {
     stopSmsCooldown();
   };
 
+  const renderAccountsList = () => {
+    if (!accountsList) return;
+    const current = loadSession();
+    const currentId = sessionUserId(current?.user);
+    const accounts = loadSavedAccounts();
+    if (loggedHint) {
+      loggedHint.textContent = current
+        ? `当前账号：${userDisplayName(current.user)}`
+        : '点击切换已登录账号';
+    }
+    if (accounts.length === 0) {
+      accountsList.innerHTML = '<p class="login-panel__accounts-empty">暂无已保存账号</p>';
+      return;
+    }
+    accountsList.innerHTML = accounts
+      .map((account) => {
+        const id = sessionUserId(account.user);
+        if (id == null) return '';
+        const active = id === currentId;
+        const name = escapeHtml(userDisplayName(account.user));
+        const avatar = renderUserFramedAvatarHtml({
+          user: account.user ?? null,
+          fallbackAvatarSrc: DEFAULT_AVATAR_SRC,
+          size: 'sm',
+          imgClass: 'login-panel__account-avatar-img',
+          phClass: 'login-panel__account-avatar-img--ph',
+        });
+        return `
+          <div class="login-panel__account ${active ? 'is-active' : ''}" role="listitem" data-account-id="${id}">
+            <button type="button" class="login-panel__account-main" data-switch-account="${id}" ${active ? 'aria-current="true"' : ''}>
+              <span class="login-panel__account-avatar">${avatar}</span>
+              <span class="login-panel__account-meta">
+                <span class="login-panel__account-name">${name}</span>
+                <span class="login-panel__account-uid">UID ${id}</span>
+              </span>
+              ${active ? `<span class="login-panel__account-badge">当前</span>` : ''}
+            </button>
+            <button
+              type="button"
+              class="login-panel__account-remove"
+              data-remove-account="${id}"
+              title="移除此账号"
+              aria-label="移除此账号"
+            >${materialIcon('close', 'login-panel__account-remove-icon')}</button>
+          </div>`;
+      })
+      .join('');
+  };
+
+  const showLoggedView = () => {
+    addingAccount = false;
+    guestView?.setAttribute('hidden', '');
+    loggedView?.removeAttribute('hidden');
+    guestHint?.setAttribute('hidden', '');
+    renderAccountsList();
+  };
+
+  const showGuestView = ({ addMode = false } = {}) => {
+    addingAccount = addMode;
+    loggedView?.setAttribute('hidden', '');
+    guestView?.removeAttribute('hidden');
+    if (guestHint) guestHint.hidden = !addMode;
+    resetGuestForm();
+  };
+
   const openLoginDialog = () => {
     const session = loadSession();
     const loggedIn = Boolean(session?.token);
-
-    if (loggedIn) {
-      guestView?.setAttribute('hidden', '');
-      loggedView?.removeAttribute('hidden');
-      if (loggedHint) {
-        loggedHint.textContent = `当前账号：${userDisplayName(session?.user)}`;
-      }
-    } else {
-      loggedView?.setAttribute('hidden', '');
-      guestView?.removeAttribute('hidden');
-      resetGuestForm();
-    }
-
+    if (loggedIn) showLoggedView();
+    else showGuestView({ addMode: false });
     dialog?.showModal();
     if (!loggedIn) {
       (activeTab === 'sms' ? phoneInput : accountInput)?.focus();
@@ -735,14 +812,64 @@ function bindLogin() {
   registerOpenLoginHandler(openLoginDialog);
 
   document.getElementById('btn-open-login')?.addEventListener('click', openLoginDialog);
-  document.getElementById('login-panel-close')?.addEventListener('click', () => dialog?.close());
+  document.getElementById('login-panel-close')?.addEventListener('click', () => {
+    if (addingAccount && loadSession()?.token) {
+      showLoggedView();
+      return;
+    }
+    dialog?.close();
+  });
 
   dialog?.addEventListener('close', () => {
+    addingAccount = false;
     stopSmsCooldown();
   });
 
   dialog?.addEventListener('click', (e) => {
     if (e.target === dialog) dialog.close();
+  });
+
+  accountsList?.addEventListener('click', (event) => {
+    const target = /** @type {HTMLElement} */ (event.target);
+    const removeBtn = target.closest('[data-remove-account]');
+    if (removeBtn instanceof HTMLElement) {
+      const id = Number(removeBtn.getAttribute('data-remove-account'));
+      if (!Number.isFinite(id) || id <= 0) return;
+      const wasCurrent = sessionUserId(loadSession()?.user) === id;
+      const next = removeSavedAccount(id);
+      syncLoginUi();
+      if (!next) {
+        notify('已移除账号', 'info');
+        dialog?.close();
+        return;
+      }
+      if (wasCurrent) {
+        notify(`已移除账号，已切换到 ${userDisplayName(next.user)}`, 'info');
+      } else {
+        notify('已移除账号', 'info');
+      }
+      renderAccountsList();
+      return;
+    }
+    const switchBtn = target.closest('[data-switch-account]');
+    if (!(switchBtn instanceof HTMLElement)) return;
+    const id = Number(switchBtn.getAttribute('data-switch-account'));
+    if (!Number.isFinite(id) || id <= 0) return;
+    if (sessionUserId(loadSession()?.user) === id) return;
+    const switched = switchToAccount(id);
+    if (!switched) {
+      notify('切换账号失败', 'error');
+      return;
+    }
+    syncLoginUi();
+    notify(`已切换到 ${userDisplayName(switched.user)}`, 'success');
+    dialog?.close();
+  });
+
+  addAccountBtn?.addEventListener('click', () => {
+    showGuestView({ addMode: true });
+    dialog?.showModal();
+    accountInput?.focus();
   });
 
   document.querySelectorAll('[data-login-tab]').forEach((tab) => {
@@ -769,7 +896,7 @@ function bindLogin() {
   });
 
   submitBtn?.addEventListener('click', async () => {
-    if (loadSession()?.token) return;
+    if (loadSession()?.token && !addingAccount) return;
 
     setError('');
     submitBtn.disabled = true;
@@ -780,12 +907,15 @@ function bindLogin() {
         await loginWithSms(phoneInput?.value ?? '', smsCodeInput?.value ?? '');
       }
       const session = loadSession();
-      const uid = Number(session?.user?.id ?? session?.user?.user_id);
-      if (Number.isFinite(uid) && uid > 0) {
+      const uid = sessionUserId(session?.user);
+      if (uid != null) {
         const merged = mergeGuestWatchLaterIntoUser(uid);
         if (merged > 0) notify(`已合并 ${merged} 条稍后再看到账号`, 'success');
       }
       syncLoginUi();
+      if (addingAccount) {
+        notify(`已添加账号 ${userDisplayName(session?.user)}`, 'success');
+      }
       dialog?.close();
     } catch (err) {
       setError(err instanceof Error ? err.message : '登录失败');
@@ -804,9 +934,15 @@ function bindLogin() {
   });
 
   logoutBtn?.addEventListener('click', () => {
-    clearSession();
+    const next = logoutCurrentAccount();
     syncLoginUi();
-    dialog?.close();
+    if (next) {
+      notify(`已退出，已切换到 ${userDisplayName(next.user)}`, 'info');
+      showLoggedView();
+    } else {
+      notify('已退出登录', 'info');
+      dialog?.close();
+    }
   });
 
   setActiveTab('password');

@@ -70,6 +70,16 @@ html[data-theme='dark'] .login-panel::backdrop {
   padding-top: 4px;
 }
 
+.login-panel__guest-hint {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .login-panel__tabs {
   display: flex;
   gap: 28px;
@@ -221,7 +231,7 @@ html[data-theme='dark'] .login-panel::backdrop {
 }
 
 .login-panel__logged {
-  padding: 48px 24px 56px;
+  padding: 28px 8px 24px;
   text-align: center;
 }
 
@@ -232,20 +242,149 @@ html[data-theme='dark'] .login-panel::backdrop {
 }
 
 .login-panel__logged-sub {
-  margin: 0 0 28px;
-  font-size: 14px;
+  margin: 0 0 18px;
+  font-size: 13px;
   color: var(--text-secondary);
+}
+
+.login-panel__accounts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: min(320px, 46vh);
+  margin: 0 0 18px;
+  padding: 4px;
+  overflow: auto;
+  text-align: left;
+}
+
+.login-panel__accounts-empty {
+  margin: 8px 0;
+  padding: 16px 12px;
+  color: var(--text-tertiary);
+  font-size: 13px;
+  text-align: center;
+}
+
+.login-panel__account {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-subtle);
+}
+
+.login-panel__account.is-active {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border-subtle));
+  background: var(--accent-soft);
+}
+
+.login-panel__account-main {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px 12px;
+  text-align: left;
+  border-radius: var(--radius-md);
+}
+
+.login-panel__account-main:hover {
+  background: color-mix(in srgb, var(--bg-hover) 70%, transparent);
+}
+
+.login-panel__account-avatar {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+}
+
+.login-panel__account-avatar .framed-avatar,
+.login-panel__account-avatar .framed-avatar__img,
+.login-panel__account-avatar-img,
+.login-panel__account-avatar-img--ph {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.login-panel__account-meta {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.login-panel__account-name {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.login-panel__account-uid {
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.login-panel__account-badge {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.login-panel__account-remove {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  margin-right: 6px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+}
+
+.login-panel__account-remove:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.login-panel__account-remove-icon {
+  font-size: 18px;
+  line-height: 1;
 }
 
 .login-panel__logged-actions {
   display: flex;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 10px;
   justify-content: center;
+}
+
+.login-panel__action-icon {
+  font-size: 18px;
+  line-height: 1;
 }
 
 .btn-secondary {
   height: 40px;
-  padding: 0 20px;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-subtle);
   background: var(--bg-base);
